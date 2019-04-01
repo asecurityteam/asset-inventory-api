@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:0035dbf02509c1022af2986cb674de044429f88e78177538b51165c6d6a98549"
+  name = "bitbucket.org/atlassian/logevent"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b0fe324068e1fd4488e43c775030fa0b9125faaf"
+  version = "1.0.3"
+
+[[projects]]
   digest = "1:ffadaa3e19072a02b4727002937b7a677973f2eed0a89b4a8c750576339bbaa5"
   name = "github.com/asecurityteam/logevent"
   packages = [
@@ -82,6 +90,14 @@
   version = "v2.2.2"
 
 [[projects]]
+  digest = "1:b60efdeb75d3c0ceed88783ac2495256aba3491a537d0f31401202579fd62a94"
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  pruneopts = "UT"
+  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:9665a593c0199c193341b8b110e31b19c899923711fc70bde2c2f3eb2d337526"
   name = "github.com/rs/xhandler"
   packages = ["."]
@@ -132,11 +148,13 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "bitbucket.org/atlassian/logevent",
     "github.com/asecurityteam/runhttp",
     "github.com/asecurityteam/serverfull/pkg",
     "github.com/asecurityteam/serverfull/pkg/domain",
     "github.com/asecurityteam/settings",
     "github.com/aws/aws-lambda-go/lambda",
+    "github.com/golang/mock/gomock",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

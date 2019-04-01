@@ -13,10 +13,6 @@
   branch = "master"
 
 [[constraint]]
-  name = "github.com/asecurityteam/serverfull-gateway"
-  branch = "master"
-
-[[constraint]]
   name = "github.com/asecurityteam/runhttp"
   branch = "master"
 
