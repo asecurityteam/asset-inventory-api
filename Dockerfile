@@ -1,5 +1,5 @@
 FROM golang:latest AS BUILDER
-WORKDIR $GOPATH/src/github.com/asecurityteam/new-project
+WORKDIR $GOPATH/src/github.com/asecurityteam/asset-inventory-api
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /opt/app main.go
 

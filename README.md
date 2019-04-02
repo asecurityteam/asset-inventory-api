@@ -1,11 +1,11 @@
-<a id="markdown-New Project" name="New Project"></a>
-# New Project - 
+<a id="markdown-Asset Inventory API" name="Asset-Inventory-API"></a>
+# Asset Inventory API - An API service to store and retrieve asset inventory data
 
-<https://github.com/asecurityteam/new-project>
+<https://github.com/asecurityteam/asset-inventory-api>
 
 <!-- TOC -->
 
-- [New Project - ](#New Project)
+- [Asset Inventory API](#Asset-Inventory-API)
     - [Overview](#overview)
     - [Quick Start](#quick-start)
     - [Configuration](#configuration)
@@ -21,10 +21,10 @@
 <a id="markdown-overview" name="overview"></a>
 ## Overview
 
-<What does this project do?>
-<What does this project _not_ do?>
-<Why did we make this project?>
-<Links to other references or material.>
+Asset Inventory API provides time-based storage for network assets. Once stored, assets
+should be query-able by dimensions such as time, IP address, and host name. The intent is
+to provide point-in-time lookup and attribution for network assets. An example use case
+for this would include hydrating AWS VPC Flow Logs with identifying information.
 
 <a id="markdown-quick-start" name="quick-start"></a>
 ## Quick Start
