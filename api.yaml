@@ -85,7 +85,10 @@ paths:
           async: false
           request: '#! json .Request.Body !#'
           success: '{"status": 201, "bodyPassthrough": true}'
-          error: '{"status": #! if eq .Response.Body.errorType "InvalidInput" !# 400 #! else !# 500 #! end !#, "bodyPassthrough": true}'
+          error: '{"status":
+            #! if eq .Response.Body.errorType "InvalidInput" !# 400
+            #! else !# 500
+            #! end !#, "bodyPassthrough": true}'
 components:
   schemas:
     CloudAssetChanges:
