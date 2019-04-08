@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newHandler(storage domain.Storage) *CloudInsertHandler {
+func newInsertHandler(storage domain.Storage) *CloudInsertHandler {
 	return &CloudInsertHandler{
 		LogFn: func(_ context.Context) runhttp.Logger {
 			return logevent.New(logevent.Config{Output: ioutil.Discard})
@@ -24,7 +24,7 @@ func newHandler(storage domain.Storage) *CloudInsertHandler {
 	}
 }
 
-func validInput() CloudAssetChanges {
+func validInsertInput() CloudAssetChanges {
 	return CloudAssetChanges{
 		ChangeTime:   time.Now().Format(time.RFC3339Nano),
 		ResourceID:   "cloud-resource-id",
@@ -47,31 +47,31 @@ func TestInsertInvalidInput(t *testing.T) {
 	input := CloudAssetChanges{
 		ChangeTime: "not a timestamp",
 	}
-	e := newHandler(nil).Handle(context.Background(), input)
+	e := newInsertHandler(nil).Handle(context.Background(), input)
 	assert.NotNil(t, e)
 
 	_, ok := e.(InvalidInput)
 	assert.True(t, ok)
 }
 
-func TestStorageError(t *testing.T) {
+func TestInsertStorageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	storage := NewMockStorage(ctrl)
 	storage.EXPECT().StoreCloudAsset(gomock.Any(), gomock.Any()).Return(errors.New(""))
 
-	e := newHandler(storage).Handle(context.Background(), validInput())
+	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.NotNil(t, e)
 }
 
-func TestStorage(t *testing.T) {
+func TestInsertStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	storage := NewMockStorage(ctrl)
 	storage.EXPECT().StoreCloudAsset(gomock.Any(), gomock.Any()).Return(nil)
 
-	e := newHandler(storage).Handle(context.Background(), validInput())
+	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.Nil(t, e)
 }

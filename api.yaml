@@ -56,7 +56,7 @@ paths:
         backend: app
   /cloud/change:
     post:
-      summary: "Catalog a new asset change"
+      summary: "Catalog a new cloud asset change"
       requestBody:
         required: true
         content:
@@ -89,6 +89,75 @@ paths:
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
             #! else !# 500
             #! end !#, "bodyPassthrough": true}'
+  /cloud:
+    get:
+      summary: "Retrieve a cloud asset"
+      parameters:
+        - name: "ipAddress"
+          in: "query"
+          description: "The IP address of the asset"
+          schema:
+            type: string
+        - name: "hostname"
+          in: "query"
+          description: "The hostname of the asset"
+          schema:
+            type: "string"
+        - name: "time"
+          in: "query"
+          description: "The point in time details for a given asset"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        200:
+          description: "Asset found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudAssetDetails"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "fetch"
+          async: false
+          request: >
+            {
+              #!if .Request.Query.ipAddress!#
+              "ipAddress":"#!index .Request.Query.ipAddress 0!#",
+              #!end!#
+              #!if .Request.Query.hostname!#
+              "hostname":"#!index .Request.Query.hostname 0!#",
+              #!end!#
+              "time":"#!index .Request.Query.time 0!#"
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
 components:
   schemas:
     CloudAssetChanges:
@@ -140,6 +209,39 @@ components:
           enum: [ADDED, DELETED]
       required:
       - changeType
+    CloudAssetDetails:
+      type: object
+      properties:
+        privateIpAddresses:
+          type: array
+          items:
+            type: string
+        publicIpAddresses:
+          type: array
+          items:
+            type: string
+        hostnames:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+        resourceType:
+          type: string
+        accountId:
+          type: string
+        region:
+          type: string
+        resourceId:
+          type: string
+        tags:
+          type: object
+          additionalProperties:
+            type: string
     Error:
       type: object
       properties:
