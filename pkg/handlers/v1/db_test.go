@@ -46,7 +46,7 @@ func TestShouldINSERTResource(t *testing.T) {
 
 	thedb := DB{mockdb, stdoutLogger}
 
-	mock.ExpectExec("INSERT INTO").WithArgs("aws_resources", "arn", "aid", "region", "{\"tag1\":\"val1\"}").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("aws_resources", "arn", "aid", "region", "rtype", "{\"tag1\":\"val1\"}").WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err = thedb.saveResource(context.Background(), fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
@@ -67,7 +67,7 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	thedb := DB{mockdb, stdoutLogger}
 
 	mock.ExpectBegin()
-	mock.ExpectExec("INSERT INTO").WithArgs("aws_resources", "arn", "aid", "region", "{\"tag1\":\"val1\"}").WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectExec("INSERT INTO").WithArgs("aws_resources", "arn", "aid", "region", "rtype", "{\"tag1\":\"val1\"}").WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
 	if err = thedb.StoreCloudAsset(context.Background(), fakeCloudAssetChanges()); err == nil {
@@ -89,12 +89,17 @@ func TestGoldenPath(t *testing.T) {
 	thedb := DB{mockdb, stdoutLogger}
 
 	mock.ExpectBegin()
-	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSResources, "arn", "aid", "region", "{\"tag1\":\"val1\"}").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSResources, "arn", "aid", "region", "rtype", "{\"tag1\":\"val1\"}").WillReturnResult(sqlmock.NewResult(1, 1))
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
-	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSHostnames, timestamp, "google.com", "arn").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSIPS, timestamp, "4.3.2.1", false, true, "arn").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSIPS, timestamp, "8.7.6.5", true, true, "arn").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSIPSHostnames, timestamp, "google.com", "8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSHostnames, "google.com").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSIPS, "4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS").WithArgs(fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames), tableAWSEventsIPSHostnames, "2019-04-01", "2019-06-30").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE INDEX IF NOT EXISTS").WithArgs(fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames), fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSEventsIPSHostnames, timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSIPS, "8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS").WithArgs(fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames), tableAWSEventsIPSHostnames, "2019-04-01", "2019-06-30").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE INDEX IF NOT EXISTS").WithArgs(fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames), fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs(tableAWSEventsIPSHostnames, timestamp, true, true, "arn", "8.7.6.5", "google.com").WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err = thedb.StoreCloudAsset(context.Background(), fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
