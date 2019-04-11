@@ -1,12 +1,10 @@
-package v1
+package storage
 
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
@@ -27,8 +25,8 @@ CREATE TABLE aws_resources (
     meta JSONB
 );
 
-We use these simple tables to preserve uniqueness and so we can add columns for additional
-metadata when needed without polluting the aws_events_ips_hostnames star table:
+-- We use these simple tables to preserve uniqueness and so we can add columns for additional
+-- metadata when needed without polluting the aws_events_ips_hostnames star table:
 
 CREATE TABLE aws_ips (
     ip INET PRIMARY KEY
@@ -38,8 +36,8 @@ CREATE TABLE aws_hostnames (
     hostname VARCHAR PRIMARY KEY
 );
 
-Notice "PARTITION BY" below.  We're using built-in partitioning.
-See https://blog.timescale.com/scaling-partitioning-data-postgresql-10-explained-cd48a712a9a1/
+-- Notice "PARTITION BY" below.  We're using built-in partitioning.
+-- See https://blog.timescale.com/scaling-partitioning-data-postgresql-10-explained-cd48a712a9a1/
 
 CREATE TABLE aws_events_ips_hostnames (
     ts TIMESTAMP NOT NULL,
@@ -56,7 +54,7 @@ PARTITION BY
         ts
 );
 
-And we'll make sure there's an index right away:
+-- And we'll make sure there's an index right away:
 
 CREATE INDEX IF NOT EXISTS aws_events_ips_hostnames_aws_ips_ip_ts_idx ON aws_events_ips_hostnames USING BTREE (aws_ips_ip, ts);
 
@@ -68,32 +66,34 @@ const tableAWSResources = "aws_resources"
 const tableAWSIPS = "aws_ips"
 const tableAWSHostnames = "aws_hostnames"
 const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
+
+// can't use Sprintf in a const, so...
 const commonQuery = "SELECT " +
 	"	aws_resources_id, aws_ips_ip, aws_hostnames_hostname, is_public, is_join, ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta " +
 	"FROM " +
-	"	aws_events_ips_hostnames " +
-	"JOIN aws_resources " +
+	"	" + tableAWSEventsIPSHostnames + " " +
+	"JOIN " + tableAWSResources + " " +
 	"	ON aws_resources_id = aws_resources.id " +
 	"WHERE "
-
-var once sync.Once
 
 // DB represents a convenient database abstraction layer
 type DB struct {
 	sqldb *sql.DB      // this is a unit test seam
 	LogFn domain.LogFn // also a seam
+
+	once sync.Once
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context) error {
+func (db *DB) Init(ctx context.Context, postgresConfig *domain.PostgresConfig) error {
 	var initerr error
-	once.Do(func() {
+	db.once.Do(func() {
 
-		host := os.Getenv("POSTGRES_HOST")
-		port := os.Getenv("POSTGRES_PORT")
-		user := os.Getenv("POSTGRES_USER")
-		password := os.Getenv("POSTGRES_PASSWORD")
-		dbname := os.Getenv("POSTGRES_DATABASE")
+		host := postgresConfig.Hostname
+		port := postgresConfig.Port
+		user := postgresConfig.Username
+		password := postgresConfig.Password
+		dbname := postgresConfig.DatabaseName
 
 		logger := db.LogFn(ctx)
 
@@ -157,15 +157,9 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	sqlStatement := `INSERT INTO $1 VALUES ($2, $3, $4, $5, $6) ON CONFLICT DO NOTHING RETURNING id`
+	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources)  // nolint
 
-	// Marshal the map into a JSON string.
-	meta, err := json.Marshal(cloudAssetChanges.Tags)
-	if err != nil {
-		return err
-	}
-
-	if _, err := db.sqldb.ExecContext(ctx, sqlStatement, tableAWSResources, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, string(meta)); err != nil {
+	if _, err := db.sqldb.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, cloudAssetChanges.Tags); err != nil {
 		return err
 	}
 
@@ -220,7 +214,7 @@ func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, times
 func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx) error {
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, `INSERT INTO $1 VALUES ($2) ON CONFLICT DO NOTHING`, tableAWSIPS, ipAddress); err != nil {
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSIPS), ipAddress); err != nil { // nolint
 		return err
 	}
 
@@ -230,7 +224,7 @@ func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx)
 func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) error {
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, `INSERT INTO $1 VALUES ($2) ON CONFLICT DO NOTHING`, tableAWSHostnames, hostname); err != nil {
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSHostnames), hostname); err != nil { // nolint
 		return err
 	}
 
@@ -249,25 +243,27 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	to := fmt.Sprintf(`%d-%02d-%02d`, year, toMonth, toDay)
 	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
 	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
-	if _, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS $1 PARTITION OF %2 FOR `+
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+  // nolint
 		`VALUES `+
 		`FROM (`+
-		`$3) `+
+		`'%s') `+
 		`TO (`+
-		`$4`+
-		`);`, tableName, tableAWSEventsIPSHostnames, from, to); err != nil {
+		`'%s'`+
+		`);`, tableName, tableAWSEventsIPSHostnames, from, to)); err != nil {
 		return err
 	}
+
 	// we might be using Postgres version 10, which does not automatically propagate indices, so we do it:
-
 	indexName := fmt.Sprintf("%s_aws_ips_ip_ts_idx", tableName) // this is Postgres naming convention, which we don't really have to follow
-	if _, err := tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS $1 ON $2 USING BTREE (aws_ips_ip, ts);", indexName, tableName); err != nil {
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING BTREE (aws_ips_ip, ts);", indexName, tableName)); err != nil {
 		return err
 	}
 
-	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
-	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, `INSERT INTO $1 VALUES ($2, $3, $4, $5, $6, $7)`, tableAWSEventsIPSHostnames, timestamp, isPublic, isJoin, resourceID, ipAddress, hostname); err != nil {
+	// // this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
+	// // See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
+	// tsFormat := timestamp.Format("2006-01-02 15:04:05.123")
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname); err != nil { // nolint
 		return err
 	}
 
@@ -275,24 +271,24 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 }
 
 // GetIPAddressesForTimeRange gets the audit trail of IP address and hostname changes over a specified time range
-func (db *DB) GetIPAddressesForTimeRange(ctx context.Context, start time.Time, end time.Time) ([]domain.QueryResult, error) {
+func (db *DB) GetIPAddressesForTimeRange(ctx context.Context, start time.Time, end time.Time) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := commonQuery + fmt.Sprintf("%s.ts BETWEEN $1 AND $2;", tableAWSEventsIPSHostnames)
 	return db.runQuery(ctx, sqlstmt, start, end)
 }
 
 // GetIPAddressesForIPAddress gets the audit trail of IP Address and hostname changes for a specified IP address
-func (db *DB) GetIPAddressesForIPAddress(ctx context.Context, ipAddress string) ([]domain.QueryResult, error) {
+func (db *DB) GetIPAddressesForIPAddress(ctx context.Context, ipAddress string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_ips_ip = $1;", tableAWSEventsIPSHostnames)
 	return db.runQuery(ctx, sqlstmt, ipAddress)
 }
 
 // GetIPAddressesForHostname gets the audit trail of IP Address and hostname changes for a specified hostname
-func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([]domain.QueryResult, error) {
+func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_hostnames_hostname = $1;", tableAWSEventsIPSHostnames)
 	return db.runQuery(ctx, sqlstmt, hostname)
 }
 
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.QueryResult, error) {
+func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -300,21 +296,16 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 	defer rows.Close()
 
-	queryResults := make([]domain.QueryResult, 0)
+	networkChangeEvents := make([]domain.NetworkChangeEvent, 0)
 	for rows.Next() {
-		var row domain.QueryResult
-		var Timestamp string
-		if err = rows.Scan(&row.Hostname, &row.IPAddress, &row.IsPublic, &row.IsJoin, &Timestamp); err != nil {
+		var row domain.NetworkChangeEvent
+		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &row.Hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &row.Tags); err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
-		if row.Timestamp, err = time.Parse(time.RFC3339, Timestamp); err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-		queryResults = append(queryResults, row)
+		networkChangeEvents = append(networkChangeEvents, row)
 	}
 
-	return queryResults, nil
+	return networkChangeEvents, nil
 
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	v1 "github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1"
+	"github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1/storage"
 	"github.com/asecurityteam/runhttp"
 	serverfull "github.com/asecurityteam/serverfull/pkg"
 	serverfulldomain "github.com/asecurityteam/serverfull/pkg/domain"
@@ -16,11 +16,8 @@ import (
 func main() {
 	ctx := context.Background()
 
-	db := v1.DB{}
-	err := db.Init(ctx); err != nil {
-		panic(err.Error())
-	}
-	if err != nil {
+	db := storage.DB{}
+	if err := db.Init(ctx); err != nil {
 		panic(err.Error())
 	}
 
