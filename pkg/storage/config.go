@@ -6,11 +6,11 @@ import (
 
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
-	Hostname     string `json:"hostname"`
-	Port         string `json:"port"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	DatabaseName string `json:"databasename"`
+	Hostname     string
+	Port         string
+	Username     string
+	Password     string
+	DatabaseName string
 }
 
 // Name is used by the settings library to replace the default naming convention.
