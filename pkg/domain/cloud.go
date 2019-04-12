@@ -28,8 +28,6 @@ type CloudAssetDetails struct {
 	PrivateIPAddresses []string
 	PublicIPAddresses  []string
 	Hostnames          []string
-	CreatedAt          time.Time
-	DeletedAt          time.Time
 	ResourceType       string
 	AccountID          string
 	Region             string

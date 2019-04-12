@@ -15,37 +15,56 @@ import (
 
 type nopStorage struct{}
 
-func (s *nopStorage) StoreCloudAsset(ctx context.Context, _ domain.CloudAssetChanges) error {
+func (s *nopStorage) Store(ctx context.Context, _ domain.CloudAssetChanges) error {
 	domain.LoggerFromContext(ctx).Info("store cloud asset stub")
 	return nil
 }
-func (s *nopStorage) FetchCloudAsset(ctx context.Context, hostname string, ipAddress string, timestamp time.Time) (domain.CloudAssetDetails, error) {
-	domain.LoggerFromContext(ctx).Info("fetch cloud asset stub")
-	return domain.CloudAssetDetails{
-		PrivateIPAddresses: []string{ipAddress},
-		PublicIPAddresses:  []string{ipAddress},
-		Hostnames:          []string{hostname},
-		CreatedAt:          timestamp.Add(-1 * time.Second),
-		DeletedAt:          timestamp.Add(1 * time.Second),
-		Tags:               make(map[string]string),
+
+type nopFetcher struct{}
+
+func (f *nopFetcher) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
+	domain.LoggerFromContext(ctx).Info("fetch cloud asset by IP address stub")
+	return []domain.CloudAssetDetails{
+		{
+			PrivateIPAddresses: []string{ipAddress},
+			PublicIPAddresses:  []string{ipAddress},
+		},
+	}, nil
+}
+
+func (f *nopFetcher) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
+	domain.LoggerFromContext(ctx).Info("fetch cloud asset by hostname stub")
+	return []domain.CloudAssetDetails{
+		{
+			Hostnames: []string{hostname},
+			Tags: map[string]string{
+				"Name": hostname,
+			},
+		},
 	}, nil
 }
 
 func main() {
 	ctx := context.Background()
 	insert := &v1.CloudInsertHandler{
-		LogFn:   domain.LoggerFromContext,
-		StatFn:  domain.StatFromContext,
-		Storage: &nopStorage{},
+		LogFn:            domain.LoggerFromContext,
+		StatFn:           domain.StatFromContext,
+		CloudAssetStorer: &nopStorage{},
 	}
-	fetch := &v1.CloudFetchHandler{
+	fetchByIP := &v1.CloudFetchByIPHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Storage: &nopStorage{},
+		Fetcher: &nopFetcher{},
+	}
+	fetchByHostname := &v1.CloudFetchByHostnameHandler{
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: &nopFetcher{},
 	}
 	handlers := map[string]serverfulldomain.Handler{
-		"insert": lambda.NewHandler(insert.Handle),
-		"fetch":  lambda.NewHandler(fetch.Handle),
+		"insert":          lambda.NewHandler(insert.Handle),
+		"fetchByIP":       lambda.NewHandler(fetchByIP.Handle),
+		"fetchByHostname": lambda.NewHandler(fetchByHostname.Handle),
 	}
 
 	source, err := settings.NewEnvSource(os.Environ())

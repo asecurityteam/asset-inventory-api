@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newInsertHandler(storage domain.Storage) *CloudInsertHandler {
+func newInsertHandler(storer domain.CloudAssetStorer) *CloudInsertHandler {
 	return &CloudInsertHandler{
 		LogFn: func(_ context.Context) runhttp.Logger {
 			return logevent.New(logevent.Config{Output: ioutil.Discard})
 		},
-		StatFn:  runhttp.StatFromContext,
-		Storage: storage,
+		StatFn:           runhttp.StatFromContext,
+		CloudAssetStorer: storer,
 	}
 }
 
@@ -58,8 +58,8 @@ func TestInsertStorageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storage := NewMockStorage(ctrl)
-	storage.EXPECT().StoreCloudAsset(gomock.Any(), gomock.Any()).Return(errors.New(""))
+	storage := NewMockCloudAssetStorer(ctrl)
+	storage.EXPECT().Store(gomock.Any(), gomock.Any()).Return(errors.New(""))
 
 	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.NotNil(t, e)
@@ -69,8 +69,8 @@ func TestInsertStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storage := NewMockStorage(ctrl)
-	storage.EXPECT().StoreCloudAsset(gomock.Any(), gomock.Any()).Return(nil)
+	storage := NewMockCloudAssetStorer(ctrl)
+	storage.EXPECT().Store(gomock.Any(), gomock.Any()).Return(nil)
 
 	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.Nil(t, e)

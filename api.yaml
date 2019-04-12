@@ -89,20 +89,16 @@ paths:
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
             #! else !# 500
             #! end !#, "bodyPassthrough": true}'
-  /cloud:
+  /cloud/ip/{ipAddress}:
     get:
-      summary: "Retrieve a cloud asset"
+      summary: "Retrieve a cloud asset at a point in time by IP Address"
       parameters:
         - name: "ipAddress"
-          in: "query"
+          in: "path"
           description: "The IP address of the asset"
+          required: true
           schema:
             type: string
-        - name: "hostname"
-          in: "query"
-          description: "The hostname of the asset"
-          schema:
-            type: "string"
         - name: "time"
           in: "query"
           description: "The point in time details for a given asset"
@@ -112,11 +108,11 @@ paths:
             format: "date-time"
       responses:
         200:
-          description: "Asset found"
+          description: "List of all assets found with the IP address at the given time"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CloudAssetDetails"
+                $ref: "#/components/schemas/CloudAssets"
         400:
           description: "Invalid input"
           content:
@@ -134,17 +130,72 @@ paths:
           - "responsevalidation"
           - "lambda"
         lambda:
-          arn: "fetch"
+          arn: "fetchByIP"
           async: false
           request: >
             {
-              #!if .Request.Query.ipAddress!#
-              "ipAddress":"#!index .Request.Query.ipAddress 0!#",
-              #!end!#
-              #!if .Request.Query.hostname!#
-              "hostname":"#!index .Request.Query.hostname 0!#",
-              #!end!#
-              "time":"#!index .Request.Query.time 0!#"
+              "ipAddress": "#!.Request.URL.ipAddress!#",
+              "time": "#!index .Request.Query.time 0!#"
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
+  /cloud/hostname/{hostname}:
+    get:
+      summary: "Retrieve a cloud asset at a point in time by hostname"
+      parameters:
+        - name: "hostname"
+          in: "path"
+          description: "The hostname of the asset"
+          required: true
+          schema:
+            type: "string"
+        - name: "time"
+          in: "query"
+          description: "The point in time details for a given asset"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        200:
+          description: "List of all assets found with the hostname at the given time"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudAssets"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "fetchByHostname"
+          async: false
+          request: >
+            {
+              "hostname": "#!.Request.URL.hostname!#",
+              "time": "#!index .Request.Query.time 0!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
           error: >
@@ -183,12 +234,12 @@ components:
           additionalProperties:
             type: string
       required:
-      - changes
-      - changeTime
-      - resourceType
-      - accountId
-      - region
-      - resourceId
+        - changes
+        - changeTime
+        - resourceType
+        - accountId
+        - region
+        - resourceId
     CloudAssetChange:
       type: object
       properties:
@@ -208,7 +259,14 @@ components:
           type: string
           enum: [ADDED, DELETED]
       required:
-      - changeType
+        - changeType
+    CloudAssets:
+      type: object
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/CloudAssetDetails"
     CloudAssetDetails:
       type: object
       properties:
@@ -224,12 +282,6 @@ components:
           type: array
           items:
             type: string
-        createdAt:
-          type: string
-          format: date-time
-        deletedAt:
-          type: string
-          format: date-time
         resourceType:
           type: string
         accountId:

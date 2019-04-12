@@ -9,21 +9,16 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-// CloudAssetFetchParameters represents the incoming payload for fetching a
-// cloud asset
-type CloudAssetFetchParameters struct {
-	IPAddress string `json:"ipAddress"`
-	Hostname  string `json:"hostname"`
-	Timestamp string `json:"time"`
+// CloudAssets represents a list of assets
+type CloudAssets struct {
+	Assets []CloudAssetDetails `json:"assets"`
 }
 
-// CloudAssetDetails represent an asset and associated metadata
+// CloudAssetDetails represent an asset and associated attributes
 type CloudAssetDetails struct {
 	PrivateIPAddresses []string          `json:"privateIpAddresses"`
 	PublicIPAddresses  []string          `json:"publicIpAddresses"`
 	Hostnames          []string          `json:"hostnames"`
-	CreatedAt          string            `json:"createdAt"`
-	DeletedAt          string            `json:"deletedAt"`
 	ResourceType       string            `json:"resourceType"`
 	AccountID          string            `json:"accountId"`
 	Region             string            `json:"region"`
@@ -31,47 +26,120 @@ type CloudAssetDetails struct {
 	Tags               map[string]string `json:"tags"`
 }
 
-// CloudFetchHandler defines a lambda handler for fetching a cloud asset
-type CloudFetchHandler struct {
-	LogFn   domain.LogFn
-	StatFn  domain.StatFn
-	Storage domain.Storage
+// CloudAssetFetchByIPParameters represents the incoming payload for fetching cloud assets by IP address
+type CloudAssetFetchByIPParameters struct {
+	IPAddress string `json:"ipAddress"`
+	Timestamp string `json:"time"`
 }
 
-// Handle handles the fetch operation for cloud assets
-func (h *CloudFetchHandler) Handle(ctx context.Context, input CloudAssetFetchParameters) (CloudAssetDetails, error) {
+// CloudAssetFetchByHostnameParameters represents the incoming payload for fetching cloud assets by hostname
+type CloudAssetFetchByHostnameParameters struct {
+	Hostname  string `json:"hostname"`
+	Timestamp string `json:"time"`
+}
+
+// CloudFetchByIPHandler defines a lambda handler for fetching cloud assets with a given IP address
+type CloudFetchByIPHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAssetByIPFetcher
+}
+
+// Handle handles fetching cloud assets by IP address
+func (h *CloudFetchByIPHandler) Handle(ctx context.Context, input CloudAssetFetchByIPParameters) (CloudAssets, error) {
 	logger := h.LogFn(ctx)
 
 	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return CloudAssetDetails{}, InvalidInput{Field: "time", Cause: e}
+		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
 	}
 
-	if input.Hostname == "" && input.IPAddress == "" {
-		e = fmt.Errorf("hostname and ipAddress cannot both be empty")
+	if input.IPAddress == "" {
+		e = fmt.Errorf("ipAddress cannot be empty")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return CloudAssetDetails{}, InvalidInput{Field: "hostname,ipAddress", Cause: e}
+		return CloudAssets{}, InvalidInput{Field: "ipAddress", Cause: e}
 	}
 
-	asset, e := h.Storage.FetchCloudAsset(ctx, input.Hostname, input.IPAddress, ts)
+	assets, e := h.Fetcher.FetchByIP(ctx, ts, input.IPAddress)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
-		return CloudAssetDetails{}, e
+		return CloudAssets{}, e
+	}
+	if len(assets) == 0 {
+		return CloudAssets{}, NotFound{ID: input.IPAddress}
 	}
 
-	output := CloudAssetDetails{
-		PrivateIPAddresses: asset.PrivateIPAddresses,
-		PublicIPAddresses:  asset.PublicIPAddresses,
-		Hostnames:          asset.Hostnames,
-		CreatedAt:          asset.CreatedAt.Format(time.RFC3339Nano),
-		DeletedAt:          asset.DeletedAt.Format(time.RFC3339Nano),
-		ResourceType:       asset.ResourceType,
-		AccountID:          asset.AccountID,
-		Region:             asset.Region,
-		ResourceID:         asset.ResourceID,
-		Tags:               asset.Tags,
+	return extractOutput(assets), nil
+}
+
+// CloudFetchByHostnameHandler defines a lambda handler for fetching cloud assets with a given hostname
+type CloudFetchByHostnameHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAssetByHostnameFetcher
+}
+
+// Handle handles fetching cloud assets by hostname
+func (h *CloudFetchByHostnameHandler) Handle(ctx context.Context, input CloudAssetFetchByHostnameParameters) (CloudAssets, error) {
+	logger := h.LogFn(ctx)
+
+	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
 	}
 
-	return output, nil
+	if input.Hostname == "" {
+		e = fmt.Errorf("hostname cannot be empty")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "hostname", Cause: e}
+	}
+
+	assets, e := h.Fetcher.FetchByHostname(ctx, ts, input.Hostname)
+	if e != nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+		return CloudAssets{}, e
+	}
+	if len(assets) == 0 {
+		return CloudAssets{}, NotFound{ID: input.Hostname}
+	}
+
+	return extractOutput(assets), nil
+}
+
+func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {
+	cloudAssets := CloudAssets{
+		Assets: make([]CloudAssetDetails, len(assets)),
+	}
+	for i, asset := range assets {
+		hostnames := asset.Hostnames
+		if len(hostnames) == 0 {
+			hostnames = make([]string, 0)
+		}
+		privateIPAddresses := asset.PrivateIPAddresses
+		if len(privateIPAddresses) == 0 {
+			privateIPAddresses = make([]string, 0)
+		}
+		publicIPAddresses := asset.PublicIPAddresses
+		if len(publicIPAddresses) == 0 {
+			publicIPAddresses = make([]string, 0)
+		}
+		tags := asset.Tags
+		if len(tags) == 0 {
+			tags = make(map[string]string)
+		}
+
+		cloudAssets.Assets[i] = CloudAssetDetails{
+			PrivateIPAddresses: privateIPAddresses,
+			PublicIPAddresses:  publicIPAddresses,
+			Hostnames:          hostnames,
+			ResourceType:       asset.ResourceType,
+			AccountID:          asset.AccountID,
+			Region:             asset.Region,
+			ResourceID:         asset.ResourceID,
+			Tags:               tags,
+		}
+	}
+	return cloudAssets
 }
