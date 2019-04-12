@@ -107,17 +107,15 @@ func (db *DB) Init(ctx context.Context, postgresConfig *domain.PostgresConfig) e
 				host, port, user, password, dbname, sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
-				logger.Error(logs.DBError{Reason: err.Error()})
+				logger.Error(logs.DBOpenError{Reason: err.Error()})
 				initerr = err
 			}
 
 			err = pgdb.Ping()
 			if err != nil {
-				logger.Error(logs.DBError{Reason: err.Error()})
+				logger.Error(logs.DBPingError{Reason: err.Error()})
 				initerr = err
 			}
-
-			logger.Info(logs.DBInfo{Reason: "Successfully connected to database"})
 
 			db.sqldb = pgdb
 		}
