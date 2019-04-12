@@ -5,7 +5,7 @@ import (
 	"os"
 
 	v1 "github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1"
-	"github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1/storage"
+	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/runhttp"
 	serverfull "github.com/asecurityteam/serverfull/pkg"
 	serverfulldomain "github.com/asecurityteam/serverfull/pkg/domain"
@@ -15,11 +15,6 @@ import (
 
 func main() {
 	ctx := context.Background()
-
-	db := storage.DB{}
-	if err := db.Init(ctx); err != nil {
-		panic(err.Error())
-	}
 
 	insert := &v1.CloudInsertHandler{
 		LogFn:   runhttp.LoggerFromContext,
@@ -33,6 +28,18 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+
+	postgresConfigComponent := &storage.PostgresConfigComponent{}
+	postgresSettings := new(storage.PostgresSettings)
+	err = settings.NewComponent(ctx, source, postgresConfigComponent, postgresSettings)
+	if err != nil {
+		panic(err.Error())
+	}
+	db := storage.DB{}
+	if err := db.Init(ctx); err != nil {
+		panic(err.Error())
+	}
+
 	rt, err := serverfull.NewStatic(ctx, source, handlers)
 	if err != nil {
 		panic(err.Error())

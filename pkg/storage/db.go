@@ -85,7 +85,7 @@ type DB struct {
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, postgresConfig *domain.PostgresConfig) error {
+func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 	var initerr error
 	db.once.Do(func() {
 
@@ -139,7 +139,7 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 		}
 	}()
 
-	if err = db.saveResource(ctx, cloudAssetChanges); err != nil {
+	if err = db.saveResource(ctx, cloudAssetChanges, tx); err != nil {
 		return err
 	}
 
@@ -152,12 +152,12 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 	return nil
 }
 
-func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
+func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
 	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources)  // nolint
 
-	if _, err := db.sqldb.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, cloudAssetChanges.Tags); err != nil {
+	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, cloudAssetChanges.Tags); err != nil {
 		return err
 	}
 
