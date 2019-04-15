@@ -27,14 +27,11 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 	return &PostgresConfig{}
 }
 
-// New constructs a PostgresConfig from a config.
-func (*PostgresConfigComponent) New(_ context.Context, c *PostgresConfig) (*PostgresConfig, error) {
-	// return &PostgresConfig{
-	// 	Hostname: c.Hostname,
-	// 	Port: c.Port,
-	// 	Username: c.Username,
-	// 	Password: c.Password,
-	// 	DatabaseName: c.DatabaseName,
-	// }, nil
-	return c, nil
+// New constructs a DB from a config.
+func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
+	db := DB{}
+	if err := db.Init(ctx, c); err != nil {
+		return nil, err
+	}
+	return &db, nil
 }

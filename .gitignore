@@ -990,4 +990,6 @@ ASALocalRun/
 # End of https://www.gitignore.io/api/go,vim,osx,java,node,emacs,linux,xcode,maven,macos,python,windows,eclipse,intellij,jetbrains,virtualenv,sublimetext,visualstudio,visualstudiocode
 asset-inventory-api
 
+# in case you `go build` some things yourself:
 integration_test_db
+main

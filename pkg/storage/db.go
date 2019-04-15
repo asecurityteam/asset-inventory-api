@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +19,8 @@ const tableAWSResources = "aws_resources"
 const tableAWSIPS = "aws_ips"
 const tableAWSHostnames = "aws_hostnames"
 const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
+
+const added = "ADDED" // one of the network event types we track
 
 // can't use Sprintf in a const, so...
 const commonQuery = "SELECT " +
@@ -78,8 +80,12 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 // StoreCloudAsset an implementation of the Storage interface that records to a database
 func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
+
+	logger := db.LogFn(ctx)
+
 	tx, err := db.sqldb.Begin()
 	if err != nil {
+		logger.Error(logs.DBBeginTransactionError{Reason: err.Error()})
 		return err
 	}
 
@@ -87,13 +93,12 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 		switch err {
 		case nil:
 			if commitErr := tx.Commit(); commitErr != nil {
-				log.Fatalf(`Failed to commit transation: %s`, commitErr)
+				logger.Error(logs.DBCommitError{Reason: commitErr.Error()})
 			}
 		default:
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Fatalf(`Failed to rollback transation: %s.  The err that necessitated the rollback was: `, rollbackErr, err)
+				logger.Error(logs.DBRollbackError{Reason: rollbackErr.Error()})
 			}
-			log.Fatal(err)
 		}
 	}()
 
@@ -115,12 +120,15 @@ func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAs
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources) // nolint
 
+	logger := db.LogFn(ctx)
+
 	tagsBytes, err := json.Marshal(cloudAssetChanges.Tags)
 	if err != nil {
 		tagsBytes = nil
 	}
 
 	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, tagsBytes); err != nil {
+		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -138,7 +146,7 @@ func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, times
 
 	for _, val := range changes.PrivateIPAddresses {
 		isJoin := false
-		if changes.ChangeType == "ADDED" {
+		if strings.EqualFold(added, changes.ChangeType) {
 			isJoin = true
 		}
 		err := db.insertIPAddress(ctx, val, tx)
@@ -153,7 +161,7 @@ func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, times
 
 	for _, val := range changes.PublicIPAddresses {
 		isJoin := false
-		if changes.ChangeType == "ADDED" {
+		if strings.EqualFold(added, changes.ChangeType) {
 			isJoin = true
 		}
 		err := db.insertIPAddress(ctx, val, tx)
@@ -173,9 +181,13 @@ func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, times
 }
 
 func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx) error {
+
+	logger := db.LogFn(ctx)
+
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSIPS), ipAddress); err != nil { // nolint
+		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -183,9 +195,13 @@ func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx)
 }
 
 func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) error {
+
+	logger := db.LogFn(ctx)
+
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSHostnames), hostname); err != nil { // nolint
+		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -193,6 +209,9 @@ func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) e
 }
 
 func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time, isPublic bool, isJoin bool, resourceID string, ipAddress string, hostname *string, tx *sql.Tx) error {
+
+	logger := db.LogFn(ctx)
+
 	// Postgres does not auto-create partition tables, so we do it.  We're using 3-month intervals (quarters)
 	monthInterval := 3
 	year := timestamp.Year()
@@ -212,19 +231,21 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 		`TO (`+
 		`'%s'`+
 		`);`, tableName, tableAWSEventsIPSHostnames, from, to)); err != nil {
+		logger.Error(logs.DBCreateTableError{Reason: err.Error()})
 		return err
 	}
 
 	// we might be using Postgres version 10, which does not automatically propagate indices, so we do it:
 	indexName := fmt.Sprintf("%s_aws_ips_ip_ts_idx", tableName) // this is Postgres naming convention, which we don't really have to follow
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING BTREE (aws_ips_ip, ts);", indexName, tableName)); err != nil {
+		logger.Error(logs.DBCreateIndexError{Reason: err.Error()})
 		return err
 	}
 
-	// // this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
-	// // See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	// tsFormat := timestamp.Format("2006-01-02 15:04:05.123")
+	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
+	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname); err != nil { // nolint
+		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -250,8 +271,12 @@ func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
+
+	logger := db.LogFn(ctx)
+
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
+		logger.Error(logs.DBSelectError{Reason: err.Error()})
 		return nil, err
 	}
 
@@ -262,7 +287,7 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var row domain.NetworkChangeEvent
 		var bytes []byte
 		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &row.Hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes); err != nil {
-			log.Fatal(err)
+			logger.Error(logs.DBRowScanError{Reason: err.Error()})
 			return nil, err
 		}
 		if bytes != nil {

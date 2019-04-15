@@ -16,28 +16,24 @@ import (
 func main() {
 	ctx := context.Background()
 
-	insert := &v1.CloudInsertHandler{
-		LogFn:   runhttp.LoggerFromContext,
-		StatFn:  runhttp.StatFromContext,
-		Storage: &db,
-	}
-	handlers := map[string]serverfulldomain.Handler{
-		"insert": lambda.NewHandler(insert.Handle),
-	}
 	source, err := settings.NewEnvSource(os.Environ())
 	if err != nil {
 		panic(err.Error())
 	}
 
 	postgresConfigComponent := &storage.PostgresConfigComponent{}
-	postgresSettings := new(storage.PostgresSettings)
-	err = settings.NewComponent(ctx, source, postgresConfigComponent, postgresSettings)
-	if err != nil {
+	storage := new(storage.DB)
+	if err = settings.NewComponent(ctx, source, postgresConfigComponent, storage); err != nil {
 		panic(err.Error())
 	}
-	db := storage.DB{}
-	if err := db.Init(ctx); err != nil {
-		panic(err.Error())
+
+	insert := &v1.CloudInsertHandler{
+		LogFn:   runhttp.LoggerFromContext,
+		StatFn:  runhttp.StatFromContext,
+		Storage: storage,
+	}
+	handlers := map[string]serverfulldomain.Handler{
+		"insert": lambda.NewHandler(insert.Handle),
 	}
 
 	rt, err := serverfull.NewStatic(ctx, source, handlers)

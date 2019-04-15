@@ -48,9 +48,12 @@ func TestShouldINSERTResource(t *testing.T) {
 
 	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
 
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	if err = thedb.saveResource(context.Background(), fakeCloudAssetChanges()); err != nil {
+	fakeContext, _ := mockdb.BeginTx(context.Background(), nil);
+
+	if err = thedb.saveResource(context.Background(), fakeCloudAssetChanges(), fakeContext); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
@@ -135,7 +138,7 @@ func TestGetIPsForTimeRange(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowtsTime, "aid", "region", "type", map[string]interface{}{"hi": "there1"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowtsTime, "aid", "region", "type", map[string]string{"hi": "there1"}}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -166,8 +169,8 @@ func TestGetIPsByIP(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]interface{}{"hi": "there2"}}, results[0])
-	assert.Equal(t, domain.NetworkChangeEvent{"rid2", "99.88.77.66", sql.NullString{"google.com", true}, true, true, rowts2Time, "aid2", "region2", "type2", map[string]interface{}{"bye": "now"}}, results[1])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there2"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid2", "99.88.77.66", sql.NullString{"google.com", true}, true, true, rowts2Time, "aid2", "region2", "type2", map[string]string{"bye": "now"}}, results[1])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -196,7 +199,7 @@ func TestGetIPsByHostname(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]interface{}{"hi": "there3"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there3"}}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -213,6 +216,6 @@ func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	hostnames := []string{"google.com"}
 	networkChangesArray := []domain.NetworkChanges{domain.NetworkChanges{privateIPs, publicIPs, hostnames, "ADDED"}}
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
-	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "rid", "arn", domain.InboundResourceTags{"tag1": "val1"}}
+	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "rid", "arn", map[string]string{"tag1": "val1"}}
 	return cloudAssetChanges
 }
