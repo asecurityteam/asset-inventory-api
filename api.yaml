@@ -54,7 +54,7 @@ paths:
           description: "Success."
       x-transportd:
         backend: app
-  /cloud/change:
+  /v1/cloud/change:
     post:
       summary: "Catalog a new cloud asset change"
       requestBody:
@@ -89,7 +89,7 @@ paths:
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
             #! else !# 500
             #! end !#, "bodyPassthrough": true}'
-  /cloud/ip/{ipAddress}:
+  /v1/cloud/ip/{ipAddress}:
     get:
       summary: "Retrieve a cloud asset at a point in time by IP Address"
       parameters:
@@ -149,7 +149,7 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-  /cloud/hostname/{hostname}:
+  /v1/cloud/hostname/{hostname}:
     get:
       summary: "Retrieve a cloud asset at a point in time by hostname"
       parameters:
@@ -263,7 +263,7 @@ components:
     CloudAssets:
       type: object
       properties:
-        assets:
+        response:
           type: array
           items:
             $ref: "#/components/schemas/CloudAssetDetails"
