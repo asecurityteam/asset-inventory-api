@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -13,54 +14,6 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
 )
-
-/*
-The table designs are as such:
-
-CREATE TABLE aws_resources (
-    id VARCHAR PRIMARY KEY,
-    account_id VARCHAR NOT NULL,
-    region VARCHAR NOT NULL,
-    type VARCHAR NOT NULL,
-    meta JSONB
-);
-
--- We use these simple tables to preserve uniqueness and so we can add columns for additional
--- metadata when needed without polluting the aws_events_ips_hostnames star table:
-
-CREATE TABLE aws_ips (
-    ip INET PRIMARY KEY
-);
-
-CREATE TABLE aws_hostnames (
-    hostname VARCHAR PRIMARY KEY
-);
-
--- Notice "PARTITION BY" below.  We're using built-in partitioning.
--- See https://blog.timescale.com/scaling-partitioning-data-postgresql-10-explained-cd48a712a9a1/
-
-CREATE TABLE aws_events_ips_hostnames (
-    ts TIMESTAMP NOT NULL,
-    is_public BOOLEAN NOT NULL,
-    is_join BOOLEAN NOT NULL,
-    aws_resources_id VARCHAR NOT NULL,
-    FOREIGN KEY (aws_resources_id) REFERENCES aws_resources (id),
-    aws_ips_ip INET NOT NULL,
-    FOREIGN KEY (aws_ips_ip) REFERENCES aws_ips (ip),
-    aws_hostnames_hostname VARCHAR,
-    FOREIGN KEY (aws_hostnames_hostname) REFERENCES aws_hostnames (hostname))
-PARTITION BY
-    RANGE (
-        ts
-);
-
--- And we'll make sure there's an index right away:
-
-CREATE INDEX IF NOT EXISTS aws_events_ips_hostnames_aws_ips_ip_ts_idx ON aws_events_ips_hostnames USING BTREE (aws_ips_ip, ts);
-
-Also, some good advice to follow:  https://www.vividcortex.com/blog/2015/09/22/common-pitfalls-go/
-
-*/
 
 const tableAWSResources = "aws_resources"
 const tableAWSIPS = "aws_ips"
@@ -133,9 +86,14 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 	defer func() {
 		switch err {
 		case nil:
-			err = tx.Commit()
+			if commitErr := tx.Commit(); commitErr != nil {
+				log.Fatalf(`Failed to commit transation: %s`, commitErr)
+			}
 		default:
-			err = tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Fatalf(`Failed to rollback transation: %s.  The err that necessitated the rollback was: `, rollbackErr, err)
+			}
+			log.Fatal(err)
 		}
 	}()
 
@@ -155,9 +113,14 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
 	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources)  // nolint
+	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources) // nolint
 
-	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, cloudAssetChanges.Tags); err != nil {
+	tagsBytes, err := json.Marshal(cloudAssetChanges.Tags)
+	if err != nil {
+		tagsBytes = nil
+	}
+
+	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, tagsBytes); err != nil {
 		return err
 	}
 
@@ -242,7 +205,7 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
 	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
 
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+  // nolint
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+ // nolint
 		`VALUES `+
 		`FROM (`+
 		`'%s') `+
@@ -297,9 +260,15 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 	networkChangeEvents := make([]domain.NetworkChangeEvent, 0)
 	for rows.Next() {
 		var row domain.NetworkChangeEvent
-		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &row.Hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &row.Tags); err != nil {
+		var bytes []byte
+		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &row.Hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes); err != nil {
 			log.Fatal(err)
 			return nil, err
+		}
+		if bytes != nil {
+			var i map[string]string
+			json.Unmarshal(bytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			row.Tags = i
 		}
 		networkChangeEvents = append(networkChangeEvents, row)
 	}
