@@ -11,7 +11,7 @@ import (
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
-
+	"github.com/asecurityteam/runhttp"
 	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
 )
 
@@ -33,10 +33,8 @@ const commonQuery = "SELECT " +
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb *sql.DB      // this is a unit test seam
-	LogFn domain.LogFn // also a seam
-
-	once sync.Once
+	sqldb *sql.DB // this is a unit test seam
+	once  sync.Once
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
@@ -50,8 +48,6 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 		password := postgresConfig.Password
 		dbname := postgresConfig.DatabaseName
 
-		logger := db.LogFn(ctx)
-
 		if db.sqldb == nil {
 			sslmode := "disable"
 			if host != "localhost" {
@@ -62,13 +58,11 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 				host, port, user, password, dbname, sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
-				logger.Error(logs.DBOpenError{Reason: err.Error()})
 				initerr = err
 			}
 
 			err = pgdb.Ping()
 			if err != nil {
-				logger.Error(logs.DBPingError{Reason: err.Error()})
 				initerr = err
 			}
 
@@ -81,11 +75,10 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 // StoreCloudAsset an implementation of the Storage interface that records to a database
 func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 
-	logger := db.LogFn(ctx)
+	logger := runhttp.LoggerFromContext(ctx)
 
 	tx, err := db.sqldb.Begin()
 	if err != nil {
-		logger.Error(logs.DBBeginTransactionError{Reason: err.Error()})
 		return err
 	}
 
@@ -120,15 +113,12 @@ func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAs
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources) // nolint
 
-	logger := db.LogFn(ctx)
-
 	tagsBytes, err := json.Marshal(cloudAssetChanges.Tags)
 	if err != nil {
 		tagsBytes = nil
 	}
 
 	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, tagsBytes); err != nil {
-		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -182,12 +172,9 @@ func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, times
 
 func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx) error {
 
-	logger := db.LogFn(ctx)
-
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSIPS), ipAddress); err != nil { // nolint
-		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -196,12 +183,9 @@ func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx)
 
 func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) error {
 
-	logger := db.LogFn(ctx)
-
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSHostnames), hostname); err != nil { // nolint
-		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -209,8 +193,6 @@ func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) e
 }
 
 func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time, isPublic bool, isJoin bool, resourceID string, ipAddress string, hostname *string, tx *sql.Tx) error {
-
-	logger := db.LogFn(ctx)
 
 	// Postgres does not auto-create partition tables, so we do it.  We're using 3-month intervals (quarters)
 	monthInterval := 3
@@ -231,21 +213,18 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 		`TO (`+
 		`'%s'`+
 		`);`, tableName, tableAWSEventsIPSHostnames, from, to)); err != nil {
-		logger.Error(logs.DBCreateTableError{Reason: err.Error()})
 		return err
 	}
 
 	// we might be using Postgres version 10, which does not automatically propagate indices, so we do it:
 	indexName := fmt.Sprintf("%s_aws_ips_ip_ts_idx", tableName) // this is Postgres naming convention, which we don't really have to follow
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING BTREE (aws_ips_ip, ts);", indexName, tableName)); err != nil {
-		logger.Error(logs.DBCreateIndexError{Reason: err.Error()})
 		return err
 	}
 
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname); err != nil { // nolint
-		logger.Error(logs.DBInsertError{Reason: err.Error()})
 		return err
 	}
 
@@ -272,11 +251,8 @@ func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
 
-	logger := db.LogFn(ctx)
-
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
-		logger.Error(logs.DBSelectError{Reason: err.Error()})
 		return nil, err
 	}
 
@@ -286,14 +262,18 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 	for rows.Next() {
 		var row domain.NetworkChangeEvent
 		var bytes []byte
-		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &row.Hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes); err != nil {
-			logger.Error(logs.DBRowScanError{Reason: err.Error()})
+		var hostname sql.NullString
+		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes); err != nil {
 			return nil, err
 		}
 		if bytes != nil {
 			var i map[string]string
-			json.Unmarshal(bytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			json.Unmarshal(bytes, &i) // nolint: we already checked for nil, and the DB column is JSONB; no need for err check here
 			row.Tags = i
+		}
+		if hostname.Valid {
+			row.Hostname = hostname.String
+
 		}
 		networkChangeEvents = append(networkChangeEvents, row)
 	}

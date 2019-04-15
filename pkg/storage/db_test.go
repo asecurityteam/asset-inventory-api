@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"sync"
@@ -25,11 +24,14 @@ func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	mock.ExpectBegin().WillReturnError(fmt.Errorf("could not start transaction"))
 
-	if err = thedb.StoreCloudAsset(context.Background(), fakeCloudAssetChanges()); err == nil {
+	ctx := context.Background()
+	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
+
+	if err = thedb.StoreCloudAsset(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
 	}
 	assert.Equal(t, "could not start transaction", err.Error())
@@ -46,14 +48,17 @@ func TestShouldINSERTResource(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	fakeContext, _ := mockdb.BeginTx(context.Background(), nil);
+	fakeContext, _ := mockdb.BeginTx(context.Background(), nil)
 
-	if err = thedb.saveResource(context.Background(), fakeCloudAssetChanges(), fakeContext); err != nil {
+	ctx := context.Background()
+	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
+
+	if err = thedb.saveResource(ctx, fakeCloudAssetChanges(), fakeContext); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
@@ -69,13 +74,16 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	if err = thedb.StoreCloudAsset(context.Background(), fakeCloudAssetChanges()); err == nil {
+	ctx := context.Background()
+	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
+
+	if err = thedb.StoreCloudAsset(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
 	}
 
@@ -91,22 +99,25 @@ func TestGoldenPath(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	mock.ExpectExec("INSERT INTO " + tableAWSHostnames).WithArgs("google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
-	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))          // nolint
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("CREATE INDEX IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
-	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))                                                  // nolint
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("CREATE INDEX IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, true, true, "arn", "8.7.6.5", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 
-	if err = thedb.StoreCloudAsset(context.Background(), fakeCloudAssetChanges()); err != nil {
+	ctx := context.Background()
+	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
+
+	if err = thedb.StoreCloudAsset(ctx, fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
@@ -122,7 +133,7 @@ func TestGetIPsForTimeRange(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	from, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	to, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -138,7 +149,7 @@ func TestGetIPsForTimeRange(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowtsTime, "aid", "region", "type", map[string]string{"hi": "there1"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", "yahoo.com", true, true, rowtsTime, "aid", "region", "type", map[string]string{"hi": "there1"}}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -152,7 +163,7 @@ func TestGetIPsByIP(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	ipAddress := "9.8.7.6"
 	rowts1 := "2019-01-15T08:19:23+00:00"
@@ -169,8 +180,8 @@ func TestGetIPsByIP(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there2"}}, results[0])
-	assert.Equal(t, domain.NetworkChangeEvent{"rid2", "99.88.77.66", sql.NullString{"google.com", true}, true, true, rowts2Time, "aid2", "region2", "type2", map[string]string{"bye": "now"}}, results[1])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", "yahoo.com", true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there2"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid2", "99.88.77.66", "google.com", true, true, rowts2Time, "aid2", "region2", "type2", map[string]string{"bye": "now"}}, results[1])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -184,7 +195,7 @@ func TestGetIPsByHostname(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, stdoutLogger, sync.Once{}}
+	thedb := DB{mockdb, sync.Once{}}
 
 	hostname := "google.com"
 	rowts1 := "2019-01-15T08:19:24+00:00"
@@ -199,7 +210,7 @@ func TestGetIPsByHostname(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", sql.NullString{"yahoo.com", true}, true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there3"}}, results[0])
+	assert.Equal(t, domain.NetworkChangeEvent{"rid", "44.33.22.11", "yahoo.com", true, true, rowts1Time, "aid", "region", "type", map[string]string{"hi": "there3"}}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

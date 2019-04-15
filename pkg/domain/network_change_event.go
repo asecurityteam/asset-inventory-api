@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -9,7 +8,7 @@ import (
 type NetworkChangeEvent struct {
 	ResourceID string
 	IPAddress  string
-	Hostname   sql.NullString
+	Hostname   string
 	IsPublic   bool
 	IsJoin     bool
 	Timestamp  time.Time

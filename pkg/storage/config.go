@@ -30,6 +30,7 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 // New constructs a DB from a config.
 func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
 	db := DB{}
+	// db.LogFn = domain.LogFn
 	if err := db.Init(ctx, c); err != nil {
 		return nil, err
 	}
