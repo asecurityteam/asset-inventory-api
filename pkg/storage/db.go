@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
-	"github.com/asecurityteam/runhttp"
+	"github.com/pkg/errors"
 	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
 )
 
@@ -59,6 +58,7 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
 				initerr = err
+				return  // from the unamed once.Do function
 			}
 
 			err = pgdb.Ping()
@@ -75,37 +75,28 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 // StoreCloudAsset an implementation of the Storage interface that records to a database
 func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 
-	logger := runhttp.LoggerFromContext(ctx)
-
 	tx, err := db.sqldb.Begin()
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		switch err {
-		case nil:
-			if commitErr := tx.Commit(); commitErr != nil {
-				logger.Error(logs.DBCommitError{Reason: commitErr.Error()})
-			}
-		default:
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				logger.Error(logs.DBRollbackError{Reason: rollbackErr.Error()})
+	if err = db.saveResource(ctx, cloudAssetChanges, tx); err == nil {
+		for _, val := range cloudAssetChanges.Changes {
+			err = db.recordNetworkChanges(ctx, cloudAssetChanges.ARN, cloudAssetChanges.ChangeTime, val, tx)
+			if err != nil {
+				break
 			}
 		}
-	}()
-
-	if err = db.saveResource(ctx, cloudAssetChanges, tx); err != nil {
-		return err
 	}
 
-	for _, val := range cloudAssetChanges.Changes {
-		err = db.recordNetworkChanges(ctx, cloudAssetChanges.ARN, cloudAssetChanges.ChangeTime, val, tx)
-		if err != nil {
-			return err
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
 		}
+        return err
 	}
-	return nil
+    return tx.Commit()
+
 }
 
 func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
@@ -197,9 +188,9 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	// Postgres does not auto-create partition tables, so we do it.  We're using 3-month intervals (quarters)
 	monthInterval := 3
 	year := timestamp.Year()
-	fromMonth := (int((timestamp.Month())-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
+	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
 	fromDay := 1
-	toMonth := (int((timestamp.Month())-1)/monthInterval)*monthInterval + monthInterval        // get the interval of the year we're in, then use the last month of that interval
+	toMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + monthInterval        // get the interval of the year we're in, then use the last month of that interval
 	toDay := time.Date(year, time.Month(toMonth+1), 0, 0, 0, 0, 0, timestamp.Location()).Day() // time.Date will normalize that toMonth + 1 and 0 day shenanigans
 	from := fmt.Sprintf(`%d-%02d-%02d`, year, fromMonth, fromDay)
 	to := fmt.Sprintf(`%d-%02d-%02d`, year, toMonth, toDay)
@@ -263,19 +254,25 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var row domain.NetworkChangeEvent
 		var bytes []byte
 		var hostname sql.NullString
-		if err = rows.Scan(&row.ResourceID, &row.IPAddress, &hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes); err != nil {
-			return nil, err
-		}
-		if bytes != nil {
-			var i map[string]string
-			json.Unmarshal(bytes, &i) // nolint: we already checked for nil, and the DB column is JSONB; no need for err check here
-			row.Tags = i
-		}
-		if hostname.Valid {
-			row.Hostname = hostname.String
+		err = rows.Scan(&row.ResourceID, &row.IPAddress, &hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes)
+		if err == nil {
+			if bytes != nil {
+				var i map[string]string
+				json.Unmarshal(bytes, &i) // nolint: we already checked for nil, and the DB column is JSONB; no need for err check here
+				row.Tags = i
+			}
+			if hostname.Valid {
+				row.Hostname = hostname.String
 
+			}
+			networkChangeEvents = append(networkChangeEvents, row)
 		}
-		networkChangeEvents = append(networkChangeEvents, row)
+	}
+
+	rows.Close()  // no need to capture the returned error since we check rows.Err() immediately:
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return networkChangeEvents, nil
