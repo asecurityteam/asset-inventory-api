@@ -92,6 +92,19 @@ func TestFetchByIPStorageError(t *testing.T) {
 	assert.NotNil(t, e)
 }
 
+func TestFetchByIPNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAssetByIPFetcher(ctrl)
+	input := validFetchByIPInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchByIP(gomock.Any(), ts, input.IPAddress).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newFetchByIPHandler(fetcher).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+}
+
 func TestFetchByIPSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -152,6 +165,19 @@ func TestFetchByHostnameStorageError(t *testing.T) {
 	input := validFetchByHostnameInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
 	fetcher.EXPECT().FetchByHostname(gomock.Any(), ts, input.Hostname).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newFetchByHostnameHandler(fetcher).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+}
+
+func TestFetchByHostnameNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAssetByHostnameFetcher(ctrl)
+	input := validFetchByHostnameInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchByHostname(gomock.Any(), ts, input.Hostname).Return([]domain.CloudAssetDetails{}, nil)
 
 	_, e := newFetchByHostnameHandler(fetcher).Handle(context.Background(), input)
 	assert.NotNil(t, e)
