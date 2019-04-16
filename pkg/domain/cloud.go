@@ -22,3 +22,15 @@ type NetworkChanges struct {
 	Hostnames          []string
 	ChangeType         string
 }
+
+// CloudAssetDetails represent an asset and associated metadata
+type CloudAssetDetails struct {
+	PrivateIPAddresses []string
+	PublicIPAddresses  []string
+	Hostnames          []string
+	ResourceType       string
+	AccountID          string
+	Region             string
+	ResourceID         string
+	Tags               map[string]string
+}

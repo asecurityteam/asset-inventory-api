@@ -5,30 +5,41 @@ import (
 	"os"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1"
-	"github.com/asecurityteam/runhttp"
+	v1 "github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1"
+	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	serverfull "github.com/asecurityteam/serverfull/pkg"
 	serverfulldomain "github.com/asecurityteam/serverfull/pkg/domain"
 	"github.com/asecurityteam/settings"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-type nopStorage struct{}
-
-func (s *nopStorage) StoreCloudAsset(ctx context.Context, _ domain.CloudAssetChanges) error {
-	runhttp.LoggerFromContext(ctx).Info("store cloud asset stub")
-	return nil
-}
-
 func main() {
 	ctx := context.Background()
 	insert := &v1.CloudInsertHandler{
-		LogFn:   runhttp.LoggerFromContext,
-		StatFn:  runhttp.StatFromContext,
-		Storage: &nopStorage{},
+		LogFn:  domain.LoggerFromContext,
+		StatFn: domain.StatFromContext,
+		CloudAssetStorer: &storage.NopStorer{
+			LogFn: domain.LoggerFromContext,
+		},
+	}
+	fetchByIP := &v1.CloudFetchByIPHandler{
+		LogFn:  domain.LoggerFromContext,
+		StatFn: domain.StatFromContext,
+		Fetcher: &storage.NopFetcher{
+			LogFn: domain.LoggerFromContext,
+		},
+	}
+	fetchByHostname := &v1.CloudFetchByHostnameHandler{
+		LogFn:  domain.LoggerFromContext,
+		StatFn: domain.StatFromContext,
+		Fetcher: &storage.NopFetcher{
+			LogFn: domain.LoggerFromContext,
+		},
 	}
 	handlers := map[string]serverfulldomain.Handler{
-		"insert": lambda.NewHandler(insert.Handle),
+		"insert":          lambda.NewHandler(insert.Handle),
+		"fetchByIP":       lambda.NewHandler(fetchByIP.Handle),
+		"fetchByHostname": lambda.NewHandler(fetchByHostname.Handle),
 	}
 
 	source, err := settings.NewEnvSource(os.Environ())
