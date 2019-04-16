@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/pkg/errors"
 	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
+	"github.com/pkg/errors"
 )
 
 const tableAWSResources = "aws_resources"
@@ -58,7 +58,7 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
 				initerr = err
-				return  // from the unamed once.Do function
+				return // from the unamed once.Do function
 			}
 
 			err = pgdb.Ping()
@@ -93,9 +93,9 @@ func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.Clou
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
 		}
-        return err
+		return err
 	}
-    return tx.Commit()
+	return tx.Commit()
 
 }
 
@@ -190,7 +190,7 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	year := timestamp.Year()
 	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
 	fromDay := 1
-	toMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + monthInterval        // get the interval of the year we're in, then use the last month of that interval
+	toMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + monthInterval          // get the interval of the year we're in, then use the last month of that interval
 	toDay := time.Date(year, time.Month(toMonth+1), 0, 0, 0, 0, 0, timestamp.Location()).Day() // time.Date will normalize that toMonth + 1 and 0 day shenanigans
 	from := fmt.Sprintf(`%d-%02d-%02d`, year, fromMonth, fromDay)
 	to := fmt.Sprintf(`%d-%02d-%02d`, year, toMonth, toDay)
@@ -269,7 +269,7 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		}
 	}
 
-	rows.Close()  // no need to capture the returned error since we check rows.Err() immediately:
+	rows.Close() // no need to capture the returned error since we check rows.Err() immediately:
 
 	if err = rows.Err(); err != nil {
 		return nil, err
