@@ -30,9 +30,9 @@ type NetworkChanges struct {
 
 // CloudInsertHandler defines a lambda handler for inserting new cloud asset or changes to existing cloud assets
 type CloudInsertHandler struct {
-	LogFn   domain.LogFn
-	StatFn  domain.StatFn
-	Storage domain.Storage
+	LogFn            domain.LogFn
+	StatFn           domain.StatFn
+	CloudAssetStorer domain.CloudAssetStorer
 }
 
 // Handle handles the insert operation for cloud assets
@@ -62,7 +62,7 @@ func (h *CloudInsertHandler) Handle(ctx context.Context, input CloudAssetChanges
 			ChangeType:         val.ChangeType,
 		})
 	}
-	if e := h.Storage.StoreCloudAsset(ctx, assetChanges); e != nil {
+	if e := h.CloudAssetStorer.Store(ctx, assetChanges); e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
 		return e
 	}

@@ -34,7 +34,7 @@ func TestShouldMakeNewDB(t *testing.T) {
 	}
 
 	postgresConfigComponent := PostgresConfigComponent{}
-	postgresConfigComponent.New(context.Background(), &postgresConfig)
+	postgresConfigComponent.New(context.Background(), &postgresConfig) // nolint
 
 	assert.True(t, called)
 }
