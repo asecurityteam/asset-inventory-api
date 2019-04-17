@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -15,6 +17,70 @@ import (
 	"github.com/asecurityteam/logevent"
 	"github.com/asecurityteam/runhttp"
 )
+
+func TestDBInitGoldenPath(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	thedb := DB{}
+
+	originalOpen := sqlOpenFn
+	defer func() {
+		sqlOpenFn = originalOpen
+		mockdb.Close()
+	}()
+
+	sqlOpenFn = func(driverName, dataSourceName string) (*sql.DB, error) {
+		assert.Equal(t, "postgres", driverName)
+		assert.Equal(t, "host=yocalhorse port=99 user=me! "+
+			"password=mypassword! dbname=name sslmode=enable", dataSourceName)
+		return mockdb, nil
+	}
+
+	postgresConfig := PostgresConfig{"yocalhorse", "99", "me!", "mypassword!", "name"}
+
+	if err := thedb.Init(context.Background(), &postgresConfig); err != nil {
+		t.Errorf("DB.Init should have returned a nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDBInitHandleOpenError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	thedb := DB{}
+
+	originalOpen := sqlOpenFn
+	defer func() {
+		sqlOpenFn = originalOpen
+		mockdb.Close()
+	}()
+
+	sqlOpenFn = func(driverName, dataSourceName string) (*sql.DB, error) {
+		assert.Equal(t, "postgres", driverName)
+		assert.Equal(t, "host=localhost port=99 user=me! "+
+			"password=mypassword! dbname=name sslmode=disable", dataSourceName)
+		return nil, errors.New("ruh-roh")
+	}
+
+	postgresConfig := PostgresConfig{"localhost", "99", "me!", "mypassword!", "name"}
+
+	if err := thedb.Init(context.Background(), &postgresConfig); err == nil {
+		t.Errorf("DB.Init should have returned a non-nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
 
 func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	// no panics, in other words

@@ -4,6 +4,9 @@ import (
 	"context"
 )
 
+// test seam
+var dbInitFn = (*DB).Init
+
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
 	Hostname     string
@@ -30,7 +33,7 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 // New constructs a DB from a config.
 func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
 	db := &DB{}
-	if err := db.Init(ctx, c); err != nil {
+	if err := dbInitFn(db, ctx, c); err != nil {
 		return nil, err
 	}
 	return db, nil

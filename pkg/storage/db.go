@@ -21,6 +21,9 @@ const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
 
 const added = "ADDED" // one of the network event types we track
 
+// test seam
+var sqlOpenFn = sql.Open
+
 // can't use Sprintf in a const, so...
 const commonQuery = "SELECT " +
 	"	aws_resources_id, aws_ips_ip, aws_hostnames_hostname, is_public, is_join, ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta " +
@@ -55,7 +58,7 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
 				host, port, user, password, dbname, sslmode)
-			pgdb, err := sql.Open("postgres", psqlInfo)
+			pgdb, err := sqlOpenFn("postgres", psqlInfo)
 			if err != nil {
 				initerr = err
 				return // from the unamed once.Do function
