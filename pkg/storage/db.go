@@ -30,6 +30,22 @@ const commonQuery = "SELECT " +
 	"	ON aws_resources_id = aws_resources.id " +
 	"WHERE "
 
+// can't use Sprintf in a const, so...
+// %s throughout should be `aws_hostnames_hostname` or `aws_ips_ip`
+const latestStatusQuery = "SELECT aws_events_ips_hostnames.aws_resources_id, aws_events_ips_hostnames.aws_ips_ip, aws_events_ips_hostnames.aws_hostnames_hostname, is_public, is_join, aws_events_ips_hostnames.ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta " +
+	"FROM " +
+	"    (SELECT %s, aws_resources_id, max(ts) as ts " +
+	"    FROM aws_events_ips_hostnames " +
+	"    WHERE ts BETWEEN $2 AND $3 " +
+	"    GROUP BY %s, aws_resources_id " +
+	") AS latest " +
+	"    JOIN aws_events_ips_hostnames " +
+	"    ON latest.ts = aws_events_ips_hostnames.ts " +
+	"    JOIN aws_resources " +
+	"    ON aws_events_ips_hostnames.aws_resources_id = aws_resources.id " +
+	"WHERE latest.%s = aws_events_ips_hostnames.%s " +
+	"AND latest.%s = $1;"
+
 // DB represents a convenient database abstraction layer
 type DB struct {
 	sqldb *sql.DB // this is a unit test seam
@@ -49,8 +65,8 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 		if db.sqldb == nil {
 			sslmode := "disable"
-			if host != "localhost" {
-				sslmode = "enable"
+			if host != "localhost" && host != "postgres" {
+				sslmode = "require"
 			}
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
@@ -238,6 +254,22 @@ func (db *DB) GetIPAddressesForIPAddress(ctx context.Context, ipAddress string) 
 func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_hostnames_hostname = $1;", tableAWSEventsIPSHostnames)
 	return db.runQuery(ctx, sqlstmt, hostname)
+}
+
+// GetAssetsByHostnameAtTime gets the assets who have hostname at the specified time
+func (db *DB) GetAssetsByHostnameAtTime(ctx context.Context, hostname string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+	// ok to hardcode this timestamp as the service in which this code runs went into production sometime after this date:
+	from, _ := time.Parse(time.RFC3339, "2019-04-22T00:00:00+00:00")
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`)
+	return db.runQuery(ctx, sqlstmt, hostname, from, at)
+}
+
+// GetAssetsByIPAddressAtTime gets the assets who have IP address at the specified time
+func (db *DB) GetAssetsByIPAddressAtTime(ctx context.Context, ipAddress string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+	// ok to hardcode this timestamp as the service in which this code runs went into production sometime after this date:
+	from, _ := time.Parse(time.RFC3339, "2019-04-22T00:00:00+00:00")
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`)
+	return db.runQuery(ctx, sqlstmt, ipAddress, from, at)
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
