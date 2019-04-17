@@ -261,7 +261,7 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		if err == nil {
 			if bytes != nil {
 				var i map[string]string
-				json.Unmarshal(bytes, &i) // nolint: we already checked for nil, and the DB column is JSONB; no need for err check here
+				_ = json.Unmarshal(bytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
 				row.Tags = i
 			}
 			if hostname.Valid {
