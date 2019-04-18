@@ -19,22 +19,10 @@ func TestShouldReturnSame(t *testing.T) {
 	assert.Empty(t, postgresConfig.DatabaseName)
 }
 
-func TestShouldMakeNewDB(t *testing.T) {
-	called := false
+func TestShouldFailToMakeNewDB(t *testing.T) {
 	postgresConfig := PostgresConfig{}
-	originalDBInitFn := dbInitFn
-	defer func() {
-		dbInitFn = originalDBInitFn
-	}()
-
-	dbInitFn = func(db *DB, ctx context.Context, c *PostgresConfig) error {
-		called = true
-		assert.Equal(t, postgresConfig, *c)
-		return nil
-	}
 
 	postgresConfigComponent := PostgresConfigComponent{}
-	_, _ = postgresConfigComponent.New(context.Background(), &postgresConfig)
-
-	assert.True(t, called)
+	_, err := postgresConfigComponent.New(context.Background(), &postgresConfig)
+	assert.NotNil(t, err)
 }
