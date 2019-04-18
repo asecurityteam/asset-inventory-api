@@ -15,6 +15,16 @@ import (
 
 func main() {
 	ctx := context.Background()
+	source, err := settings.NewEnvSource(os.Environ())
+	if err != nil {
+		panic(err.Error())
+	}
+
+	postgresConfigComponent := &storage.PostgresConfigComponent{}
+	dbStorage := new(storage.DB)
+	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
+		panic(err.Error())
+	}
 	insert := &v1.CloudInsertHandler{
 		LogFn:  domain.LoggerFromContext,
 		StatFn: domain.StatFromContext,
@@ -42,10 +52,6 @@ func main() {
 		"fetchByHostname": lambda.NewHandler(fetchByHostname.Handle),
 	}
 
-	source, err := settings.NewEnvSource(os.Environ())
-	if err != nil {
-		panic(err.Error())
-	}
 	rt, err := serverfull.NewStatic(ctx, source, handlers)
 	if err != nil {
 		panic(err.Error())
