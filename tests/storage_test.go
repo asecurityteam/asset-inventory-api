@@ -1,3 +1,5 @@
+// +build integration
+
 package inttest
 
 import (
@@ -70,8 +72,8 @@ func TestGetIPAddressesForTimeRange(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -89,7 +91,7 @@ func TestGetIPAddressesForTimeRange(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.NetworkChangeEvent{"arn", "44.33.22.11", "", false, true, timestamp, "aid", "region", "rtype", nil},
 	}
 
@@ -102,8 +104,8 @@ func TestGetIPAddressesForHostname(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -111,7 +113,7 @@ func TestGetIPAddressesForHostname(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	networkChangeEvents, err := dbStorage.GetIPAddressesForHostname(ctx, "yahoo.com")
+	networkChangeEvents, err := dbStorage.GetIPAddressesForHostname(ctx, "yahoo.com") // nolint
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -119,7 +121,7 @@ func TestGetIPAddressesForHostname(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -131,8 +133,8 @@ func TestGetIPAddressesForIPAddress(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -162,7 +164,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -170,7 +172,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	hostname := "yahoo.com"
+	hostname := "yahoo.com" // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00")
 	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
 	if err != nil {
@@ -180,7 +182,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -194,8 +196,8 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -211,7 +213,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	hostname := "yahoo.com"
+	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00") // query is for status on August 10
 	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
 	if err != nil {
@@ -221,7 +223,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -234,8 +236,8 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -251,7 +253,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	hostname := "yahoo.com"
+	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // query is for status on August 12
 	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
 	if err != nil {
@@ -261,8 +263,8 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
-		domain.NetworkChangeEvent{"arn2", "8.7.6.5", "yahoo.com", true, true, timestamp2, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
+		domain.NetworkChangeEvent{"arn2", "8.7.6.5", "yahoo.com", true, true, timestamp2, "aid", "region", "rtype", nil},   // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -275,8 +277,8 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -292,7 +294,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	hostname := "yahoo.com"
+	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-11T08:29:35+00:00") // query is for status on August 11
 	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
 	if err != nil {
@@ -302,7 +304,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -315,8 +317,8 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 	before(t, db)
 
 	privateIPs := []string{"44.33.22.11"}
-	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	publicIPs := []string{"88.77.66.55"} // nolint
+	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -324,7 +326,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	ipAddress := "88.77.66.55"
+	ipAddress := "88.77.66.55" // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00")
 	networkChangeEvents, err := dbStorage.GetAssetsByIPAddressAtTime(ctx, ipAddress, at)
 	if err != nil {
@@ -334,7 +336,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -349,7 +351,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -389,7 +391,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -429,7 +431,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
-	hostnames := []string{"yahoo.com"}
+	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
 	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
@@ -454,7 +456,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.NetworkChangeEvent{
-		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
+		domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -551,7 +553,7 @@ func createTables(db *sql.DB) error {
 }
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
-func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceID string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges {
+func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceID string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint
 	eventType := "ADDED"
 	if !added {
 		eventType = "DELETED"
@@ -579,9 +581,9 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.Network
 			}
 		}
 	}
-	expectedJson, _ := json.Marshal(expected)
-	actualJson, _ := json.Marshal(actual)
-	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJson), string(actualJson))
+	expectedJSON, _ := json.Marshal(expected)
+	actualJSON, _ := json.Marshal(actual)
+	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
 }
 
 // stdoutLogger is a logger that prints to stdout, Captain Obvious
