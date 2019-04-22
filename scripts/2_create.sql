@@ -59,19 +59,3 @@ PARTITION BY
 
 -- The underlying code must be careful to create new partition tables and indices when necessary.  Future updates to the implementation
 -- would require creation of new tables, done by either a database admin or here in code, perhaps in the Init function.
-
--- SELECT aws_resources_id, aws_events_ips_hostnames.aws_ips_ip, aws_events_ips_hostnames.aws_hostnames_hostname, is_public, is_join, aws_events_ips_hostnames.ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta
--- FROM
---     (SELECT aws_hostnames_hostname, max(ts) as ts
---     FROM aws_events_ips_hostnames
---     WHERE ts BETWEEN make_timestamp('2019', '1', '15', '8', '19', '23.5') AND
--- make_timestamp
--- ('2019', '1', '15', '8', '19', '23.5')
---     GROUP BY aws_hostnames_hostname
--- ) AS blarg
---     JOIN aws_events_ips_hostnames
---     ON blarg.ts = aws_events_ips_hostnames.ts
---     JOIN aws_resources
---     ON aws_events_ips_hostnames.aws_resources_id = aws_resources.id
--- WHERE blarg.aws_hostnames_hostname = aws_events_ips_hostnames.aws_hostnames_hostname
--- blarg
