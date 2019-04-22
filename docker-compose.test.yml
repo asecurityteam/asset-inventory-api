@@ -15,7 +15,7 @@ services:
     depends_on:
       - postgres
   postgres:
-    image: postgres:10.7  # 10.7 because Micros does not support 11.x as of the writing of this file
+    image: postgres:10.7
     environment:
       # while env var names are quite similar to `test` service above, it's just a coincidence
       - "POSTGRES_PASSWORD=password"
