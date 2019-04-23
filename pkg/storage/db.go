@@ -31,20 +31,36 @@ const commonQuery = "SELECT " +
 	"WHERE "
 
 // can't use Sprintf in a const, so...
-// %s throughout should be `aws_hostnames_hostname` or `aws_ips_ip`
-const latestStatusQuery = "SELECT aws_events_ips_hostnames.aws_resources_id, aws_events_ips_hostnames.aws_ips_ip, aws_events_ips_hostnames.aws_hostnames_hostname, is_public, is_join, aws_events_ips_hostnames.ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta " +
-	"FROM " +
-	"    (SELECT %s, aws_resources_id, max(ts) as ts " +
+// %s should be `aws_hostnames_hostname` or `aws_ips_ip`
+const latestStatusQuery = "WITH latest_candidates AS ( " +
+	"    SELECT " +
+	"        *, " +
+	"        MAX(ts) OVER (PARTITION BY aws_events_ips_hostnames.aws_resources_id) as max_ts " +
 	"    FROM aws_events_ips_hostnames " +
-	"    WHERE ts BETWEEN $2 AND $3 " +
-	"    GROUP BY %s, aws_resources_id " +
-	") AS latest " +
-	"    JOIN aws_events_ips_hostnames " +
-	"    ON latest.ts = aws_events_ips_hostnames.ts " +
-	"    JOIN aws_resources " +
-	"    ON aws_events_ips_hostnames.aws_resources_id = aws_resources.id " +
-	"WHERE latest.%s = aws_events_ips_hostnames.%s " +
-	"AND latest.%s = $1;"
+	"    WHERE " +
+	"        aws_events_ips_hostnames.%s = $1 AND " +
+	"        aws_events_ips_hostnames.ts <= $2 " +
+	"), " +
+	"latest AS ( " +
+	"    SELECT * " +
+	"    FROM latest_candidates " +
+	"    WHERE latest_candidates.ts = latest_candidates.max_ts " +
+	") " +
+	"SELECT " +
+	"    latest.aws_resources_id, " +
+	"    latest.aws_ips_ip, " +
+	"    latest.aws_hostnames_hostname, " +
+	"    latest.is_public, " +
+	"    latest.is_join, " +
+	"    latest.ts, " +
+	"    aws_resources.account_id, " +
+	"    aws_resources.region, " +
+	"    aws_resources.type, " +
+	"    aws_resources.meta " +
+	"FROM latest " +
+	"    LEFT OUTER JOIN " +
+	"    aws_resources ON " +
+	"        latest.aws_resources_id = aws_resources.id;"
 
 // DB represents a convenient database abstraction layer
 type DB struct {
@@ -258,18 +274,14 @@ func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([
 
 // GetAssetsByHostnameAtTime gets the assets who have hostname at the specified time
 func (db *DB) GetAssetsByHostnameAtTime(ctx context.Context, hostname string, at time.Time) ([]domain.NetworkChangeEvent, error) {
-	// ok to hardcode this timestamp as the service in which this code runs went into production sometime after this date:
-	from, _ := time.Parse(time.RFC3339, "2019-04-22T00:00:00+00:00")
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, from, at)
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
+	return db.runQuery(ctx, sqlstmt, hostname, at)
 }
 
 // GetAssetsByIPAddressAtTime gets the assets who have IP address at the specified time
 func (db *DB) GetAssetsByIPAddressAtTime(ctx context.Context, ipAddress string, at time.Time) ([]domain.NetworkChangeEvent, error) {
-	// ok to hardcode this timestamp as the service in which this code runs went into production sometime after this date:
-	from, _ := time.Parse(time.RFC3339, "2019-04-22T00:00:00+00:00")
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, from, at)
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
+	return db.runQuery(ctx, sqlstmt, ipAddress, at)
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
