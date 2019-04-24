@@ -30,6 +30,38 @@ const commonQuery = "SELECT " +
 	"	ON aws_resources_id = aws_resources.id " +
 	"WHERE "
 
+// can't use Sprintf in a const, so...
+// %s should be `aws_hostnames_hostname` or `aws_ips_ip`
+const latestStatusQuery = "WITH latest_candidates AS ( " +
+	"    SELECT " +
+	"        *, " +
+	"        MAX(ts) OVER (PARTITION BY aws_events_ips_hostnames.aws_resources_id) as max_ts " +
+	"    FROM aws_events_ips_hostnames " +
+	"    WHERE " +
+	"        aws_events_ips_hostnames.%s = $1 AND " +
+	"        aws_events_ips_hostnames.ts <= $2 " +
+	"), " +
+	"latest AS ( " +
+	"    SELECT * " +
+	"    FROM latest_candidates " +
+	"    WHERE latest_candidates.ts = latest_candidates.max_ts " +
+	") " +
+	"SELECT " +
+	"    latest.aws_resources_id, " +
+	"    latest.aws_ips_ip, " +
+	"    latest.aws_hostnames_hostname, " +
+	"    latest.is_public, " +
+	"    latest.is_join, " +
+	"    latest.ts, " +
+	"    aws_resources.account_id, " +
+	"    aws_resources.region, " +
+	"    aws_resources.type, " +
+	"    aws_resources.meta " +
+	"FROM latest " +
+	"    LEFT OUTER JOIN " +
+	"    aws_resources ON " +
+	"        latest.aws_resources_id = aws_resources.id;"
+
 // DB represents a convenient database abstraction layer
 type DB struct {
 	sqldb *sql.DB // this is a unit test seam
@@ -49,8 +81,8 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 		if db.sqldb == nil {
 			sslmode := "disable"
-			if host != "localhost" {
-				sslmode = "enable"
+			if host != "localhost" && host != "postgres" {
+				sslmode = "require"
 			}
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
@@ -238,6 +270,18 @@ func (db *DB) GetIPAddressesForIPAddress(ctx context.Context, ipAddress string) 
 func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_hostnames_hostname = $1;", tableAWSEventsIPSHostnames)
 	return db.runQuery(ctx, sqlstmt, hostname)
+}
+
+// GetAssetsByHostnameAtTime gets the assets who have hostname at the specified time
+func (db *DB) GetAssetsByHostnameAtTime(ctx context.Context, hostname string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
+	return db.runQuery(ctx, sqlstmt, hostname, at)
+}
+
+// GetAssetsByIPAddressAtTime gets the assets who have IP address at the specified time
+func (db *DB) GetAssetsByIPAddressAtTime(ctx context.Context, ipAddress string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
+	return db.runQuery(ctx, sqlstmt, ipAddress, at)
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {

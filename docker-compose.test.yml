@@ -1,0 +1,23 @@
+version: '3'
+services:
+  test:
+    image: asecurityteam/sdcli:v1
+    environment:
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_USERNAME=user"
+      - "POSTGRES_DATABASENAME=assetmgmt"
+      - "POSTGRES_HOSTNAME=postgres"
+      - "POSTGRES_PORT=5432"
+    command: go integration
+    working_dir: /go/src/${PROJECT_PATH}
+    volumes:
+      - ${DIR}:/go/src/${PROJECT_PATH}
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:10.7
+    environment:
+      # while env var names are quite similar to `test` service above, it's just a coincidence
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_USER=user"
+      - "POSTGRES_DB=assetmgmt"
