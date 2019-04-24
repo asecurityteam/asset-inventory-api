@@ -26,25 +26,19 @@ func main() {
 		panic(err.Error())
 	}
 	insert := &v1.CloudInsertHandler{
-		LogFn:  domain.LoggerFromContext,
-		StatFn: domain.StatFromContext,
-		CloudAssetStorer: &storage.NopStorer{
-			LogFn: domain.LoggerFromContext,
-		},
+		LogFn:            domain.LoggerFromContext,
+		StatFn:           domain.StatFromContext,
+		CloudAssetStorer: dbStorage,
 	}
 	fetchByIP := &v1.CloudFetchByIPHandler{
-		LogFn:  domain.LoggerFromContext,
-		StatFn: domain.StatFromContext,
-		Fetcher: &storage.NopFetcher{
-			LogFn: domain.LoggerFromContext,
-		},
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: dbStorage,
 	}
 	fetchByHostname := &v1.CloudFetchByHostnameHandler{
-		LogFn:  domain.LoggerFromContext,
-		StatFn: domain.StatFromContext,
-		Fetcher: &storage.NopFetcher{
-			LogFn: domain.LoggerFromContext,
-		},
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: dbStorage,
 	}
 	handlers := map[string]serverfulldomain.Handler{
 		"insert":          lambda.NewHandler(insert.Handle),
