@@ -272,16 +272,16 @@ func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([
 	return db.runQuery(ctx, sqlstmt, hostname)
 }
 
-// GetAssetsByHostnameAtTime gets the assets who have hostname at the specified time
-func (db *DB) GetAssetsByHostnameAtTime(ctx context.Context, hostname string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+// FetchByHostname gets the assets who have hostname at the specified time
+func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, at)
+	return db.runQuery(ctx, sqlstmt, hostname, when)
 }
 
-// GetAssetsByIPAddressAtTime gets the assets who have IP address at the specified time
-func (db *DB) GetAssetsByIPAddressAtTime(ctx context.Context, ipAddress string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+// FetchByIP gets the assets who have IP address at the specified time
+func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.NetworkChangeEvent, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, at)
+	return db.runQuery(ctx, sqlstmt, ipAddress, when)
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {

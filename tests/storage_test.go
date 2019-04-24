@@ -174,7 +174,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 
 	hostname := "yahoo.com" // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00")
-	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
+	networkChangeEvents, err := dbStorage.FetchByHostname(ctx, at, hostname)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -215,7 +215,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 
 	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00") // query is for status on August 10
-	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
+	networkChangeEvents, err := dbStorage.FetchByHostname(ctx, at, hostname)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -255,7 +255,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 
 	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // query is for status on August 12
-	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
+	networkChangeEvents, err := dbStorage.FetchByHostname(ctx, at, hostname)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -296,7 +296,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 
 	hostname := "yahoo.com"                                        // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-11T08:29:35+00:00") // query is for status on August 11
-	networkChangeEvents, err := dbStorage.GetAssetsByHostnameAtTime(ctx, hostname, at)
+	networkChangeEvents, err := dbStorage.FetchByHostname(ctx, at, hostname)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -328,7 +328,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 
 	ipAddress := "88.77.66.55" // nolint
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00")
-	networkChangeEvents, err := dbStorage.GetAssetsByIPAddressAtTime(ctx, ipAddress, at)
+	networkChangeEvents, err := dbStorage.FetchByIP(ctx, at, ipAddress)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -369,7 +369,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
 	ipAddress := "88.77.66.55"
 	at, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00") // query is for status on August 10
-	networkChangeEvents, err := dbStorage.GetAssetsByIPAddressAtTime(ctx, ipAddress, at)
+	networkChangeEvents, err := dbStorage.FetchByIP(ctx, at, ipAddress)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -408,7 +408,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
 	ipAddress := "88.77.66.55"
 	at, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // query is for status on August 12
-	networkChangeEvents, err := dbStorage.GetAssetsByIPAddressAtTime(ctx, ipAddress, at)
+	networkChangeEvents, err := dbStorage.FetchByIP(ctx, at, ipAddress)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -448,7 +448,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 
 	ipAddress := "88.77.66.55"
 	at, _ := time.Parse(time.RFC3339, "2019-08-11T08:29:35+00:00") // query is for status on August 11
-	networkChangeEvents, err := dbStorage.GetAssetsByIPAddressAtTime(ctx, ipAddress, at)
+	networkChangeEvents, err := dbStorage.FetchByIP(ctx, at, ipAddress)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
