@@ -1,4 +1,4 @@
-/* +build integration */
+// +build integration
 
 package inttest
 
@@ -258,8 +258,8 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 
 }
 
-// TestGetStatusByIPAddressAtTimestamp2 test that only one asset has the Hostname at the specified timestamp despite another one using
-// the same hostname _after_ the specified timestamp
+// TestGetStatusByIPAddressAtTimestamp2 test that only one asset has the IP address at the specified timestamp despite another one using
+// the same IP address _after_ the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
 	before(t, db)
@@ -300,7 +300,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
 }
 
-// TestGetStatusByIPAddressAtTimestamp3 test that two assets have the Hostname at the specified timestamp
+// TestGetStatusByIPAddressAtTimestamp3 test that two assets have the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
 	before(t, db)
@@ -342,7 +342,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
 }
 
-// TestGetStatusByIPAddressAtTimestamp4 test that one asset has the Hostname at the specified timestamp
+// TestGetStatusByIPAddressAtTimestamp4 test that one asset has the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 
 	before(t, db)
@@ -376,6 +376,61 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 	expected := []domain.CloudAssetDetails{
 		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+	}
+
+	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
+
+}
+
+// TestGetStatusByIPAddressAtTimestamp5 test that two assets have the IP address at the specified timestamp, despite another asset
+// having then dropping the same IP address prior to that timestamp
+func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
+
+	before(t, db)
+
+	privateIPs := []string{"44.33.22.11"}
+	publicIPs := []string{"88.77.66.55"}
+	hostnames := []string{"yahoo.com"} // nolint
+	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
+
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // August 12
+	hostnames2 := []string{"blarg.com"}
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	timestamp3, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00") // August 10, arn3
+	hostnames3 := []string{"reddit.com"}
+	fakeCloudAssetChange3 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp3, `arn3`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	if err := dbStorage.Store(ctx, fakeCloudAssetChange3); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	timestamp4, _ := time.Parse(time.RFC3339, "2019-08-10T08:39:35+00:00") // August 10, 10 minutes later, arn3 drops the same IP address
+	fakeCloudAssetChange4 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp4, `arn3`, `rid`, `rtype`, `aid`, `region`, nil, false)
+	if err := dbStorage.Store(ctx, fakeCloudAssetChange4); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	ipAddress := "88.77.66.55"
+	at, _ := time.Parse(time.RFC3339, "2019-08-13T08:29:35+00:00") // query is for status on August 13
+	networkChangeEvents, err := dbStorage.FetchByIP(ctx, at, ipAddress)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assert.Equal(t, 2, len(networkChangeEvents))
+
+	expected := []domain.CloudAssetDetails{
+		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil},  // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)

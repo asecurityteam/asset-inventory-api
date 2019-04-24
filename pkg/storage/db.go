@@ -35,7 +35,9 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"latest AS ( " +
 	"    SELECT * " +
 	"    FROM latest_candidates " +
-	"    WHERE latest_candidates.ts = latest_candidates.max_ts " +
+	"    WHERE " +
+	"        latest_candidates.ts = latest_candidates.max_ts AND " +
+	"        latest_candidates.is_join = 'true' " +
 	") " +
 	"SELECT " +
 	"    latest.aws_resources_id, " +
