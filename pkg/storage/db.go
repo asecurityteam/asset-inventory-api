@@ -259,7 +259,7 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 	return db.runQuery(ctx, sqlstmt, ipAddress, when)
 }
 
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) { //([]domain.NetworkChangeEvent, error) {
+func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {

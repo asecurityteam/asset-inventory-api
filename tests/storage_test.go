@@ -91,7 +91,6 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -133,7 +132,6 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -174,10 +172,8 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
-		// domain.NetworkChangeEvent{"arn2", "8.7.6.5", "yahoo.com", true, true, timestamp2, "aid", "region", "rtype", nil},   // nolint
-		domain.CloudAssetDetails{nil, []string{"8.7.6.5"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"8.7.6.5"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn2", nil},    // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -217,7 +213,6 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -250,7 +245,6 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -292,7 +286,6 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -332,9 +325,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil},
-		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
-		// domain.NetworkChangeEvent{"arn2", "88.77.66.55", "blarg.com", true, true, timestamp2, "aid", "region", "rtype", nil},
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil},  // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
 	}
 
@@ -374,7 +365,6 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
 	}
 
@@ -428,7 +418,6 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		// domain.NetworkChangeEvent{"arn", "88.77.66.55", "yahoo.com", true, true, timestamp, "aid", "region", "rtype", nil}, // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil},  // nolint
 		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
 	}
