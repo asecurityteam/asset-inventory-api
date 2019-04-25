@@ -15,8 +15,8 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/settings"
-	packr "github.com/gobuffalo/packr/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // db refers to a raw Postgres, without the "storage.DB" abstraction
@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 
 func TestNoDBRows(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	// code should tolerate no data in the tables
 
@@ -66,7 +66,7 @@ func TestNoDBRows(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp1 test that only one asset has the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -99,7 +99,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 // the same hostname _after_ the specified timestamp
 func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -139,7 +139,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp3 test that two assets have the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -180,7 +180,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp4 test that one asset has the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -220,7 +220,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp1 test that only one asset has the Hostname at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -253,7 +253,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 // the same IP address _after_ the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -293,7 +293,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 // TestGetStatusByIPAddressAtTimestamp3 test that two assets have the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -333,7 +333,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 // TestGetStatusByIPAddressAtTimestamp4 test that one asset has the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -373,7 +373,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 // having then dropping the same IP address prior to that timestamp
 func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 
-	before(t, db)
+	before(t, dbStorage)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -454,58 +454,9 @@ func connectToDB() (*sql.DB, error) {
 
 // before is the function all tests should call to ensure no state is carried over
 // from prior tests
-func before(t *testing.T, db *sql.DB) {
-	if err := dropTables(db); err != nil {
-		t.Fatalf("Failed to DROP tables due to: %s", err.Error())
-	}
-	if err := createTables(db); err != nil {
-		t.Fatalf("Failed to CREATE tables due to: %s", err.Error())
-	}
-}
-
-// dropTables is a utility function called by "before"
-func dropTables(db *sql.DB) error {
-
-	sqlFile := "1_clean.sql"
-
-	box := packr.New("box", "../scripts")
-	_, err := box.Find(sqlFile)
-	if err != nil {
-		return err
-	}
-	s, err := box.FindString(sqlFile)
-	if err != nil {
-		return err
-	}
-
-	if _, err = db.Exec(s); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// createTables is a utility function called by "before"
-func createTables(db *sql.DB) error {
-
-	sqlFile := "2_create.sql"
-
-	box := packr.New("box", "../scripts")
-	_, err := box.Find(sqlFile)
-	if err != nil {
-		return err
-	}
-	s, err := box.FindString(sqlFile)
-	if err != nil {
-		return err
-	}
-
-	if _, err = db.Exec(s); err != nil {
-		return err
-	}
-
-	return nil
-
+func before(t *testing.T, db *storage.DB) {
+	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
+	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
 }
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
