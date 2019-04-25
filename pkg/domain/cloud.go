@@ -11,7 +11,6 @@ type CloudAssetChanges struct {
 	ResourceType string
 	AccountID    string
 	Region       string
-	ResourceID   string
 	ARN          string
 	Tags         map[string]string
 }
@@ -32,6 +31,6 @@ type CloudAssetDetails struct {
 	ResourceType       string
 	AccountID          string
 	Region             string
-	ResourceID         string
+	ARN                string
 	Tags               map[string]string
 }

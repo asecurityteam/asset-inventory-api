@@ -222,7 +222,7 @@ func TestExtractOutput(t *testing.T) {
 					ResourceType: "resourceType",
 					AccountID:    "accountId",
 					Region:       "Region",
-					ResourceID:   "resourceID",
+					ARN:          "arn",
 				},
 			},
 			expected: CloudAssets{
@@ -234,7 +234,7 @@ func TestExtractOutput(t *testing.T) {
 						ResourceType:       "resourceType",
 						AccountID:          "accountId",
 						Region:             "Region",
-						ResourceID:         "resourceID",
+						ARN:                "arn",
 						Tags:               make(map[string]string),
 					},
 				},
