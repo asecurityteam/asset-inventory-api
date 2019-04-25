@@ -18,6 +18,7 @@ const tableAWSResources = "aws_resources"
 const tableAWSIPS = "aws_ips"
 const tableAWSHostnames = "aws_hostnames"
 const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
+const createScript = "2_create.sql"
 
 const added = "ADDED" // one of the network event types we track
 
@@ -109,10 +110,12 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			err = pgdb.Ping()
 			if err != nil {
 				initerr = err
+				return // from the unnamed once.Do function
 			}
 
 			db.sqldb = pgdb
 		}
+		initerr = db.RunScript(ctx, createScript)
 	})
 	return initerr
 }
