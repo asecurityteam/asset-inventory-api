@@ -14,8 +14,6 @@ import (
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
-	"github.com/asecurityteam/logevent"
-	"github.com/asecurityteam/runhttp"
 	"github.com/asecurityteam/settings"
 	packr "github.com/gobuffalo/packr/v2"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +28,6 @@ var ctx context.Context
 
 func TestMain(m *testing.M) {
 	ctx = context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger())
 	source, err := settings.NewEnvSource(os.Environ())
 	if err != nil {
 		panic(err.Error())
@@ -543,9 +540,4 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
-}
-
-// stdoutLogger is a logger that prints to stdout, Captain Obvious
-func stdoutLogger() runhttp.Logger {
-	return logevent.New(logevent.Config{Output: os.Stdout})
 }
