@@ -277,9 +277,9 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 		var metaBytes []byte
 		var hostname sql.NullString
-		var ipAddress sql.NullString
-		var isPublic sql.NullBool
-		var isJoin sql.NullBool
+		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
+		var isPublic bool    // no need for sql.NullBool as the DB column is guaranteed a value
+		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
 		var timestamp time.Time
 
 		err = rows.Scan(&row.ResourceID, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
@@ -306,26 +306,24 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 				}
 			}
 			found = false
-			if ipAddress.Valid {
-				var ipAddresses *[]string
-				if isPublic.Bool { // no need for .Valid check; DB table column guarantees non-null
-					ipAddresses = &tempMap[row.ResourceID].PublicIPAddresses
+			var ipAddresses *[]string
+			if isPublic {
+				ipAddresses = &tempMap[row.ResourceID].PublicIPAddresses
+			} else {
+				ipAddresses = &tempMap[row.ResourceID].PrivateIPAddresses
+			}
+			for _, val := range *ipAddresses {
+				if strings.EqualFold(val, ipAddress) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				newArray := append(*ipAddresses, ipAddress)
+				if isPublic {
+					tempMap[row.ResourceID].PublicIPAddresses = newArray
 				} else {
-					ipAddresses = &tempMap[row.ResourceID].PrivateIPAddresses
-				}
-				for _, val := range *ipAddresses {
-					if strings.EqualFold(val, ipAddress.String) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					newArray := append(*ipAddresses, ipAddress.String)
-					if isPublic.Bool {
-						tempMap[row.ResourceID].PublicIPAddresses = newArray
-					} else {
-						tempMap[row.ResourceID].PrivateIPAddresses = newArray
-					}
+					tempMap[row.ResourceID].PrivateIPAddresses = newArray
 				}
 			}
 		}

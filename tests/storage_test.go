@@ -537,7 +537,7 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 			e, _ := json.Marshal(expectedVal)
 			a, _ := json.Marshal(actualVal)
 
-			// likely due to timestamp, DeepEqual(expectedVal, actualVal) would not work, so checking the Marhalled JSON:
+			// likely due to timestamp, DeepEqual(expectedVal, actualVal) would not work, so checking the Marshaled JSON:
 			if reflect.DeepEqual(e, a) {
 				equalityCount++
 				break

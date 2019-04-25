@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -191,9 +193,12 @@ func TestGetIPsAtTimeMultiRows(t *testing.T) {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
-	assert.Equal(t, 2, len(results))
-	assert.Equal(t, domain.CloudAssetDetails{nil, []string{"44.33.22.11"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there2"}}, results[0])
-	assert.Equal(t, domain.CloudAssetDetails{nil, []string{"99.88.77.66"}, []string{"google.com"}, "type2", "aid2", "region2", "rid2", map[string]string{"bye": "now"}}, results[1])
+	expected := []domain.CloudAssetDetails{
+		domain.CloudAssetDetails{nil, []string{"44.33.22.11"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there2"}},    // nolint
+		domain.CloudAssetDetails{nil, []string{"99.88.77.66"}, []string{"google.com"}, "type2", "aid2", "region2", "rid2", map[string]string{"bye": "now"}}, // nolint
+	}
+
+	assertArrayEqualIgnoreOrder(t, expected, results)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -272,4 +277,26 @@ func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "rid", "arn", map[string]string{"tag1": "val1"}}
 	return cloudAssetChanges
+}
+
+func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAssetDetails) {
+	// brute force
+	assert.Equal(t, len(expected), len(actual))
+	equalityCount := 0
+	for _, expectedVal := range expected {
+		for _, actualVal := range actual {
+
+			e, _ := json.Marshal(expectedVal)
+			a, _ := json.Marshal(actualVal)
+
+			// likely due to timestamp, DeepEqual(expectedVal, actualVal) would not work, so checking the Marshaled JSON:
+			if reflect.DeepEqual(e, a) {
+				equalityCount++
+				break
+			}
+		}
+	}
+	expectedJSON, _ := json.Marshal(expected)
+	actualJSON, _ := json.Marshal(actual)
+	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
 }
