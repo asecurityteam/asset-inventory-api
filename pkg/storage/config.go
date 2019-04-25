@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+
+	packr "github.com/gobuffalo/packr/v2"
 )
 
 // PostgresConfig contains the Postgres database configuration arguments
@@ -29,7 +31,10 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 
 // New constructs a DB from a config.
 func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
-	db := &DB{}
+	scripts := packr.New("scripts", "../../scripts")
+	db := &DB{
+		scripts: scripts.FindString,
+	}
 	if err := db.Init(ctx, c); err != nil {
 		return nil, err
 	}
