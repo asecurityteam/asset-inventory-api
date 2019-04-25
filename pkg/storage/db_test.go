@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -13,8 +12,6 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/logevent"
-	"github.com/asecurityteam/runhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +46,6 @@ func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	mock.ExpectBegin().WillReturnError(fmt.Errorf("could not start transaction"))
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
@@ -79,7 +75,6 @@ func TestShouldINSERTResource(t *testing.T) {
 	fakeContext, _ := mockdb.BeginTx(context.Background(), nil)
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.saveResource(ctx, fakeCloudAssetChanges(), fakeContext); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
@@ -107,7 +102,6 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	mock.ExpectRollback()
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
@@ -145,7 +139,6 @@ func TestGoldenPath(t *testing.T) {
 	mock.ExpectCommit()
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
@@ -363,10 +356,6 @@ func TestRunScriptTxCommit(t *testing.T) {
 		scripts: scriptFound,
 	}
 	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
-}
-
-func stdoutLogger(_ context.Context) runhttp.Logger {
-	return logevent.New(logevent.Config{Output: os.Stdout})
 }
 
 func fakeCloudAssetChanges() domain.CloudAssetChanges {
