@@ -22,15 +22,6 @@ const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
 const added = "ADDED" // one of the network event types we track
 
 // can't use Sprintf in a const, so...
-const commonQuery = "SELECT " +
-	"	aws_resources_id, aws_ips_ip, aws_hostnames_hostname, is_public, is_join, ts, aws_resources.account_id, aws_resources.region, aws_resources.type, aws_resources.meta " +
-	"FROM " +
-	"	" + tableAWSEventsIPSHostnames + " " +
-	"JOIN " + tableAWSResources + " " +
-	"	ON aws_resources_id = aws_resources.id " +
-	"WHERE "
-
-// can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
 const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"    SELECT " +
@@ -44,7 +35,9 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"latest AS ( " +
 	"    SELECT * " +
 	"    FROM latest_candidates " +
-	"    WHERE latest_candidates.ts = latest_candidates.max_ts " +
+	"    WHERE " +
+	"        latest_candidates.ts = latest_candidates.max_ts AND " +
+	"        latest_candidates.is_join = 'true' " +
 	") " +
 	"SELECT " +
 	"    latest.aws_resources_id, " +
@@ -104,8 +97,8 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 	return initerr
 }
 
-// StoreCloudAsset an implementation of the Storage interface that records to a database
-func (db *DB) StoreCloudAsset(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
+// Store an implementation of the Storage interface that records to a database
+func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 
 	tx, err := db.sqldb.Begin()
 	if err != nil {
@@ -254,37 +247,19 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	return nil
 }
 
-// GetIPAddressesForTimeRange gets the audit trail of IP address and hostname changes over a specified time range
-func (db *DB) GetIPAddressesForTimeRange(ctx context.Context, start time.Time, end time.Time) ([]domain.NetworkChangeEvent, error) {
-	sqlstmt := commonQuery + fmt.Sprintf("%s.ts BETWEEN $1 AND $2;", tableAWSEventsIPSHostnames)
-	return db.runQuery(ctx, sqlstmt, start, end)
-}
-
-// GetIPAddressesForIPAddress gets the audit trail of IP Address and hostname changes for a specified IP address
-func (db *DB) GetIPAddressesForIPAddress(ctx context.Context, ipAddress string) ([]domain.NetworkChangeEvent, error) {
-	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_ips_ip = $1;", tableAWSEventsIPSHostnames)
-	return db.runQuery(ctx, sqlstmt, ipAddress)
-}
-
-// GetIPAddressesForHostname gets the audit trail of IP Address and hostname changes for a specified hostname
-func (db *DB) GetIPAddressesForHostname(ctx context.Context, hostname string) ([]domain.NetworkChangeEvent, error) {
-	sqlstmt := commonQuery + fmt.Sprintf("%s.aws_hostnames_hostname = $1;", tableAWSEventsIPSHostnames)
-	return db.runQuery(ctx, sqlstmt, hostname)
-}
-
-// GetAssetsByHostnameAtTime gets the assets who have hostname at the specified time
-func (db *DB) GetAssetsByHostnameAtTime(ctx context.Context, hostname string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+// FetchByHostname gets the assets who have hostname at the specified time
+func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, at)
+	return db.runQuery(ctx, sqlstmt, hostname, when)
 }
 
-// GetAssetsByIPAddressAtTime gets the assets who have IP address at the specified time
-func (db *DB) GetAssetsByIPAddressAtTime(ctx context.Context, ipAddress string, at time.Time) ([]domain.NetworkChangeEvent, error) {
+// FetchByIP gets the assets who have IP address at the specified time
+func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, at)
+	return db.runQuery(ctx, sqlstmt, ipAddress, when)
 }
 
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.NetworkChangeEvent, error) {
+func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -293,23 +268,64 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 	defer rows.Close()
 
-	networkChangeEvents := make([]domain.NetworkChangeEvent, 0)
+	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
+
+	tempMap := make(map[string]*domain.CloudAssetDetails)
+
 	for rows.Next() {
-		var row domain.NetworkChangeEvent
-		var bytes []byte
+		var row domain.CloudAssetDetails
+
+		var metaBytes []byte
 		var hostname sql.NullString
-		err = rows.Scan(&row.ResourceID, &row.IPAddress, &hostname, &row.IsPublic, &row.IsJoin, &row.Timestamp, &row.AccountID, &row.Region, &row.Type, &bytes)
+		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
+		var isPublic bool    // no need for sql.NullBool as the DB column is guaranteed a value
+		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
+		var timestamp time.Time
+
+		err = rows.Scan(&row.ResourceID, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+
 		if err == nil {
-			if bytes != nil {
+			if metaBytes != nil {
 				var i map[string]string
-				_ = json.Unmarshal(bytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+				_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
 				row.Tags = i
 			}
-			if hostname.Valid {
-				row.Hostname = hostname.String
-
+			if tempMap[row.ResourceID] == nil {
+				tempMap[row.ResourceID] = &row
 			}
-			networkChangeEvents = append(networkChangeEvents, row)
+			found := false
+			if hostname.Valid {
+				for _, val := range tempMap[row.ResourceID].Hostnames {
+					if strings.EqualFold(val, hostname.String) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					tempMap[row.ResourceID].Hostnames = append(tempMap[row.ResourceID].Hostnames, hostname.String)
+				}
+			}
+			found = false
+			var ipAddresses *[]string
+			if isPublic {
+				ipAddresses = &tempMap[row.ResourceID].PublicIPAddresses
+			} else {
+				ipAddresses = &tempMap[row.ResourceID].PrivateIPAddresses
+			}
+			for _, val := range *ipAddresses {
+				if strings.EqualFold(val, ipAddress) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				newArray := append(*ipAddresses, ipAddress)
+				if isPublic {
+					tempMap[row.ResourceID].PublicIPAddresses = newArray
+				} else {
+					tempMap[row.ResourceID].PrivateIPAddresses = newArray
+				}
+			}
 		}
 	}
 
@@ -319,6 +335,10 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		return nil, err
 	}
 
-	return networkChangeEvents, nil
+	for _, val := range tempMap {
+		cloudAssetDetails = append(cloudAssetDetails, *val)
+	}
+
+	return cloudAssetDetails, nil
 
 }
