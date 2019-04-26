@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -261,7 +260,10 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "google.com"
