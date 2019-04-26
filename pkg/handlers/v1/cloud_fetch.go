@@ -22,7 +22,7 @@ type CloudAssetDetails struct {
 	ResourceType       string            `json:"resourceType"`
 	AccountID          string            `json:"accountId"`
 	Region             string            `json:"region"`
-	ResourceID         string            `json:"resourceId"`
+	ARN                string            `json:"arn"`
 	Tags               map[string]string `json:"tags"`
 }
 
@@ -137,7 +137,7 @@ func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {
 			ResourceType:       asset.ResourceType,
 			AccountID:          asset.AccountID,
 			Region:             asset.Region,
-			ResourceID:         asset.ResourceID,
+			ARN:                asset.ARN,
 			Tags:               tags,
 		}
 	}

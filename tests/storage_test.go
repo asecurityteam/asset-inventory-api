@@ -76,7 +76,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -109,7 +109,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -149,7 +149,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -157,7 +157,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-11T08:29:35+00:00") // August 11
 	privateIPs2 := []string{"4.3.2.1"}
 	publicIPs2 := []string{"8.7.6.5"}
-	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs2, publicIPs2, hostnames, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs2, publicIPs2, hostnames, timestamp2, `arn2`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -190,7 +190,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -198,7 +198,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // August 12
 	privateIPs2 := []string{"4.3.2.1"}
 	publicIPs2 := []string{"8.7.6.5"}
-	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs2, publicIPs2, hostnames, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs2, publicIPs2, hostnames, timestamp2, `arn2`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -230,7 +230,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 	hostnames := []string{"yahoo.com"}   // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -263,7 +263,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -303,14 +303,14 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-11T08:29:35+00:00") // August 11
 	hostnames2 := []string{"blarg.com"}
-	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -343,14 +343,14 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // August 12
 	hostnames2 := []string{"blarg.com"}
-	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -383,27 +383,27 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 	hostnames := []string{"yahoo.com"} // nolint
 	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
 
-	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	timestamp2, _ := time.Parse(time.RFC3339, "2019-08-12T08:29:35+00:00") // August 12
 	hostnames2 := []string{"blarg.com"}
-	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange2 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames2, timestamp2, `arn2`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange2); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	timestamp3, _ := time.Parse(time.RFC3339, "2019-08-10T08:29:35+00:00") // August 10, arn3
 	hostnames3 := []string{"reddit.com"}
-	fakeCloudAssetChange3 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp3, `arn3`, `rid`, `rtype`, `aid`, `region`, nil, true)
+	fakeCloudAssetChange3 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp3, `arn3`, `rtype`, `aid`, `region`, nil, true)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange3); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	timestamp4, _ := time.Parse(time.RFC3339, "2019-08-10T08:39:35+00:00") // August 10, 10 minutes later, arn3 drops the same IP address
-	fakeCloudAssetChange4 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp4, `arn3`, `rid`, `rtype`, `aid`, `region`, nil, false)
+	fakeCloudAssetChange4 := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames3, timestamp4, `arn3`, `rtype`, `aid`, `region`, nil, false)
 	if err := dbStorage.Store(ctx, fakeCloudAssetChange4); err != nil {
 		t.Fatal(err.Error())
 	}
@@ -472,7 +472,7 @@ func dropTables(db *sql.DB) error {
 	sqlFile := "1_clean.sql"
 
 	box := packr.New("box", "../scripts")
-	path, err := box.Find(sqlFile)
+	_, err := box.Find(sqlFile)
 	if err != nil {
 		return err
 	}
@@ -480,8 +480,6 @@ func dropTables(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("DROPping existing aws_* tables %s\n", string(path))
 
 	if _, err = db.Exec(s); err != nil {
 		return err
@@ -496,7 +494,7 @@ func createTables(db *sql.DB) error {
 	sqlFile := "2_create.sql"
 
 	box := packr.New("box", "../scripts")
-	path, err := box.Find(sqlFile)
+	_, err := box.Find(sqlFile)
 	if err != nil {
 		return err
 	}
@@ -504,8 +502,6 @@ func createTables(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("CREATEing aws_* tables using %s\n", string(path))
 
 	if _, err = db.Exec(s); err != nil {
 		return err
@@ -516,13 +512,13 @@ func createTables(db *sql.DB) error {
 }
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
-func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceID string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint
+func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint
 	eventType := "ADDED"
 	if !added {
 		eventType = "DELETED"
 	}
 	networkChangesArray := []domain.NetworkChanges{domain.NetworkChanges{privateIPs, publicIPs, hostnames, eventType}}
-	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, resourceType, accountID, region, resourceID, arn, tags}
+	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, resourceType, accountID, region, arn, tags}
 
 	return cloudAssetChanges
 }

@@ -15,7 +15,6 @@ type CloudAssetChanges struct {
 	ResourceType string            `json:"resourceType"`
 	AccountID    string            `json:"accountId"`
 	Region       string            `json:"region"`
-	ResourceID   string            `json:"resourceId"`
 	ARN          string            `json:"arn"`
 	Tags         map[string]string `json:"tags"`
 }
@@ -49,7 +48,6 @@ func (h *CloudInsertHandler) Handle(ctx context.Context, input CloudAssetChanges
 		ResourceType: input.ResourceType,
 		AccountID:    input.AccountID,
 		Region:       input.Region,
-		ResourceID:   input.ResourceID,
 		ARN:          input.ARN,
 		Tags:         input.Tags,
 		Changes:      make([]domain.NetworkChanges, 0, len(input.Changes)),

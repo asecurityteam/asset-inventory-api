@@ -282,7 +282,7 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
 		var timestamp time.Time
 
-		err = rows.Scan(&row.ResourceID, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
 
 		if err == nil {
 			if metaBytes != nil {
@@ -290,27 +290,27 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 				_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
 				row.Tags = i
 			}
-			if tempMap[row.ResourceID] == nil {
-				tempMap[row.ResourceID] = &row
+			if tempMap[row.ARN] == nil {
+				tempMap[row.ARN] = &row
 			}
 			found := false
 			if hostname.Valid {
-				for _, val := range tempMap[row.ResourceID].Hostnames {
+				for _, val := range tempMap[row.ARN].Hostnames {
 					if strings.EqualFold(val, hostname.String) {
 						found = true
 						break
 					}
 				}
 				if !found {
-					tempMap[row.ResourceID].Hostnames = append(tempMap[row.ResourceID].Hostnames, hostname.String)
+					tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
 				}
 			}
 			found = false
 			var ipAddresses *[]string
 			if isPublic {
-				ipAddresses = &tempMap[row.ResourceID].PublicIPAddresses
+				ipAddresses = &tempMap[row.ARN].PublicIPAddresses
 			} else {
-				ipAddresses = &tempMap[row.ResourceID].PrivateIPAddresses
+				ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
 			}
 			for _, val := range *ipAddresses {
 				if strings.EqualFold(val, ipAddress) {
@@ -321,9 +321,9 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 			if !found {
 				newArray := append(*ipAddresses, ipAddress)
 				if isPublic {
-					tempMap[row.ResourceID].PublicIPAddresses = newArray
+					tempMap[row.ARN].PublicIPAddresses = newArray
 				} else {
-					tempMap[row.ResourceID].PrivateIPAddresses = newArray
+					tempMap[row.ARN].PrivateIPAddresses = newArray
 				}
 			}
 		}

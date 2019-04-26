@@ -275,7 +275,7 @@ func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	hostnames := []string{"google.com"}
 	networkChangesArray := []domain.NetworkChanges{domain.NetworkChanges{privateIPs, publicIPs, hostnames, "ADDED"}}
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
-	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "rid", "arn", map[string]string{"tag1": "val1"}}
+	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "arn", map[string]string{"tag1": "val1"}}
 	return cloudAssetChanges
 }
 

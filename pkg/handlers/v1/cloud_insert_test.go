@@ -27,7 +27,7 @@ func newInsertHandler(storer domain.CloudAssetStorer) *CloudInsertHandler {
 func validInsertInput() CloudAssetChanges {
 	return CloudAssetChanges{
 		ChangeTime:   time.Now().Format(time.RFC3339Nano),
-		ResourceID:   "cloud-resource-id",
+		ARN:          "cloud-resource-arn",
 		ResourceType: "cloud-resource-type",
 		Region:       "cloud-region",
 		AccountID:    "cloud-account-id",
