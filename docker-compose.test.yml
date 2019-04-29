@@ -15,9 +15,10 @@ services:
     depends_on:
       - postgres
   postgres:
-    image: postgres:10.7
+    image: postgres:11.2
     environment:
       # while env var names are quite similar to `test` service above, it's just a coincidence
       - "POSTGRES_PASSWORD=password"
       - "POSTGRES_USER=user"
       - "POSTGRES_DB=assetmgmt"
+      - "PGDATA=/var/lib/postgresql/data/pgdata11"

@@ -255,11 +255,8 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 		return err
 	}
 
-	// we might be using Postgres version 10, which does not automatically propagate indices, so we do it:
-	indexName := fmt.Sprintf("%s_aws_ips_ip_ts_idx", tableName) // this is Postgres naming convention, which we don't really have to follow
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING BTREE (aws_ips_ip, ts);", indexName, tableName)); err != nil {
-		return err
-	}
+	// Postgres 11 automatically propagates the parent index to child tables, so no need to
+	// explicitly create an index on the possibly created new table.
 
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
