@@ -227,7 +227,7 @@ components:
           type: string
         region:
           type: string
-        resourceId:
+        arn:
           type: string
         tags:
           type: object
@@ -239,7 +239,7 @@ components:
         - resourceType
         - accountId
         - region
-        - resourceId
+        - arn
     CloudAssetChange:
       type: object
       properties:
@@ -288,7 +288,7 @@ components:
           type: string
         region:
           type: string
-        resourceId:
+        arn:
           type: string
         tags:
           type: object
