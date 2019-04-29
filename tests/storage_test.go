@@ -465,8 +465,23 @@ func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames 
 	if !added {
 		eventType = "DELETED"
 	}
-	networkChangesArray := []domain.NetworkChanges{domain.NetworkChanges{privateIPs, publicIPs, hostnames, eventType}}
-	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, resourceType, accountID, region, arn, tags}
+	networkChangesArray := []domain.NetworkChanges{
+		domain.NetworkChanges{
+			PrivateIPAddresses: privateIPs,
+			PublicIPAddresses:  publicIPs,
+			Hostnames:          hostnames,
+			ChangeType:         eventType,
+		},
+	}
+	cloudAssetChanges := domain.CloudAssetChanges{
+		Changes:      networkChangesArray,
+		ChangeTime:   timestamp,
+		ResourceType: resourceType,
+		AccountID:    accountID,
+		Region:       region,
+		ARN:          arn,
+		Tags:         tags,
+	}
 
 	return cloudAssetChanges
 }
