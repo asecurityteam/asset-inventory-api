@@ -18,6 +18,7 @@ const tableAWSResources = "aws_resources"
 const tableAWSIPS = "aws_ips"
 const tableAWSHostnames = "aws_hostnames"
 const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
+const createScript = "2_create.sql"
 
 const added = "ADDED" // one of the network event types we track
 
@@ -57,8 +58,28 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb *sql.DB // this is a unit test seam
-	once  sync.Once
+	sqldb   *sql.DB // this is a unit test seam
+	scripts func(name string) (string, error)
+	once    sync.Once
+}
+
+// RunScript executes a SQL script from disk against the database.
+func (db *DB) RunScript(ctx context.Context, name string) error {
+	scriptContent, err := db.scripts(name)
+	if err != nil {
+		return err
+	}
+	tx, err := db.sqldb.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, scriptContent); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to rollback from %s because of %s", err.Error(), rbErr.Error())
+		}
+		return err
+	}
+	return tx.Commit()
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
@@ -89,10 +110,12 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			err = pgdb.Ping()
 			if err != nil {
 				initerr = err
+				return // from the unnamed once.Do function
 			}
 
 			db.sqldb = pgdb
 		}
+		initerr = db.RunScript(ctx, createScript)
 	})
 	return initerr
 }

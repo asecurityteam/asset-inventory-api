@@ -1,7 +1,7 @@
 -- Package storage implements the database access layer.  The underlying database
 -- is Postgres, and the tables are defined as such:
 
-CREATE TABLE aws_resources
+CREATE TABLE IF NOT EXISTS aws_resources
 (
     id VARCHAR PRIMARY KEY,
     account_id VARCHAR NOT NULL,
@@ -13,12 +13,12 @@ CREATE TABLE aws_resources
 -- We use these simple tables to preserve uniqueness and so we can add columns for additional
 -- metadata when needed without polluting the aws_events_ips_hostnames star table:
 
-CREATE TABLE aws_ips
+CREATE TABLE IF NOT EXISTS aws_ips
 (
     ip INET PRIMARY KEY
 );
 
-CREATE TABLE aws_hostnames
+CREATE TABLE IF NOT EXISTS aws_hostnames
 (
     hostname VARCHAR PRIMARY KEY
 );
@@ -28,7 +28,7 @@ CREATE TABLE aws_hostnames
 -- Postgres 11 has many updates for partitioning, and when we can use Postgres 11, we can uncomment
 -- the FOREIGN KEY bits.  See:  https://pgdash.io/blog/partition-postgres-11.html
 
-CREATE TABLE aws_events_ips_hostnames
+CREATE TABLE IF NOT EXISTS aws_events_ips_hostnames
 (
     ts TIMESTAMP NOT NULL,
     is_public BOOLEAN NOT NULL,

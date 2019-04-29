@@ -3,20 +3,21 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/DATA-DOG/go-sqlmock"
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/logevent"
-	"github.com/asecurityteam/runhttp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+var scriptText = "SELECT 1"
+var scriptNotFound = func(string) (string, error) { return "", errors.New("not found") }
+var scriptFound = func(string) (string, error) { return scriptText, nil }
 
 func TestDBInitHandleOpenError(t *testing.T) {
 	thedb := DB{}
@@ -36,12 +37,14 @@ func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	mock.ExpectBegin().WillReturnError(fmt.Errorf("could not start transaction"))
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
@@ -60,7 +63,10 @@ func TestShouldINSERTResource(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
@@ -68,7 +74,6 @@ func TestShouldINSERTResource(t *testing.T) {
 	fakeContext, _ := mockdb.BeginTx(context.Background(), nil)
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.saveResource(ctx, fakeCloudAssetChanges(), fakeContext); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
@@ -86,14 +91,16 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err == nil {
 		t.Errorf("was expecting an error, but there was none")
@@ -111,7 +118,10 @@ func TestGoldenPath(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
@@ -128,7 +138,6 @@ func TestGoldenPath(t *testing.T) {
 	mock.ExpectCommit()
 
 	ctx := context.Background()
-	ctx = logevent.NewContext(ctx, stdoutLogger(ctx))
 
 	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
@@ -146,7 +155,10 @@ func TestGetIPsAtTime(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "9.8.7.6"
@@ -176,7 +188,10 @@ func TestGetIPsAtTimeMultiRows(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "9.8.7.6"
@@ -212,7 +227,10 @@ func TestGetHostnamesAtTime(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "google.com"
@@ -242,7 +260,10 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{mockdb, sync.Once{}}
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "google.com"
@@ -265,8 +286,78 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	}
 }
 
-func stdoutLogger(_ context.Context) runhttp.Logger {
-	return logevent.New(logevent.Config{Output: os.Stdout})
+func TestScriptNotFound(t *testing.T) {
+	mockdb, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
+
+	require.Error(t, thedb.RunScript(context.Background(), "script1"))
+}
+
+func TestRunScriptTxFailBegin(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockdb.Close()
+
+	mock.ExpectBegin().WillReturnError(errors.New("tx fail"))
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	require.Error(t, thedb.RunScript(context.Background(), "script1"))
+}
+
+func TestRunScriptTxRollbackOnFail(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockdb.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(scriptText).WillReturnError(errors.New("bad query"))
+	mock.ExpectRollback()
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	require.Error(t, thedb.RunScript(context.Background(), "script1"))
+}
+
+func TestRunScriptTxRollbackFail(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockdb.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(scriptText).WillReturnError(errors.New("bad query"))
+	mock.ExpectRollback().WillReturnError(errors.New("bad rollback"))
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	require.Error(t, thedb.RunScript(context.Background(), "script1"))
+}
+
+func TestRunScriptTxCommit(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockdb.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(scriptText).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
 }
 
 func fakeCloudAssetChanges() domain.CloudAssetChanges {

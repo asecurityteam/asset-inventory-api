@@ -3,6 +3,8 @@ RUN mkdir -p /go/src/github.com/asecurityteam/asset-inventory-api
 WORKDIR $GOPATH/src/github.com/asecurityteam/asset-inventory-api
 COPY --chown=sdcli:sdcli . .
 RUN sdcli go dep
+RUN go get -u github.com/gobuffalo/packr/v2/packr2
+RUN packr2
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /opt/app main.go
 
 ##################################
