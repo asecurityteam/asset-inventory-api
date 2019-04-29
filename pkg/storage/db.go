@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -199,6 +200,61 @@ func (db *DB) ping() error {
 	return nil
 }
 
+// GeneratePartition finds the latest partition, and generate the next partition based on the previous partions time range
+func (db *DB) GeneratePartition(ctx context.Context) error {
+	stmt := `SELECT tablename FROM pg_catalog.pg_tables WHERE tablename LIKE 'aws_events_ips_hostnames_%' ORDER BY tablename DESC LIMIT 1`
+	row := db.sqldb.QueryRowContext(ctx, stmt)
+	var latest string
+	err := row.Scan(&latest)
+	switch err {
+	case nil:
+	case sql.ErrNoRows:
+		return db.generatePartitionWithTime(ctx, time.Now())
+	default:
+		return err
+	}
+
+	// infer the next partition range from the latest table (aws_events_ips_hostnames_YYYY_MMtoMM)
+	latestRange := latest[len(tableAWSEventsIPSHostnames)+1:]
+	year, err := strconv.Atoi(latestRange[:4])
+	if err != nil {
+		return fmt.Errorf("Invalid table name found: %s, %v", latest, err)
+	}
+	month, err := strconv.Atoi(latestRange[9:])
+	if err != nil {
+		return fmt.Errorf("Invalid table name found: %s, %v", latest, err)
+	}
+	month = month + 1
+	if month == 13 {
+		month = 1
+		year = year + 1
+	}
+
+	return db.generatePartitionWithTime(ctx, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
+}
+
+func (db *DB) generatePartitionWithTime(ctx context.Context, timestamp time.Time) error {
+	monthInterval := 3
+	year := timestamp.Year()
+	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
+	fromDay := 1
+	toMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + monthInterval          // get the interval of the year we're in, then use the last month of that interval
+	toDay := time.Date(year, time.Month(toMonth+1), 0, 0, 0, 0, 0, timestamp.Location()).Day() // time.Date will normalize that toMonth + 1 and 0 day shenanigans
+	from := fmt.Sprintf(`%d-%02d-%02d`, year, fromMonth, fromDay)
+	to := fmt.Sprintf(`%d-%02d-%02d`, year, toMonth, toDay)
+	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
+	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
+
+	_, err := db.sqldb.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+ // nolint
+		`VALUES `+
+		`FROM (`+
+		`'%s') `+
+		`TO (`+
+		`'%s'`+
+		`);`, tableName, tableAWSEventsIPSHostnames, from, to))
+	return err
+}
+
 // Store an implementation of the Storage interface that records to a database
 func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 
@@ -311,39 +367,13 @@ func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) e
 }
 
 func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time, isPublic bool, isJoin bool, resourceID string, ipAddress string, hostname *string, tx *sql.Tx) error {
-
-	// Postgres does not auto-create partition tables, so we do it.  We're using 3-month intervals (quarters)
-	monthInterval := 3
-	year := timestamp.Year()
-	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
-	fromDay := 1
-	toMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + monthInterval          // get the interval of the year we're in, then use the last month of that interval
-	toDay := time.Date(year, time.Month(toMonth+1), 0, 0, 0, 0, 0, timestamp.Location()).Day() // time.Date will normalize that toMonth + 1 and 0 day shenanigans
-	from := fmt.Sprintf(`%d-%02d-%02d`, year, fromMonth, fromDay)
-	to := fmt.Sprintf(`%d-%02d-%02d`, year, toMonth, toDay)
-	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
-	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
-
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+ // nolint
-		`VALUES `+
-		`FROM (`+
-		`'%s') `+
-		`TO (`+
-		`'%s'`+
-		`);`, tableName, tableAWSEventsIPSHostnames, from, to)); err != nil {
-		return err
-	}
-
 	// Postgres 11 automatically propagates the parent index to child tables, so no need to
 	// explicitly create an index on the possibly created new table.
 
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname); err != nil { // nolint
-		return err
-	}
-
-	return nil
+	_, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname) // nolint
+	return err
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time
