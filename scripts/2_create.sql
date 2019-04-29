@@ -47,11 +47,15 @@ PARTITION BY
 );
 
 -- And we'll make sure there's an index right away that Postgres 11 will automatically propagate to child tables:
--- (We use aws_ips_ip and timestamp as it is expected these will be the most frequently used in queries)
+-- (We use aws_ips_ip and aws_hostnames_hostname and timestamp as it is expected these will be the most frequently used in queries)
 
 CREATE INDEX
 IF NOT EXISTS aws_events_ips_hostnames_aws_ips_ip_ts_idx ON aws_events_ips_hostnames USING BTREE
 (aws_ips_ip, ts);
+
+CREATE INDEX
+IF NOT EXISTS aws_events_ips_hostnames_aws_hostnames_hostname_ts_idx ON aws_events_ips_hostnames USING BTREE
+(aws_hostnames_hostname, ts);
 
 -- Also, some good advice to follow:  https://www.vividcortex.com/blog/2015/09/22/common-pitfalls-go/
 
