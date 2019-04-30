@@ -514,12 +514,11 @@ func TestGeneratePartition31day(t *testing.T) {
 	nextPartition := "aws_events_ips_hostnames_2019_10to12" // next quarter
 	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
-		WithArgs("2019-10-01", "2019-12-31").
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = db.GeneratePartition(context.Background())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestGeneratePartition30day(t *testing.T) {
@@ -538,12 +537,11 @@ func TestGeneratePartition30day(t *testing.T) {
 	nextPartition := "aws_events_ips_hostnames_2019_04to06" // next quarter
 	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
-		WithArgs("2019-04-01", "2019-06-30"). // 30 day month
-		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM"). // 30 day
+																	WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = db.GeneratePartition(context.Background())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestGeneratePartitionFirstTime(t *testing.T) {
@@ -563,12 +561,11 @@ func TestGeneratePartitionFirstTime(t *testing.T) {
 
 	nextPartition := "aws_events_ips_hostnames_2019_04to06"
 	mock.ExpectQuery("SELECT").WillReturnError(sql.ErrNoRows).RowsWillBeClosed()
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
-		WithArgs("2019-04-01", "2019-06-30").
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = db.GeneratePartition(context.Background())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestGeneratePartitionYearRollover(t *testing.T) {
@@ -587,12 +584,11 @@ func TestGeneratePartitionYearRollover(t *testing.T) {
 	nextPartition := "aws_events_ips_hostnames_2020_01to03" // next quarter
 	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
-		WithArgs("2020-01-01", "2020-03-31").
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = db.GeneratePartition(context.Background())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestGeneratePartitionScanError(t *testing.T) {
@@ -613,7 +609,7 @@ func TestGeneratePartitionScanError(t *testing.T) {
 	mock.ExpectQuery("SELECT").WillReturnError(errors.New("")).RowsWillBeClosed()
 
 	err = db.GeneratePartition(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestGeneratePartitionInvalidPartitionYear(t *testing.T) {
@@ -633,7 +629,7 @@ func TestGeneratePartitionInvalidPartitionYear(t *testing.T) {
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
 
 	err = db.GeneratePartition(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestGeneratePartitionInvalidPartitionMonth(t *testing.T) {
@@ -653,7 +649,7 @@ func TestGeneratePartitionInvalidPartitionMonth(t *testing.T) {
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
 
 	err = db.GeneratePartition(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func fakeCloudAssetChanges() domain.CloudAssetChanges {

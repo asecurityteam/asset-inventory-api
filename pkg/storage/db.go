@@ -214,7 +214,7 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		if now == nil {
 			now = time.Now
 		}
-		return db.generatePartitionWithTime(ctx, now())
+		return db.GeneratePartitionWithTime(ctx, now())
 	default:
 		return err
 	}
@@ -235,10 +235,11 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		year = year + 1
 	}
 
-	return db.generatePartitionWithTime(ctx, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
+	return db.GeneratePartitionWithTime(ctx, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
 }
 
-func (db *DB) generatePartitionWithTime(ctx context.Context, timestamp time.Time) error {
+// GeneratePartitionWithTime generates the partition based on the given time
+func (db *DB) GeneratePartitionWithTime(ctx context.Context, timestamp time.Time) error {
 	monthInterval := 3
 	year := timestamp.Year()
 	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter
@@ -250,8 +251,8 @@ func (db *DB) generatePartitionWithTime(ctx context.Context, timestamp time.Time
 	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
 	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
 
-	stmt := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM $1 TO $2", tableName, tableAWSEventsIPSHostnames) // nolint
-	_, err := db.sqldb.ExecContext(ctx, stmt, from, to)
+	stmt := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')", tableName, tableAWSEventsIPSHostnames, from, to) // nolint
+	_, err := db.sqldb.ExecContext(ctx, stmt)
 	return err
 }
 
