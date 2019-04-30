@@ -209,6 +209,55 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
+  /v1/partitions:
+    post:
+      summary: "Create a new partition"
+      description: "This is an endpoint to administer changes to the partitions. Calling without a timestamp will create the next time based partition in the sequence. Calling with a timestamp will create a new partition for that timestamp."
+      parameters:
+        - name: "timestamp"
+          in: "query"
+          description: "Optional time for the partition"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        204:
+          description: "Partition created"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "createPartition"
+          async: false
+          request: >
+            {
+              "hostname": "#!.Request.URL.hostname!#",
+              "time": "#!index .Request.Query.time 0!#"
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
 components:
   schemas:
     CloudAssetChanges:

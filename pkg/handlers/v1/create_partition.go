@@ -10,7 +10,7 @@ import (
 
 // CreatePartitionInput takes an optional timestamp for which to create the new partition
 type CreatePartitionInput struct {
-	Timestamp string
+	Timestamp string `json:"timestamp"`
 }
 
 // CreatePartitionHandler handles requests for creating the next time-based partition

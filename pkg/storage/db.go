@@ -214,7 +214,7 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		if now == nil {
 			now = time.Now
 		}
-		return db.GeneratePartitionWithTime(ctx, now())
+		return db.GeneratePartitionWithTimestamp(ctx, now())
 	default:
 		return err
 	}
@@ -235,11 +235,11 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		year = year + 1
 	}
 
-	return db.GeneratePartitionWithTime(ctx, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
+	return db.GeneratePartitionWithTimestamp(ctx, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
 }
 
-// GeneratePartitionWithTime generates the partition based on the given time
-func (db *DB) GeneratePartitionWithTime(ctx context.Context, timestamp time.Time) error {
+// GeneratePartitionWithTimestamp generates the partition based on the given time
+func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, timestamp time.Time) error {
 	monthInterval := 3
 	year := timestamp.Year()
 	fromMonth := (int(timestamp.Month()-1)/monthInterval)*monthInterval + 1 // get the interval of the year we're in, then use the first month of that quarter

@@ -522,7 +522,7 @@ func connectToDB() (*sql.DB, error) {
 func before(t *testing.T, db *storage.DB) {
 	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
 	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
-	require.NoError(t, db.GeneratePartitionWithTime(context.Background(), time.Date(2019, time.August, 0, 0, 0, 0, 0, time.UTC)))
+	require.NoError(t, db.GeneratePartitionWithTimestamp(context.Background(), time.Date(2019, time.August, 0, 0, 0, 0, 0, time.UTC)))
 }
 
 // dropTables is a utility function called by "before"

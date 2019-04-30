@@ -40,10 +40,15 @@ func main() {
 		StatFn:  domain.StatFromContext,
 		Fetcher: dbStorage,
 	}
+	createPartition := &v1.CreatePartitionHandler{
+		LogFn:     domain.LoggerFromContext,
+		Generator: dbStorage,
+	}
 	handlers := map[string]serverfulldomain.Handler{
 		"insert":          lambda.NewHandler(insert.Handle),
 		"fetchByIP":       lambda.NewHandler(fetchByIP.Handle),
 		"fetchByHostname": lambda.NewHandler(fetchByHostname.Handle),
+		"createPartition": lambda.NewHandler(createPartition.Handle),
 	}
 
 	rt, err := serverfull.NewStatic(ctx, source, handlers)
