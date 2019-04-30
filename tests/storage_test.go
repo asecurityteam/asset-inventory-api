@@ -447,6 +447,47 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 
 }
 
+func TestGeneratePartitions(t *testing.T) {
+	before(t, dbStorage) // start with a parition from 07/2019-09/2019
+	partitions := getPartitions(t)
+	require.Equal(t, 1, len(partitions))
+	require.Equal(t, "aws_events_ips_hostnames_2019_07to09", partitions[0])
+
+	err := dbStorage.GeneratePartition(context.Background())
+	require.NoError(t, err)
+	partitions = getPartitions(t)
+	require.Equal(t, 2, len(partitions))
+	require.Equal(t, "aws_events_ips_hostnames_2019_10to12", partitions[0])
+
+	err = dbStorage.GeneratePartition(context.Background())
+	require.NoError(t, err)
+	partitions = getPartitions(t)
+	require.Equal(t, 3, len(partitions))
+	require.Equal(t, "aws_events_ips_hostnames_2020_01to03", partitions[0])
+}
+
+func getPartitions(t *testing.T) []string {
+	rows, err := db.Query(`SELECT tablename FROM pg_catalog.pg_tables WHERE tablename LIKE 'aws_events_ips_hostnames_%' ORDER BY tablename DESC`)
+	if err != nil && err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("Received error checking partitions: %v", err)
+	}
+	partitions := make([]string, 0)
+	for rows.Next() {
+		var partition string
+		if err := rows.Scan(&partition); err != nil {
+			t.Fatalf("Received error scanning next partition: %v", err)
+		}
+		partitions = append(partitions, partition)
+	}
+	if err := rows.Close(); err != nil {
+		t.Fatalf("Received error traversing partitions: %v", err)
+	}
+	return partitions
+}
+
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
 // we can perform some Postgres cleanup/prep/checks that are test-specific
 func connectToDB() (*sql.DB, error) {
