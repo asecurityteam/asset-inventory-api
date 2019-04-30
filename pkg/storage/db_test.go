@@ -498,6 +498,164 @@ func TestRunScriptTxCommit(t *testing.T) {
 	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
 }
 
+func TestGeneratePartition31day(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	latestPartition := "aws_events_ips_hostnames_2019_07to09"
+	nextPartition := "aws_events_ips_hostnames_2019_10to12" // next quarter
+	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WithArgs("2019-10-01", "2019-12-31").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Nil(t, err)
+}
+
+func TestGeneratePartition30day(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	latestPartition := "aws_events_ips_hostnames_2019_01to03"
+	nextPartition := "aws_events_ips_hostnames_2019_04to06" // next quarter
+	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WithArgs("2019-04-01", "2019-06-30"). // 30 day month
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Nil(t, err)
+}
+
+func TestGeneratePartitionFirstTime(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now: func() time.Time {
+			return time.Date(2019, time.May, 1, 0, 0, 0, 0, time.UTC)
+		},
+	}
+
+	nextPartition := "aws_events_ips_hostnames_2019_04to06"
+	mock.ExpectQuery("SELECT").WillReturnError(sql.ErrNoRows).RowsWillBeClosed()
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WithArgs("2019-04-01", "2019-06-30").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Nil(t, err)
+}
+
+func TestGeneratePartitionYearRollover(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	latestPartition := "aws_events_ips_hostnames_2019_10to12"
+	nextPartition := "aws_events_ips_hostnames_2020_01to03" // next quarter
+	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS "+nextPartition+" PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WithArgs("2020-01-01", "2020-03-31").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Nil(t, err)
+}
+
+func TestGeneratePartitionScanError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now: func() time.Time {
+			return time.Date(2019, time.May, 1, 0, 0, 0, 0, time.UTC)
+		},
+	}
+
+	mock.ExpectQuery("SELECT").WillReturnError(errors.New("")).RowsWillBeClosed()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NotNil(t, err)
+}
+
+func TestGeneratePartitionInvalidPartitionYear(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	latestPartition := "aws_events_ips_hostnames_NotAYear_07to09"
+	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NotNil(t, err)
+}
+
+func TestGeneratePartitionInvalidPartitionMonth(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	latestPartition := "aws_events_ips_hostnames_2019_07toNotAMonth"
+	rows := sqlmock.NewRows([]string{"tablename"}).AddRow(latestPartition)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NotNil(t, err)
+}
+
 func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}

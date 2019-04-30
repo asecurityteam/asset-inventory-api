@@ -61,6 +61,7 @@ type DB struct {
 	sqldb   *sql.DB // this is a unit test seam
 	scripts func(name string) (string, error)
 	once    sync.Once
+	now     func() time.Time // unit test seam
 }
 
 // RunScript executes a SQL script from disk against the database.
@@ -209,7 +210,11 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
-		return db.generatePartitionWithTime(ctx, time.Now())
+		now := db.now
+		if now == nil {
+			now = time.Now
+		}
+		return db.generatePartitionWithTime(ctx, now())
 	default:
 		return err
 	}
@@ -245,13 +250,8 @@ func (db *DB) generatePartitionWithTime(ctx context.Context, timestamp time.Time
 	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%02d`, year, fromMonth, toMonth)
 	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
 
-	_, err := db.sqldb.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR `+ // nolint
-		`VALUES `+
-		`FROM (`+
-		`'%s') `+
-		`TO (`+
-		`'%s'`+
-		`);`, tableName, tableAWSEventsIPSHostnames, from, to))
+	stmt := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM $1 TO $2", tableName, tableAWSEventsIPSHostnames) // nolint
+	_, err := db.sqldb.ExecContext(ctx, stmt, from, to)
 	return err
 }
 
