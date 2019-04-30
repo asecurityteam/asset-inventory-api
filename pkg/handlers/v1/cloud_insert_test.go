@@ -3,23 +3,18 @@ package v1
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/logevent"
-	"github.com/asecurityteam/runhttp"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 func newInsertHandler(storer domain.CloudAssetStorer) *CloudInsertHandler {
 	return &CloudInsertHandler{
-		LogFn: func(_ context.Context) runhttp.Logger {
-			return logevent.New(logevent.Config{Output: ioutil.Discard})
-		},
-		StatFn:           runhttp.StatFromContext,
+		LogFn:            testLogFn,
+		StatFn:           testStatFn,
 		CloudAssetStorer: storer,
 	}
 }
