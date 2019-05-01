@@ -149,8 +149,8 @@ func (db *DB) doesDBExist(dbName string) (bool, error) {
 	row := db.sqldb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1);", dbName)
 	var id string
 	if err := row.Scan(&id); err != nil {
-		switch err.Error() {
-		case sql.ErrNoRows.Error():
+		switch err {
+		case sql.ErrNoRows:
 			return false, nil
 		default:
 			return false, err

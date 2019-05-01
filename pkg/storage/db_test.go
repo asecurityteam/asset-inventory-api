@@ -147,6 +147,30 @@ func TestCreateDBError(t *testing.T) {
 
 }
 
+func TestDBUseError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectClose().WillReturnError(errors.New("unexpected error"))
+
+	err = thedb.use("somename")
+	if err == nil {
+		t.Errorf("DB.use should have returned a non-nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+}
+
 func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	// no panics, in other words
 	mockdb, mock, err := sqlmock.New()
