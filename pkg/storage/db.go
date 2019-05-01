@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
 	"github.com/pkg/errors"
 )
 
@@ -98,10 +97,31 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			if host != "localhost" && host != "postgres" {
 				sslmode = "require"
 			}
+			// we establish a connection against a known-to-exist dbname so we can check
+			// if we need to create our desired dbname
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
-				host, port, user, password, dbname, sslmode)
+				host, port, user, password, "postgres", sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
+			if err != nil {
+				initerr = err
+				return // from the unnamed once.Do function
+			}
+
+			dbExists := db.doesDBExist(pgdb, dbname)
+
+			if !dbExists {
+				err = db.create(pgdb, dbname)
+				if err != nil {
+					initerr = err
+					return // from the unnamed once.Do function
+				}
+			}
+
+			psqlInfo = fmt.Sprintf("host=%s port=%s user=%s "+
+				"password=%s dbname=%s sslmode=%s",
+				host, port, user, password, dbname, sslmode)
+			pgdb, err = db.use(pgdb, psqlInfo)
 			if err != nil {
 				initerr = err
 				return // from the unnamed once.Do function
@@ -118,6 +138,41 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 		initerr = db.RunScript(ctx, createScript)
 	})
 	return initerr
+}
+
+func (db *DB) doesDBExist(pgdb *sql.DB, dbName string) bool {
+	row := pgdb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('" + dbName + "');") // nolint
+	if err := row.Scan(); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (db *DB) create(pgdb *sql.DB, name string) error {
+
+	_, err := pgdb.Exec("CREATE DATABASE " + name + ";") // nolint
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// use function's intent is to close the existing connection (pgdb parameter) and open
+// a new one against the desired psqlInfo connection string
+func (db *DB) use(pgdb *sql.DB, psqlInfo string) (*sql.DB, error) {
+
+	err := pgdb.Close()
+	if err != nil {
+		return nil, err
+	}
+	pgdb, err = sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgdb, nil
 }
 
 // Store an implementation of the Storage interface that records to a database

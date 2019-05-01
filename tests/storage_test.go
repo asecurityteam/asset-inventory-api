@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/settings"
+	pq "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,27 @@ var dbStorage *storage.DB
 var ctx context.Context
 
 func TestMain(m *testing.M) {
+
+	// wipe the database entirely, which will result in testing DB.Init
+	// handling of lack of pre-existing database
+	sslmode := "disable"
+	host := os.Getenv("POSTGRES_HOSTNAME")
+	if host != "localhost" && host != "postgres" {
+		sslmode = "require"
+	}
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
+		"password=%s dbname=%s sslmode=%s",
+		host, os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_USERNAME"), os.Getenv("POSTGRES_PASSWORD"), "postgres", sslmode)
+	pgdb, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		panic(err.Error())
+	}
+	defer pgdb.Close()
+
+	if err := wipeDatabase(pgdb, os.Getenv("POSTGRES_DATABASENAME")); err != nil {
+		panic(err.Error())
+	}
+
 	ctx = context.Background()
 	source, err := settings.NewEnvSource(os.Environ())
 	if err != nil {
@@ -458,6 +481,34 @@ func before(t *testing.T, db *storage.DB) {
 	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
 	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
 }
+}
+
+// dropTables is a utility function called by "before"
+func wipeDatabase(db *sql.DB, dbName string) error {
+
+	sqlFile := "0_wipe.sql"
+
+	box := packr.New("box", "../scripts")
+	_, err := box.Find(sqlFile)
+	if err != nil {
+		return err
+	}
+	s, err := box.FindString(sqlFile)
+	if err != nil {
+		return err
+	}
+
+	if _, err = db.Exec(fmt.Sprintf(s, dbName)); err != nil {
+		if driverErr, ok := err.(*pq.Error); ok {
+			if strings.EqualFold(driverErr.Code.Name(), "invalid_catalog_name") { // from https://www.postgresql.org/docs/11/errcodes-appendix.html
+				// it's ok the DB does not exist; this might by the very first run
+				return nil
+			}
+		}
+		return err
+	}
+
+	return nil
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
 func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint
