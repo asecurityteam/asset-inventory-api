@@ -243,8 +243,9 @@ paths:
           async: false
           request: >
             {
-              "hostname": "#!.Request.URL.hostname!#",
-              "time": "#!index .Request.Query.time 0!#"
+              #!if .Request.Query.timestamp!#
+              "timestamp":"#!index .Request.Query.timestamp 0!#",
+              #!end!#
             }
           success: '{"status": 200, "bodyPassthrough": true}'
           error: >
