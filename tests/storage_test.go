@@ -16,6 +16,7 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/settings"
+	packr "github.com/gobuffalo/packr/v2"
 	pq "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 	}
 	defer pgdb.Close()
 
-	if err := wipeDatabase(pgdb, os.Getenv("POSTGRES_DATABASENAME")); err != nil {
+	if err = wipeDatabase(pgdb, os.Getenv("POSTGRES_DATABASENAME")); err != nil {
 		panic(err.Error())
 	}
 
@@ -481,7 +482,6 @@ func before(t *testing.T, db *storage.DB) {
 	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
 	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
 }
-}
 
 // dropTables is a utility function called by "before"
 func wipeDatabase(db *sql.DB, dbName string) error {
@@ -509,6 +509,7 @@ func wipeDatabase(db *sql.DB, dbName string) error {
 	}
 
 	return nil
+}
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
 func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint

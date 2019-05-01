@@ -108,10 +108,16 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 				return // from the unnamed once.Do function
 			}
 
-			dbExists := db.doesDBExist(pgdb, dbname)
+			db.sqldb = pgdb
+
+			dbExists, err := db.doesDBExist(dbname)
+			if err != nil {
+				initerr = err
+				return // from the unnamed once.Do function
+			}
 
 			if !dbExists {
-				err = db.create(pgdb, dbname)
+				err = db.create(dbname)
 				if err != nil {
 					initerr = err
 					return // from the unnamed once.Do function
@@ -121,37 +127,42 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			psqlInfo = fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
 				host, port, user, password, dbname, sslmode)
-			pgdb, err = db.use(pgdb, psqlInfo)
+			err = db.use(psqlInfo)
 			if err != nil {
 				initerr = err
 				return // from the unnamed once.Do function
 			}
 
-			err = pgdb.Ping()
+			err = db.ping()
 			if err != nil {
 				initerr = err
 				return // from the unnamed once.Do function
 			}
 
-			db.sqldb = pgdb
 		}
 		initerr = db.RunScript(ctx, createScript)
 	})
 	return initerr
 }
 
-func (db *DB) doesDBExist(pgdb *sql.DB, dbName string) bool {
-	row := pgdb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('" + dbName + "');") // nolint
-	if err := row.Scan(); err != nil {
-		return false
+func (db *DB) doesDBExist(dbName string) (bool, error) {
+	row := db.sqldb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1);", dbName)
+	var id string
+	if err := row.Scan(&id); err != nil {
+		switch err.Error() {
+		case sql.ErrNoRows.Error():
+			return false, nil
+		default:
+			return false, err
+		}
 	}
 
-	return true
+	return true, nil
 }
 
-func (db *DB) create(pgdb *sql.DB, name string) error {
+func (db *DB) create(name string) error {
 
-	_, err := pgdb.Exec("CREATE DATABASE " + name + ";") // nolint
+	_, err := db.sqldb.Exec("CREATE DATABASE " + name + ";") // nolint
 	if err != nil {
 		return err
 	}
@@ -161,18 +172,31 @@ func (db *DB) create(pgdb *sql.DB, name string) error {
 
 // use function's intent is to close the existing connection (pgdb parameter) and open
 // a new one against the desired psqlInfo connection string
-func (db *DB) use(pgdb *sql.DB, psqlInfo string) (*sql.DB, error) {
+func (db *DB) use(psqlInfo string) error {
 
-	err := pgdb.Close()
+	err := db.sqldb.Close()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	pgdb, err = sql.Open("postgres", psqlInfo)
+	pgdb, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return pgdb, nil
+	db.sqldb = pgdb
+
+	return nil
+}
+
+// ping is required for Postgres connection to be fully established
+func (db *DB) ping() error {
+
+	err := db.sqldb.Ping()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Store an implementation of the Storage interface that records to a database
