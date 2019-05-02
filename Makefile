@@ -28,7 +28,7 @@ integration:
 	PROJECT_PATH=$(PROJECT_PATH) \
 	DIR=$(DIR) \
 	docker-compose \
-		-f docker-compose.test.yml \
+		-f docker-compose.it.yml \
 		up \
 			--abort-on-container-exit \
 			--build \
