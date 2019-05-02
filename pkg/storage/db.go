@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	_ "github.com/lib/pq" // postgres driver for sql must be imported so sql finds and uses it
 	"github.com/pkg/errors"
 )
 
@@ -98,26 +97,106 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 			if host != "localhost" && host != "postgres" {
 				sslmode = "require"
 			}
+			// we establish a connection against a known-to-exist dbname so we can check
+			// if we need to create our desired dbname
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 				"password=%s dbname=%s sslmode=%s",
-				host, port, user, password, dbname, sslmode)
+				host, port, user, password, "postgres", sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
 				initerr = err
 				return // from the unnamed once.Do function
 			}
 
-			err = pgdb.Ping()
+			db.sqldb = pgdb
+
+			dbExists, err := db.doesDBExist(dbname)
 			if err != nil {
 				initerr = err
 				return // from the unnamed once.Do function
 			}
 
-			db.sqldb = pgdb
+			if !dbExists {
+				err = db.create(dbname)
+				if err != nil {
+					initerr = err
+					return // from the unnamed once.Do function
+				}
+			}
+
+			psqlInfo = fmt.Sprintf("host=%s port=%s user=%s "+
+				"password=%s dbname=%s sslmode=%s",
+				host, port, user, password, dbname, sslmode)
+			err = db.use(psqlInfo)
+			if err != nil {
+				initerr = err
+				return // from the unnamed once.Do function
+			}
+
+			err = db.ping()
+			if err != nil {
+				initerr = err
+				return // from the unnamed once.Do function
+			}
+
 		}
 		initerr = db.RunScript(ctx, createScript)
 	})
 	return initerr
+}
+
+func (db *DB) doesDBExist(dbName string) (bool, error) {
+	row := db.sqldb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1);", dbName)
+	var id string
+	if err := row.Scan(&id); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return false, nil
+		default:
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+func (db *DB) create(name string) error {
+
+	_, err := db.sqldb.Exec("CREATE DATABASE " + name + ";") // nolint
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// use function's intent is to close the existing connection (pgdb parameter) and open
+// a new one against the desired psqlInfo connection string
+func (db *DB) use(psqlInfo string) error {
+
+	err := db.sqldb.Close()
+	if err != nil {
+		return err
+	}
+	pgdb, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return err
+	}
+
+	db.sqldb = pgdb
+
+	return nil
+}
+
+// ping is required for Postgres connection to be fully established
+func (db *DB) ping() error {
+
+	err := db.sqldb.Ping()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Store an implementation of the Storage interface that records to a database
@@ -255,11 +334,8 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 		return err
 	}
 
-	// we might be using Postgres version 10, which does not automatically propagate indices, so we do it:
-	indexName := fmt.Sprintf("%s_aws_ips_ip_ts_idx", tableName) // this is Postgres naming convention, which we don't really have to follow
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING BTREE (aws_ips_ip, ts);", indexName, tableName)); err != nil {
-		return err
-	}
+	// Postgres 11 automatically propagates the parent index to child tables, so no need to
+	// explicitly create an index on the possibly created new table.
 
 	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql

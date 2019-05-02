@@ -376,7 +376,6 @@
     "github.com/asecurityteam/settings",
     "github.com/aws/aws-lambda-go/lambda",
     "github.com/gobuffalo/packr/v2",
-    "github.com/gobuffalo/packr/v2/file/resolver",
     "github.com/golang/mock/gomock",
     "github.com/lib/pq",
     "github.com/pkg/errors",

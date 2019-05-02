@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,147 @@ func TestDBInitHandleOpenError(t *testing.T) {
 	if err := thedb.Init(context.Background(), &postgresConfig); err == nil {
 		t.Errorf("DB.Init should have returned a non-nil error")
 	}
+}
+
+func TestDoesDBExistTrue(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	rows := sqlmock.NewRows([]string{"id"}).AddRow(1)
+	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnRows(rows).RowsWillBeClosed()
+
+	exists, _ := thedb.doesDBExist("somename")
+	if !exists {
+		t.Errorf("DB.doesDBExist should have returned true")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDoesDBExistFalse(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnError(sql.ErrNoRows)
+
+	exists, _ := thedb.doesDBExist("somename")
+	if exists {
+		t.Errorf("DB.doesDBExist should have returned false")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDoesDBExistError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnError(errors.New("unexpected error"))
+
+	_, err = thedb.doesDBExist("somename")
+	if err == nil {
+		t.Errorf("DB.doesDBExist should have returned a non-nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestCreateDBSuccess(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectExec("CREATE DATABASE").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = thedb.create("somename")
+	if err != nil {
+		t.Errorf("DB.create should have returned a nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestCreateDBError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectExec("CREATE DATABASE").WillReturnError(errors.New("unexpected error"))
+
+	err = thedb.create("somename")
+	if err == nil {
+		t.Errorf("DB.create should have returned a non-nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+}
+
+func TestDBUseError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectClose().WillReturnError(errors.New("unexpected error"))
+
+	err = thedb.use("somename")
+	if err == nil {
+		t.Errorf("DB.use should have returned a non-nil error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
 }
 
 func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
@@ -129,11 +271,9 @@ func TestGoldenPath(t *testing.T) {
 	mock.ExpectExec("INSERT INTO " + tableAWSHostnames).WithArgs("google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))          // nolint
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("CREATE INDEX IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))                                                  // nolint
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("CREATE INDEX IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06_aws_ips_ip_ts_idx", tableAWSEventsIPSHostnames)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, true, true, "arn", "8.7.6.5", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
