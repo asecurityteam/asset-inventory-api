@@ -14,13 +14,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-const tableAWSResources = "aws_resources"
-const tableAWSIPS = "aws_ips"
-const tableAWSHostnames = "aws_hostnames"
-const tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
-const createScript = "2_create.sql"
+const (
+	tablePartitions            = "partitions"
+	tableAWSResources          = "aws_resources"
+	tableAWSIPS                = "aws_ips"
+	tableAWSHostnames          = "aws_hostnames"
+	tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
+	createScript               = "2_create.sql"
 
-const added = "ADDED" // one of the network event types we track
+	added = "ADDED" // one of the network event types we track
+)
 
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
@@ -93,6 +96,10 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 		user := postgresConfig.Username
 		password := postgresConfig.Password
 		dbname := postgresConfig.DatabaseName
+
+		if db.now == nil {
+			db.now = time.Now
+		}
 
 		if db.sqldb == nil {
 			sslmode := "disable"
@@ -210,11 +217,7 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
-		now := db.now
-		if now == nil {
-			now = time.Now
-		}
-		return db.GeneratePartitionWithTimestamp(ctx, now())
+		return db.GeneratePartitionWithTimestamp(ctx, db.now())
 	default:
 		return err
 	}

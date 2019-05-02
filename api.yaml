@@ -209,10 +209,10 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-  /v1/partitions:
+  /ops/pgsql/v1/partitions:
     post:
       summary: "Create a new partition"
-      description: "This is an endpoint to administer changes to the partitions. Calling without a timestamp will create the next time based partition in the sequence. Calling with a timestamp will create a new partition for that timestamp."
+      description: "This is an endpoint to administer changes to the partitions in the postgres database. Calling without a timestamp will create the next time based partition in the sequence. Calling with a timestamp will create a new partition for that timestamp."
       parameters:
         - name: "timestamp"
           in: "query"
