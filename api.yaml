@@ -204,8 +204,6 @@ paths:
               #! if eq .Response.Body.errorType "InvalidInput" !# 400,
               #! else !#
               #! if eq .Response.Body.errorType "NotFound" !# 404,
-              #! else !#
-              #! if eq .Response.Body.errorType "PartitionConflict" !# 409,
               #! else !# 500,
               #! end !#
               #! end !#
@@ -255,13 +253,13 @@ paths:
               "timestamp":"#!index .Request.Query.timestamp 0!#",
               #!end!#
             }
-          success: '{"status": 200, "bodyPassthrough": true}'
+          success: '{"status": 204, "bodyPassthrough": true}'
           error: >
             {
               "status":
               #! if eq .Response.Body.errorType "InvalidInput" !# 400,
               #! else !#
-              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! if eq .Response.Body.errorType "ParitionConflict" !# 409,
               #! else !# 500,
               #! end !#
               #! end !#
