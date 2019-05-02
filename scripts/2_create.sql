@@ -56,6 +56,18 @@ PARTITION BY
         ts
 );
 
+-- We use a partitions metadata table to track exisiting partitions and their covered ranges.
+-- This helps us maintain sequential, disjoint partitions.
+
+CREATE TABLE
+IF NOT EXISTS partitions
+(
+    name VARCHAR PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL,
+    partition_begin DATE NOT NULL,
+    partition_end DATE NOT NULL
+);
+
 -- Previously, we had some index creation here, but since we're querying on keys (which are already indexed),
 -- in one table, we don't really need indices.  This of course would need re-visited if/as the schema grows.
 

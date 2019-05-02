@@ -204,6 +204,8 @@ paths:
               #! if eq .Response.Body.errorType "InvalidInput" !# 400,
               #! else !#
               #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !#
+              #! if eq .Response.Body.errorType "PartitionConflict" !# 409,
               #! else !# 500,
               #! end !#
               #! end !#
@@ -226,6 +228,12 @@ paths:
           description: "Partition created"
         400:
           description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        409:
+          description: "Requested partition overlaps with an existing partition"
           content:
             application/json:
               schema:
