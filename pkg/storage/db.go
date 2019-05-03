@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 )
 
@@ -94,9 +95,9 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 		if db.sqldb == nil {
 			sslmode := "disable"
-			if host != "localhost" && host != "postgres" {
-				sslmode = "require"
-			}
+			// if host != "localhost" && host != "postgres" {
+			// 	sslmode = "require"
+			// }
 			// we establish a connection against a known-to-exist dbname so we can check
 			// if we need to create our desired dbname
 			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
