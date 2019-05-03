@@ -210,40 +210,52 @@ func (db *DB) ping() error {
 
 // GeneratePartition finds the latest partition, and generate the next partition based on the previous partions time range
 func (db *DB) GeneratePartition(ctx context.Context) error {
-	stmt := "SELECT partition_end FROM partitions ORDER BY partition_begin DESC LIMIT 1"
-	row := db.sqldb.QueryRowContext(ctx, stmt)
-	var latest string
-	err := row.Scan(&latest)
-	switch err {
-	case nil:
-	case sql.ErrNoRows:
-		return db.GeneratePartitionWithTimestamp(ctx, db.now())
-	default:
-		return err
-	}
-
-	latestTime, err := time.Parse(time.RFC3339, latest)
-	if err != nil {
-		return fmt.Errorf("Invalid partition range: %s, %v", latest, err)
-	}
-
-	return db.GeneratePartitionWithTimestamp(ctx, latestTime)
-}
-
-// GeneratePartitionWithTimestamp generates the partition based on the given time
-func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
-	monthInterval := defaultPartitionInterval
-	begin = time.Date(begin.Year(), begin.Month(), 1, 0, 0, 0, 0, begin.Location()) // month granularity
-	end := begin.AddDate(0, monthInterval, 0)
-	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%d_%02d`, begin.Year(), begin.Month(), end.Year(), end.Month())
-	tableName := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
-
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	beginFmt := begin.Format(time.RFC3339)
-	endFmt := end.Format(time.RFC3339)
+	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
+		return handleRollback(tx, err)
+	}
+	stmt := "SELECT partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
+	row := tx.QueryRowContext(ctx, stmt)
+	var latest string
+	err = row.Scan(&latest)
+	switch err {
+	case nil:
+	case sql.ErrNoRows:
+		return generatePartitionForTime(ctx, tx, db.now(), db.now())
+	default:
+		return handleRollback(tx, err)
+	}
+
+	latestTime, err := time.Parse(time.RFC3339, latest)
+	if err != nil {
+		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
+	}
+
+	return generatePartitionForTime(ctx, tx, db.now(), latestTime)
+}
+
+// GeneratePartitionWithTimestamp generates the partition based on the given time
+func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
+	tx, err := db.sqldb.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
+		return handleRollback(tx, err)
+	}
+
+	return generatePartitionForTime(ctx, tx, db.now(), begin)
+}
+
+func generatePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
+	monthInterval := defaultPartitionInterval
+	begin = time.Date(begin.Year(), begin.Month(), 1, 0, 0, 0, 0, begin.Location()) // month granularity
+	end := begin.AddDate(0, monthInterval, 0)
+	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%d_%02d`, begin.Year(), begin.Month(), end.Year(), end.Month())
+	name := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
 
 	// nolint
 	stmt := fmt.Sprintf(`INSERT INTO %s(name, created_at, partition_begin, partition_end)
@@ -254,7 +266,7 @@ func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Tim
         		(partition_begin <= $4 AND partition_end > $4)
     		)
 		)`, tablePartitions, tablePartitions)
-	res, err := tx.ExecContext(ctx, stmt, tableName, db.now().Format(time.RFC3339), beginFmt, endFmt)
+	res, err := tx.ExecContext(ctx, stmt, name, createdAt, begin, end)
 	if err != nil {
 		return handleRollback(tx, err)
 	}
@@ -264,9 +276,9 @@ func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Tim
 	}
 	if rows == 0 { // no rows were updated due to a conflict in our condition
 		_ = tx.Rollback() // best effort rollback to close the TX
-		return domain.PartitionConflict{Name: tableName}
+		return domain.PartitionConflict{Name: name}
 	}
-	stmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')", tableName, tableAWSEventsIPSHostnames, beginFmt, endFmt) // nolint
+	stmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')", name, tableAWSEventsIPSHostnames, begin.Format(time.RFC3339), end.Format(time.RFC3339)) // nolint
 	_, err = tx.ExecContext(ctx, stmt)
 	if err != nil {
 		return handleRollback(tx, err)
