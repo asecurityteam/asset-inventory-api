@@ -253,6 +253,38 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	}
 }
 
+func TestShouldRollbackOnFailureToINSERT2(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb:   mockdb,
+		scripts: scriptNotFound,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	mock.ExpectExec("INSERT INTO " + tableAWSHostnames).WithArgs("google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))          // nolint
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnError(fmt.Errorf("some error")) // nolint
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err == nil {
+		t.Errorf("was expecting an error, but there was none")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestGoldenPath(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
