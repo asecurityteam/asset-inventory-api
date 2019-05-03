@@ -232,10 +232,7 @@ func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAs
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources) // nolint
 
-	tagsBytes, err := json.Marshal(cloudAssetChanges.Tags)
-	if err != nil {
-		tagsBytes = nil
-	}
+	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
 
 	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, tagsBytes); err != nil {
 		return err
