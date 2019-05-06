@@ -343,7 +343,15 @@ func TestGetIPsAtTime(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.CloudAssetDetails{nil, []string{"44.33.22.11"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there1"}}, results[0])
+	assert.Equal(t, domain.CloudAssetDetails{
+		PublicIPAddresses: []string{"44.33.22.11"},
+		Hostnames:         []string{"yahoo.com"},
+		ResourceType:      "type",
+		AccountID:         "aid",
+		Region:            "region",
+		ARN:               "rid",
+		Tags:              map[string]string{"hi": "there1"},
+	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -378,8 +386,24 @@ func TestGetIPsAtTimeMultiRows(t *testing.T) {
 	}
 
 	expected := []domain.CloudAssetDetails{
-		domain.CloudAssetDetails{nil, []string{"44.33.22.11"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there2"}},    // nolint
-		domain.CloudAssetDetails{nil, []string{"99.88.77.66"}, []string{"google.com"}, "type2", "aid2", "region2", "rid2", map[string]string{"bye": "now"}}, // nolint
+		domain.CloudAssetDetails{
+			PublicIPAddresses: []string{"44.33.22.11"},
+			Hostnames:         []string{"yahoo.com"},
+			ResourceType:      "type",
+			AccountID:         "aid",
+			Region:            "region",
+			ARN:               "rid",
+			Tags:              map[string]string{"hi": "there2"},
+		},
+		domain.CloudAssetDetails{
+			PublicIPAddresses: []string{"99.88.77.66"},
+			Hostnames:         []string{"google.com"},
+			ResourceType:      "type2",
+			AccountID:         "aid2",
+			Region:            "region2",
+			ARN:               "rid2",
+			Tags:              map[string]string{"bye": "now"},
+		},
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, results)
@@ -415,7 +439,15 @@ func TestGetHostnamesAtTime(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.CloudAssetDetails{nil, []string{"44.33.22.11"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there3"}}, results[0])
+	assert.Equal(t, domain.CloudAssetDetails{
+		PublicIPAddresses: []string{"44.33.22.11"},
+		Hostnames:         []string{"yahoo.com"},
+		ResourceType:      "type",
+		AccountID:         "aid",
+		Region:            "region",
+		ARN:               "rid",
+		Tags:              map[string]string{"hi": "there3"},
+	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -448,7 +480,16 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.CloudAssetDetails{[]string{"9.8.7.6"}, []string{"44.33.22.11", "9.8.7.6"}, []string{"yahoo.com"}, "type", "aid", "region", "rid", map[string]string{"hi": "there3"}}, results[0])
+	assert.Equal(t, domain.CloudAssetDetails{
+		PrivateIPAddresses: []string{"9.8.7.6"},
+		PublicIPAddresses:  []string{"44.33.22.11", "9.8.7.6"},
+		Hostnames:          []string{"yahoo.com"},
+		ResourceType:       "type",
+		AccountID:          "aid",
+		Region:             "region",
+		ARN:                "rid",
+		Tags:               map[string]string{"hi": "there3"},
+	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -847,9 +888,24 @@ func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}
 	hostnames := []string{"google.com"}
-	networkChangesArray := []domain.NetworkChanges{domain.NetworkChanges{privateIPs, publicIPs, hostnames, "ADDED"}}
+	networkChangesArray := []domain.NetworkChanges{
+		domain.NetworkChanges{
+			PrivateIPAddresses: privateIPs,
+			PublicIPAddresses:  publicIPs,
+			Hostnames:          hostnames,
+			ChangeType:         "ADDED",
+		},
+	}
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
-	cloudAssetChanges := domain.CloudAssetChanges{networkChangesArray, timestamp, "rtype", "aid", "region", "arn", map[string]string{"tag1": "val1"}}
+	cloudAssetChanges := domain.CloudAssetChanges{
+		Changes:      networkChangesArray,
+		ChangeTime:   timestamp,
+		ResourceType: "rtype",
+		AccountID:    "aid",
+		Region:       "region",
+		ARN:          "arn",
+		Tags:         map[string]string{"tag1": "val1"},
+	}
 	return cloudAssetChanges
 }
 
