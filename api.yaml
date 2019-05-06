@@ -209,6 +209,62 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
+  /ops/pgsql/v1/partitions:
+    post:
+      summary: "Create a new partition"
+      description: "This is an endpoint to administer changes to the partitions in the postgres database. Calling without a timestamp will create the next time based partition in the sequence. Calling with a timestamp will create a new partition for that timestamp."
+      parameters:
+        - name: "timestamp"
+          in: "query"
+          description: "Optional time for the partition"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        204:
+          description: "Partition created"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        409:
+          description: "Requested partition overlaps with an existing partition"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "createPartition"
+          async: false
+          request: >
+            {
+              #!if .Request.Query.timestamp!#
+              "timestamp":"#!index .Request.Query.timestamp 0!#",
+              #!end!#
+            }
+          success: '{"status": 204, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "ParitionConflict" !# 409,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
 components:
   schemas:
     CloudAssetChanges:

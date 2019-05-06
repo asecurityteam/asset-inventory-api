@@ -300,12 +300,10 @@ func TestGoldenPath(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO").WithArgs("arn", "aid", "region", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
-	mock.ExpectExec("INSERT INTO " + tableAWSHostnames).WithArgs("google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
-	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))          // nolint
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
-	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))                                                  // nolint
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + fmt.Sprintf("%s_2019_04to06", tableAWSEventsIPSHostnames) + " PARTITION OF " + tableAWSEventsIPSHostnames + " FOR VALUES FROM \\('2019-04-01'\\) TO \\('2019-06-30'\\);").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO " + tableAWSHostnames).WithArgs("google.com").WillReturnResult(sqlmock.NewResult(1, 1))                                                 // nolint
+	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("4.3.2.1").WillReturnResult(sqlmock.NewResult(1, 1))                                                          // nolint
+	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, false, true, "arn", "4.3.2.1", nil).WillReturnResult(sqlmock.NewResult(1, 1))         // nolint
+	mock.ExpectExec("INSERT INTO " + tableAWSIPS).WithArgs("8.7.6.5").WillReturnResult(sqlmock.NewResult(1, 1))                                                          // nolint
 	mock.ExpectExec("INSERT INTO "+tableAWSEventsIPSHostnames).WithArgs(timestamp, true, true, "arn", "8.7.6.5", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
@@ -530,6 +528,320 @@ func TestRunScriptTxCommit(t *testing.T) {
 		scripts: scriptFound,
 	}
 	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
+}
+
+func TestGeneratePartition(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartition, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	newEnd, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
+	nextPartition := "aws_events_ips_hostnames_2019_10to2020_01" // next quarter
+	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestGeneratePartitionFirstTime(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, time.May, 5, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now: func() time.Time {
+			return createdAt
+		},
+	}
+
+	begin, _ := time.Parse(time.RFC3339, "2019-05-01T00:00:00Z")
+	end, _ := time.Parse(time.RFC3339, "2019-08-01T00:00:00Z")
+
+	nextPartition := "aws_events_ips_hostnames_2019_05to2019_08"
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnError(sql.ErrNoRows).RowsWillBeClosed()
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, begin, end).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestGeneratePartitionScanError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now: func() time.Time {
+			return time.Date(2019, time.May, 1, 0, 0, 0, 0, time.UTC)
+		},
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnError(errors.New("")).RowsWillBeClosed()
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionInvalidPartition(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow("not a valid date")
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionTxError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	mock.ExpectBegin().WillReturnError(errors.New(""))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionLockError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnError(errors.New(""))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionInsertFailure(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartition, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	newEnd, _ := time.Parse(time.RFC3339, "2019-07-01T00:00:00Z")
+	nextPartition := "aws_events_ips_hostnames_2019_04to2019_07" // next quarter
+	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, time.RFC3339, latestPartition, newEnd).WillReturnError(errors.New(""))
+	mock.ExpectRollback()
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionConflict(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartition, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
+	newEnd, _ := time.Parse(time.RFC3339, "2019-06-01T00:00:00Z")
+	nextPartition := "aws_events_ips_hostnames_2019_03to2019_06" // next quarter
+	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(0, 0))
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+	_, ok := err.(domain.PartitionConflict)
+	assert.True(t, ok, fmt.Sprintf("Expected a PartitionConflict, but received %t", err))
+}
+
+func TestGeneratePartitionCreateFailure(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartition, _ := time.Parse(time.RFC3339, "2019-02-01T00:00:00Z")
+	newEnd, _ := time.Parse(time.RFC3339, "2019-05-01T00:00:00Z")
+	nextPartition := "aws_events_ips_hostnames_2019_02to2019_05"
+	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WillReturnError(errors.New(""))
+	mock.ExpectRollback()
+
+	err = db.GeneratePartition(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionWithTimestamp(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	ts, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	newEnd, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
+	nextPartition := "aws_events_ips_hostnames_2019_10to2020_01"
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, ts, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err = db.GeneratePartitionWithTimestamp(context.Background(), ts)
+	assert.NoError(t, err)
+}
+
+func TestGeneratePartitionWithTimestampTxError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	ts, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	mock.ExpectBegin().WillReturnError(errors.New(""))
+
+	err = db.GeneratePartitionWithTimestamp(context.Background(), ts)
+	assert.Error(t, err)
+}
+
+func TestGeneratePartitionWithTimestampLockError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	ts, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnError(errors.New(""))
+	err = db.GeneratePartitionWithTimestamp(context.Background(), ts)
+	assert.Error(t, err)
 }
 
 func fakeCloudAssetChanges() domain.CloudAssetChanges {

@@ -3,33 +3,26 @@ package v1
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/logevent"
-	"github.com/asecurityteam/runhttp"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 func newFetchByIPHandler(fetcher domain.CloudAssetByIPFetcher) *CloudFetchByIPHandler {
 	return &CloudFetchByIPHandler{
-		LogFn: func(_ context.Context) runhttp.Logger {
-			return logevent.New(logevent.Config{Output: ioutil.Discard})
-		},
-		StatFn:  runhttp.StatFromContext,
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
 		Fetcher: fetcher,
 	}
 }
 
 func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *CloudFetchByHostnameHandler {
 	return &CloudFetchByHostnameHandler{
-		LogFn: func(_ context.Context) runhttp.Logger {
-			return logevent.New(logevent.Config{Output: ioutil.Discard})
-		},
-		StatFn:  runhttp.StatFromContext,
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
 		Fetcher: fetcher,
 	}
 }
