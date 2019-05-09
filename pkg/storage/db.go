@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 )
@@ -151,8 +152,33 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 		}
 		initerr = db.RunScript(ctx, createScript)
+
+		if initerr == nil {
+			db.startPartitionGeneratorTimer(ctx)
+		}
 	})
 	return initerr
+}
+
+func (db *DB) startPartitionGeneratorTimer(ctx context.Context) {
+	// run every 12 hours, with the assumption that partition tables will never be
+	// this granular, thus partition tables are created well in advance of their need
+	ticker := time.NewTicker(12 * time.Hour)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := db.generatePartition(ctx); err != nil {
+					logger := domain.LoggerFromContext(ctx)
+					logger.Error(logs.StorageError{Reason: err.Error()})
+				}
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 }
 
 func (db *DB) doesDBExist(dbName string) (bool, error) {
@@ -209,8 +235,8 @@ func (db *DB) ping() error {
 	return nil
 }
 
-// GeneratePartition finds the latest partition, and generate the next partition based on the previous partions time range
-func (db *DB) GeneratePartition(ctx context.Context) error {
+// generatePartition finds the latest partition, and generate the next partition based on the previous partition's time range
+func (db *DB) generatePartition(ctx context.Context) error {
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -218,10 +244,11 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
 		return handleRollback(tx, err)
 	}
-	stmt := "SELECT partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
+	stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
 	row := tx.QueryRowContext(ctx, stmt)
+	var begin string
 	var latest string
-	err = row.Scan(&latest)
+	err = row.Scan(&begin, &latest)
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
@@ -230,16 +257,25 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		return handleRollback(tx, err)
 	}
 
+	beginTime, err := time.Parse(time.RFC3339, begin)
+	if err != nil {
+		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
+	}
 	latestTime, err := time.Parse(time.RFC3339, latest)
 	if err != nil {
 		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
 	}
 
+	if beginTime.After(db.now()) {
+		// a table has already been created in preparation for the future
+		return nil
+	}
+
 	return generatePartitionForTime(ctx, tx, db.now(), latestTime)
 }
 
-// GeneratePartitionWithTimestamp generates the partition based on the given time
-func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
+// generatePartitionWithTimestamp generates the partition based on the given time
+func (db *DB) generatePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err

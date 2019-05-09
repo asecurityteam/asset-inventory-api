@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-// PartitionGenerator is used to generate the next time-based partition
-type PartitionGenerator interface {
-	GeneratePartition(context.Context) error
-	GeneratePartitionWithTimestamp(context.Context, time.Time) error
-}
-
 // CloudAssetStorer interface provides functions for inserting cloud assets
 type CloudAssetStorer interface {
 	Store(context.Context, CloudAssetChanges) error
