@@ -577,7 +577,8 @@ func TestGeneratePartitionNeedOne(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	createdAt := time.Date(2019, 04, 03, 0, 0, 0, 0, time.UTC)
+	// within 3 days of latestPartitionEnd; so we know we need a new partition soon
+	createdAt := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
 		sqldb:   mockdb,
@@ -602,6 +603,34 @@ func TestGeneratePartitionNeedOne(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGeneratePartitionNeedOneButShouldNotCreateItYet(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	// further than 3 days of latestPartitionEnd; so we know we need a new partition but we don't try to create it yet
+	createdAt := time.Date(2019, 9, 10, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectCommit()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NoError(t, err)
+}
+
 func TestGeneratePartitionAlreadyExists(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
@@ -609,7 +638,7 @@ func TestGeneratePartitionAlreadyExists(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC) // date is _before_ the already-existing future partition
+	createdAt := time.Date(2019, 03, 28, 0, 0, 0, 0, time.UTC) // date is _before_ the already-existing future partition
 
 	db := DB{
 		sqldb:   mockdb,

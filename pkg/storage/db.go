@@ -230,7 +230,7 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
-		return GeneratePartitionForTime(ctx, tx, db.now(), db.now())
+		return generatePartitionForTime(ctx, tx, db.now(), db.now())
 	default:
 		return handleRollback(tx, err)
 	}
@@ -244,13 +244,18 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
 	}
 
+	daysUntilPartitionNeeded := latestTime.Sub(db.now()).Hours() / 24
+
 	if beginTime.After(db.now()) {
-		fmt.Println("HERE")
 		// a table has already been created in preparation for the future
 		return tx.Commit()
+	} else if daysUntilPartitionNeeded < 3 {
+		// arbitrary choice to create the next partition 3 days in advance of its actual need,
+		// which gives us time to fix any problem that may come up
+		return generatePartitionForTime(ctx, tx, db.now(), latestTime)
 	}
 
-	return GeneratePartitionForTime(ctx, tx, db.now(), latestTime)
+	return tx.Commit()
 }
 
 // GeneratePartitionWithTimestamp generates the partition based on the given time
@@ -263,10 +268,10 @@ func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Tim
 		return handleRollback(tx, err)
 	}
 
-	return GeneratePartitionForTime(ctx, tx, db.now(), begin)
+	return generatePartitionForTime(ctx, tx, db.now(), begin)
 }
 
-func GeneratePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
+func generatePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
 	monthInterval := defaultPartitionInterval
 	begin = time.Date(begin.Year(), begin.Month(), 1, 0, 0, 0, 0, begin.Location()) // month granularity
 	end := begin.AddDate(0, monthInterval, 0)
