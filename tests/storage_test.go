@@ -448,7 +448,7 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 }
 
 func TestGeneratePartitions(t *testing.T) {
-	before(t, dbStorage) // start with a parition from 07/2019-09/2019
+	before(t, dbStorage) // start with a partition from 07/2019-09/2019
 	partitions := getPartitions(t)
 	require.Equal(t, 1, len(partitions))
 	require.Equal(t, "aws_events_ips_hostnames_2019_08to2019_11", partitions[0])
@@ -456,32 +456,14 @@ func TestGeneratePartitions(t *testing.T) {
 	err := dbStorage.GeneratePartition(context.Background())
 	require.NoError(t, err)
 	partitions = getPartitions(t)
-	require.Equal(t, 2, len(partitions))
-	require.Equal(t, "aws_events_ips_hostnames_2019_11to2020_02", partitions[0])
-
-	err = dbStorage.GeneratePartition(context.Background())
-	require.NoError(t, err)
-	partitions = getPartitions(t)
-	require.Equal(t, 3, len(partitions))
-	require.Equal(t, "aws_events_ips_hostnames_2020_02to2020_05", partitions[0])
+	require.Equal(t, 1, len(partitions)) // no new partition since GeneratePartition only creates on the condition of being within 3 days of needing one
 
 	// conflict
-	err = dbStorage.GeneratePartitionWithTimestamp(context.Background(), time.Date(2020, 02, 01, 0, 0, 0, 0, time.UTC))
+	err = dbStorage.GeneratePartitionWithTimestamp(context.Background(), time.Date(2019, 07, 01, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	_, ok := err.(domain.PartitionConflict)
 	require.True(t, ok, fmt.Sprintf("Expected PartitionConflict, but received %t", err))
 
-	// conflict
-	err = dbStorage.GeneratePartitionWithTimestamp(context.Background(), time.Date(2020, 03, 01, 0, 0, 0, 0, time.UTC))
-	require.Error(t, err)
-	_, ok = err.(domain.PartitionConflict)
-	require.True(t, ok, fmt.Sprintf("Expected PartitionConflict, but received %t", err))
-
-	// conflict
-	err = dbStorage.GeneratePartitionWithTimestamp(context.Background(), time.Date(2020, 04, 01, 0, 0, 0, 0, time.UTC))
-	require.Error(t, err)
-	_, ok = err.(domain.PartitionConflict)
-	require.True(t, ok, fmt.Sprintf("Expected PartitionConflict, but received %t", err))
 }
 
 func getPartitions(t *testing.T) []string {

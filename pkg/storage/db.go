@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 )
@@ -153,32 +152,8 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 		}
 		initerr = db.RunScript(ctx, createScript)
 
-		if initerr == nil {
-			db.startPartitionGeneratorTimer(ctx)
-		}
 	})
 	return initerr
-}
-
-func (db *DB) startPartitionGeneratorTimer(ctx context.Context) {
-	// run every 12 hours, with the assumption that partition tables will never be
-	// this granular, thus partition tables are created well in advance of their need
-	ticker := time.NewTicker(12 * time.Hour)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if err := db.generatePartition(ctx); err != nil {
-					logger := domain.LoggerFromContext(ctx)
-					logger.Error(logs.StorageError{Reason: err.Error()})
-				}
-			case <-quit:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
 }
 
 func (db *DB) doesDBExist(dbName string) (bool, error) {
@@ -235,15 +210,18 @@ func (db *DB) ping() error {
 	return nil
 }
 
-// generatePartition finds the latest partition, and generate the next partition based on the previous partition's time range
-func (db *DB) generatePartition(ctx context.Context) error {
+// GeneratePartition finds the latest partition, and generate the next partition based on the previous partition's time range
+func (db *DB) GeneratePartition(ctx context.Context) error {
+
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
+
 	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
 		return handleRollback(tx, err)
 	}
+
 	stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
 	row := tx.QueryRowContext(ctx, stmt)
 	var begin string
@@ -252,7 +230,7 @@ func (db *DB) generatePartition(ctx context.Context) error {
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
-		return generatePartitionForTime(ctx, tx, db.now(), db.now())
+		return GeneratePartitionForTime(ctx, tx, db.now(), db.now())
 	default:
 		return handleRollback(tx, err)
 	}
@@ -267,15 +245,16 @@ func (db *DB) generatePartition(ctx context.Context) error {
 	}
 
 	if beginTime.After(db.now()) {
+		fmt.Println("HERE")
 		// a table has already been created in preparation for the future
-		return nil
+		return tx.Commit()
 	}
 
-	return generatePartitionForTime(ctx, tx, db.now(), latestTime)
+	return GeneratePartitionForTime(ctx, tx, db.now(), latestTime)
 }
 
-// generatePartitionWithTimestamp generates the partition based on the given time
-func (db *DB) generatePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
+// GeneratePartitionWithTimestamp generates the partition based on the given time
+func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -284,10 +263,10 @@ func (db *DB) generatePartitionWithTimestamp(ctx context.Context, begin time.Tim
 		return handleRollback(tx, err)
 	}
 
-	return generatePartitionForTime(ctx, tx, db.now(), begin)
+	return GeneratePartitionForTime(ctx, tx, db.now(), begin)
 }
 
-func generatePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
+func GeneratePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
 	monthInterval := defaultPartitionInterval
 	begin = time.Date(begin.Year(), begin.Month(), 1, 0, 0, 0, 0, begin.Location()) // month granularity
 	end := begin.AddDate(0, monthInterval, 0)
