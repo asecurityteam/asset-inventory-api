@@ -570,14 +570,15 @@ func TestRunScriptTxCommit(t *testing.T) {
 	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
 }
 
-func TestGeneratePartition(t *testing.T) {
+func TestGeneratePartitionNeedOne(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
 
-	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
+	// within 3 days of latestPartitionEnd; so we know we need a new partition soon
+	createdAt := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
 		sqldb:   mockdb,
@@ -585,16 +586,72 @@ func TestGeneratePartition(t *testing.T) {
 		now:     func() time.Time { return createdAt },
 	}
 
-	latestPartition, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
 	newEnd, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	nextPartition := "aws_events_ips_hostnames_2019_10to2020_01" // next quarter
-	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartitionEnd, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestGeneratePartitionNeedOneButShouldNotCreateItYet(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	// further than 3 days of latestPartitionEnd; so we know we need a new partition but we don't try to create it yet
+	createdAt := time.Date(2019, 9, 10, 0, 0, 0, 0, time.UTC)
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectCommit()
+
+	err = db.GeneratePartition(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestGeneratePartitionAlreadyExists(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	createdAt := time.Date(2019, 03, 28, 0, 0, 0, 0, time.UTC) // date is _before_ the already-existing future partition
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return createdAt },
+	}
+
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
 	mock.ExpectCommit()
 
 	err = db.GeneratePartition(context.Background())
@@ -669,7 +726,7 @@ func TestGeneratePartitionInvalidPartition(t *testing.T) {
 		scripts: scriptFound,
 	}
 
-	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow("not a valid date")
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow("not a valid date", "also invalid")
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
@@ -736,14 +793,15 @@ func TestGeneratePartitionInsertFailure(t *testing.T) {
 		now:     func() time.Time { return createdAt },
 	}
 
-	latestPartition, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
 	newEnd, _ := time.Parse(time.RFC3339, "2019-07-01T00:00:00Z")
 	nextPartition := "aws_events_ips_hostnames_2019_04to2019_07" // next quarter
-	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("INSERT").WithArgs(nextPartition, time.RFC3339, latestPartition, newEnd).WillReturnError(errors.New(""))
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, time.RFC3339, latestPartitionEnd, newEnd).WillReturnError(errors.New(""))
 	mock.ExpectRollback()
 
 	err = db.GeneratePartition(context.Background())
@@ -765,14 +823,15 @@ func TestGeneratePartitionConflict(t *testing.T) {
 		now:     func() time.Time { return createdAt },
 	}
 
-	latestPartition, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
 	newEnd, _ := time.Parse(time.RFC3339, "2019-06-01T00:00:00Z")
 	nextPartition := "aws_events_ips_hostnames_2019_03to2019_06" // next quarter
-	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartitionEnd, newEnd).WillReturnResult(sqlmock.NewResult(0, 0))
 
 	err = db.GeneratePartition(context.Background())
 	assert.Error(t, err)
@@ -795,14 +854,15 @@ func TestGeneratePartitionCreateFailure(t *testing.T) {
 		now:     func() time.Time { return createdAt },
 	}
 
-	latestPartition, _ := time.Parse(time.RFC3339, "2019-02-01T00:00:00Z")
+	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-01-01T00:00:00Z")
+	latestPartitionEnd, _ := time.Parse(time.RFC3339, "2019-02-01T00:00:00Z")
 	newEnd, _ := time.Parse(time.RFC3339, "2019-05-01T00:00:00Z")
 	nextPartition := "aws_events_ips_hostnames_2019_02to2019_05"
-	rows := sqlmock.NewRows([]string{"partition_end"}).AddRow(latestPartition)
+	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow(latestPartitionBegin, latestPartitionEnd)
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartition, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT").WithArgs(nextPartition, createdAt, latestPartitionEnd, newEnd).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS " + nextPartition + " PARTITION OF aws_events_ips_hostnames FOR VALUES FROM").
 		WillReturnError(errors.New(""))
 	mock.ExpectRollback()

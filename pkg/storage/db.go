@@ -151,6 +151,7 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 
 		}
 		initerr = db.RunScript(ctx, createScript)
+
 	})
 	return initerr
 }
@@ -209,19 +210,23 @@ func (db *DB) ping() error {
 	return nil
 }
 
-// GeneratePartition finds the latest partition, and generate the next partition based on the previous partions time range
+// GeneratePartition finds the latest partition, and generate the next partition based on the previous partition's time range
 func (db *DB) GeneratePartition(ctx context.Context) error {
+
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
+
 	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
 		return handleRollback(tx, err)
 	}
-	stmt := "SELECT partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
+
+	stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
 	row := tx.QueryRowContext(ctx, stmt)
+	var begin string
 	var latest string
-	err = row.Scan(&latest)
+	err = row.Scan(&begin, &latest)
 	switch err {
 	case nil:
 	case sql.ErrNoRows:
@@ -230,12 +235,27 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		return handleRollback(tx, err)
 	}
 
+	beginTime, err := time.Parse(time.RFC3339, begin)
+	if err != nil {
+		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
+	}
 	latestTime, err := time.Parse(time.RFC3339, latest)
 	if err != nil {
 		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
 	}
 
-	return generatePartitionForTime(ctx, tx, db.now(), latestTime)
+	daysUntilPartitionNeeded := latestTime.Sub(db.now()).Hours() / 24
+
+	if beginTime.After(db.now()) {
+		// a table has already been created in preparation for the future
+		return tx.Commit()
+	} else if daysUntilPartitionNeeded < 3 {
+		// arbitrary choice to create the next partition 3 days in advance of its actual need,
+		// which gives us time to fix any problem that may come up
+		return generatePartitionForTime(ctx, tx, db.now(), latestTime)
+	}
+
+	return tx.Commit()
 }
 
 // GeneratePartitionWithTimestamp generates the partition based on the given time
