@@ -42,11 +42,16 @@ func main() {
 		LogFn:     domain.LoggerFromContext,
 		Generator: dbStorage,
 	}
+	getPartitions := &v1.GetPartitionsHandler{
+		LogFn:  domain.LoggerFromContext,
+		Getter: dbStorage,
+	}
 	handlers := map[string]serverfull.Function{
 		"insert":          serverfull.NewFunction(insert.Handle),
 		"fetchByIP":       serverfull.NewFunction(fetchByIP.Handle),
 		"fetchByHostname": serverfull.NewFunction(fetchByHostname.Handle),
 		"createPartition": serverfull.NewFunction(createPartition.Handle),
+		"getPartitions":   serverfull.NewFunction(getPartitions),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

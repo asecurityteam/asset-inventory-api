@@ -944,6 +944,70 @@ func TestGeneratePartitionWithTimestampLockError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGetPartitionsQueryError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	mock.ExpectQuery("SELECT").WillReturnError(errors.New(""))
+
+	_, err = db.GetPartitions(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGetPartitionsScanError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	createdAt, _ := time.Parse(time.RFC3339, "2019-03-31T00:00:00Z")
+	partitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	partitionEnd, _ := time.Parse(time.RFC3339, "2019-07-01T00:00:00Z")
+	rows := sqlmock.NewRows([]string{"created_at", "partition_begin", "partition_end"}).AddRow(createdAt, partitionBegin, partitionEnd) // missing name
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+
+	_, err = db.GetPartitions(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGetPartitions(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+	}
+
+	name := "partition"
+	createdAt, _ := time.Parse(time.RFC3339, "2019-03-31T00:00:00Z")
+	partitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
+	partitionEnd, _ := time.Parse(time.RFC3339, "2019-07-01T00:00:00Z")
+	rows := sqlmock.NewRows([]string{"name", "created_at", "partition_begin", "partition_end"}).AddRow(name, createdAt, partitionBegin, partitionEnd) // missing name
+	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
+
+	results, err := db.GetPartitions(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(results))
+}
+
 func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}

@@ -51,6 +51,38 @@ func (_mr *_MockPartitionGeneratorRecorder) GeneratePartitionWithTimestamp(arg0,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratePartitionWithTimestamp", arg0, arg1)
 }
 
+// Mock of PartitionsGetter interface
+type MockPartitionsGetter struct {
+	ctrl     *gomock.Controller
+	recorder *_MockPartitionsGetterRecorder
+}
+
+// Recorder for MockPartitionsGetter (not exported)
+type _MockPartitionsGetterRecorder struct {
+	mock *MockPartitionsGetter
+}
+
+func NewMockPartitionsGetter(ctrl *gomock.Controller) *MockPartitionsGetter {
+	mock := &MockPartitionsGetter{ctrl: ctrl}
+	mock.recorder = &_MockPartitionsGetterRecorder{mock}
+	return mock
+}
+
+func (_m *MockPartitionsGetter) EXPECT() *_MockPartitionsGetterRecorder {
+	return _m.recorder
+}
+
+func (_m *MockPartitionsGetter) GetPartitions(_param0 context.Context) ([]domain.Partition, error) {
+	ret := _m.ctrl.Call(_m, "GetPartitions", _param0)
+	ret0, _ := ret[0].([]domain.Partition)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockPartitionsGetterRecorder) GetPartitions(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetPartitions", arg0)
+}
+
 // Mock of CloudAssetStorer interface
 type MockCloudAssetStorer struct {
 	ctrl     *gomock.Controller

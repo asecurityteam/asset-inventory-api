@@ -314,6 +314,39 @@ func handleRollback(tx *sql.Tx, err error) error {
 	return err
 }
 
+// GetPartitions fetches the created partitions in the database
+func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
+	stmt := "SELECT name, created_at, partition_begin, partition_end FROM partitions ORDER BY partition_end DESC"
+	rows, err := db.sqldb.QueryContext(ctx, stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	partitions := make([]domain.Partition, 0)
+	for rows.Next() {
+		var name string
+		var createdAt time.Time
+		var begin time.Time
+		var end time.Time
+		if err := rows.Scan(&name, &createdAt, &begin, &end); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		partitions = append(partitions, domain.Partition{
+			Name:      name,
+			CreatedAt: createdAt,
+			Begin:     begin,
+			End:       end,
+		})
+	}
+
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	return partitions, nil
+}
+
 // Store an implementation of the Storage interface that records to a database
 func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 

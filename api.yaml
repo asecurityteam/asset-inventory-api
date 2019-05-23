@@ -265,6 +265,29 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
+    get:
+      summary: "Get all partitions"
+      description: "This is an endpoint to view all active partitions."
+      responses:
+        200:
+          description: "Active partitions"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partitions'
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "getPartitions"
+          async: false
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: '{"status": 500, "bodyPassthrough": true}'
 components:
   schemas:
     CloudAssetChanges:
@@ -350,6 +373,27 @@ components:
           type: object
           additionalProperties:
             type: string
+    Partitions:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Partition"
+    Partition:
+      type: object
+      properties:
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        begin:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
     Error:
       type: object
       properties:
