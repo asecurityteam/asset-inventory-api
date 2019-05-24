@@ -51,7 +51,7 @@ func main() {
 		"fetchByIP":       serverfull.NewFunction(fetchByIP.Handle),
 		"fetchByHostname": serverfull.NewFunction(fetchByHostname.Handle),
 		"createPartition": serverfull.NewFunction(createPartition.Handle),
-		"getPartitions":   serverfull.NewFunction(getPartitions),
+		"getPartitions":   serverfull.NewFunction(getPartitions.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}
