@@ -8,8 +8,7 @@ import (
 
 // PartitionGenerator is used to generate the next time-based partition
 type PartitionGenerator interface {
-	GeneratePartition(context.Context) error
-	GeneratePartitionWithTimestamp(context.Context, time.Time) error
+	GeneratePartition(context.Context, time.Time, int) error
 }
 
 // PartitionsGetter is used to fetch a list of partitions

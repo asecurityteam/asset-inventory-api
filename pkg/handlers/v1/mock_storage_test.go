@@ -4,10 +4,11 @@
 package v1
 
 import (
-	context "context"
+	"context"
+	"time"
+
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	gomock "github.com/golang/mock/gomock"
-	time "time"
+	"github.com/golang/mock/gomock"
 )
 
 // Mock of PartitionGenerator interface
@@ -31,24 +32,14 @@ func (_m *MockPartitionGenerator) EXPECT() *_MockPartitionGeneratorRecorder {
 	return _m.recorder
 }
 
-func (_m *MockPartitionGenerator) GeneratePartition(_param0 context.Context) error {
-	ret := _m.ctrl.Call(_m, "GeneratePartition", _param0)
+func (_m *MockPartitionGenerator) GeneratePartition(_param0 context.Context, _param1 time.Time, _param2 int) error {
+	ret := _m.ctrl.Call(_m, "GeneratePartition", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockPartitionGeneratorRecorder) GeneratePartition(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratePartition", arg0)
-}
-
-func (_m *MockPartitionGenerator) GeneratePartitionWithTimestamp(_param0 context.Context, _param1 time.Time) error {
-	ret := _m.ctrl.Call(_m, "GeneratePartitionWithTimestamp", _param0, _param1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockPartitionGeneratorRecorder) GeneratePartitionWithTimestamp(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratePartitionWithTimestamp", arg0, arg1)
+func (_mr *_MockPartitionGeneratorRecorder) GeneratePartition(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratePartition", arg0, arg1, arg2)
 }
 
 // Mock of PartitionsGetter interface

@@ -452,22 +452,25 @@ func TestGeneratePartitions(t *testing.T) {
 	partitions, err := dbStorage.GetPartitions(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(partitions))
-	require.Equal(t, "aws_events_ips_hostnames_2019_08to2019_11", partitions[0].Name)
+	require.Equal(t, "aws_events_ips_hostnames_2019_08_01to2019_10_30", partitions[0].Name)
 	require.True(t, time.Date(2019, time.August, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[0].Begin), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[0].Begin))
-	require.True(t, time.Date(2019, time.November, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[0].End), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[0].End))
-
-	err = dbStorage.GeneratePartition(context.Background())
-	require.NoError(t, err)
-	partitions, err = dbStorage.GetPartitions(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, 1, len(partitions)) // no new partition since GeneratePartition only creates on the condition of being within 3 days of needing one
+	require.True(t, time.Date(2019, time.October, 30, 0, 0, 0, 0, time.UTC).Equal(partitions[0].End), fmt.Sprintf("Expected %v to be 2019-10-30T00:00:00Z", partitions[0].End))
 
 	// conflict
-	err = dbStorage.GeneratePartitionWithTimestamp(context.Background(), time.Date(2019, 07, 01, 0, 0, 0, 0, time.UTC))
+	err = dbStorage.GeneratePartition(context.Background(), time.Date(2019, 07, 01, 0, 0, 0, 0, time.UTC), 0)
 	require.Error(t, err)
 	_, ok := err.(domain.PartitionConflict)
 	require.True(t, ok, fmt.Sprintf("Expected PartitionConflict, but received %t", err))
 
+	// create partition before
+	err = dbStorage.GeneratePartition(context.Background(), time.Date(2019, 07, 01, 0, 0, 0, 0, time.UTC), 31)
+	require.NoError(t, err)
+	partitions, err = dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 2, len(partitions))
+	require.Equal(t, "aws_events_ips_hostnames_2019_07_01to2019_08_01", partitions[1].Name)
+	require.True(t, time.Date(2019, time.July, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[1].Begin), fmt.Sprintf("Expected %v to be 2019-07-01T00:00:00Z", partitions[1].Begin))
+	require.True(t, time.Date(2019, time.August, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[1].End), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[1].End))
 }
 
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
@@ -504,7 +507,7 @@ func connectToDB() (*sql.DB, error) {
 func before(t *testing.T, db *storage.DB) {
 	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
 	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
-	require.NoError(t, db.GeneratePartitionWithTimestamp(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC)))
+	require.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
 
 // dropTables is a utility function called by "before"

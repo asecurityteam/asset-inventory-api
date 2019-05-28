@@ -8,9 +8,12 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-// CreatePartitionInput takes an optional timestamp for which to create the new partition
+// CreatePartitionInput has two optional values
+// begin - the start date for the partition
+// days - the duration in number of days for which the partition will capture data
 type CreatePartitionInput struct {
-	Timestamp string `json:"timestamp"`
+	Begin time.Time `json:"begin"`
+	Days  int       `json:"days"`
 }
 
 // CreatePartitionHandler handles requests for creating the next time-based partition
@@ -21,22 +24,7 @@ type CreatePartitionHandler struct {
 
 // Handle handles the partition creation request
 func (h *CreatePartitionHandler) Handle(ctx context.Context, input CreatePartitionInput) error {
-	if input.Timestamp == "" {
-		err := h.Generator.GeneratePartition(ctx)
-		if err != nil {
-			h.LogFn(ctx).Error(logs.StorageError{Reason: err.Error()})
-		}
-		return err
-	}
-	t, err := time.Parse(time.RFC3339, input.Timestamp)
-	if err != nil {
-		h.LogFn(ctx).Info(logs.InvalidInput{Reason: err.Error()})
-		return InvalidInput{
-			Cause: err,
-			Field: "timestamp",
-		}
-	}
-	err = h.Generator.GeneratePartitionWithTimestamp(ctx, t)
+	err := h.Generator.GeneratePartition(ctx, input.Begin, input.Days)
 	if err != nil {
 		h.LogFn(ctx).Error(logs.StorageError{Reason: err.Error()})
 	}
