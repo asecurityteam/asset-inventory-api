@@ -213,14 +213,12 @@ paths:
     post:
       summary: "Create a new partition"
       description: "This is an endpoint to administer changes to the partitions in the postgres database. Calling without a timestamp will create the next time based partition in the sequence. Calling with a timestamp will create a new partition for that timestamp."
-      parameters:
-        - name: "timestamp"
-          in: "query"
-          description: "Optional time for the partition"
-          required: false
-          schema:
-            type: "string"
-            format: "date-time"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePartitionInput'
       responses:
         204:
           description: "Partition created"
@@ -247,12 +245,7 @@ paths:
         lambda:
           arn: "createPartition"
           async: false
-          request: >
-            {
-              #!if .Request.Query.timestamp!#
-              "timestamp":"#!index .Request.Query.timestamp 0!#",
-              #!end!#
-            }
+          request: '#! json .Request.Body !#'
           success: '{"status": 204, "bodyPassthrough": true}'
           error: >
             {
@@ -394,6 +387,14 @@ components:
         end:
           type: string
           format: date-time
+    CreatePartitionInput:
+      type: object
+      properties:
+        begin:
+          type: string
+          format: date-time
+        days:
+          type: integer
     Error:
       type: object
       properties:

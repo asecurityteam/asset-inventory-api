@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultPartitionInterval   = 3 // months
+	defaultPartitionInterval   = 90 // days
 	tablePartitions            = "partitions"
 	tableAWSResources          = "aws_resources"
 	tableAWSIPS                = "aws_ips"
@@ -211,7 +211,7 @@ func (db *DB) ping() error {
 }
 
 // GeneratePartition finds the latest partition, and generate the next partition based on the previous partition's time range
-func (db *DB) GeneratePartition(ctx context.Context) error {
+func (db *DB) GeneratePartition(ctx context.Context, begin time.Time, days int) error {
 
 	tx, err := db.sqldb.BeginTx(ctx, nil)
 	if err != nil {
@@ -222,60 +222,39 @@ func (db *DB) GeneratePartition(ctx context.Context) error {
 		return handleRollback(tx, err)
 	}
 
-	stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
-	row := tx.QueryRowContext(ctx, stmt)
-	var begin string
-	var latest string
-	err = row.Scan(&begin, &latest)
-	switch err {
-	case nil:
-	case sql.ErrNoRows:
-		return generatePartitionForTime(ctx, tx, db.now(), db.now())
-	default:
-		return handleRollback(tx, err)
+	// If no begin time was provided, auto-create the next partition
+	if begin.IsZero() {
+		var latestBegin time.Time
+		var latestEnd time.Time
+		stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
+		row := tx.QueryRowContext(ctx, stmt)
+		err = row.Scan(&latestBegin, &latestEnd)
+		switch err {
+		case nil:
+			begin = latestEnd
+		case sql.ErrNoRows:
+			begin = db.now()
+		default:
+			return handleRollback(tx, err)
+		}
+
+		daysUntilPartitionNeeded := latestEnd.Sub(db.now()).Hours() / 24
+		// Check if a table has already been created in preparation for the future, or
+		// check to see if it's time to create a new partition. This is a somewhat arbitrary
+		// choice to auto-create the next partition 3 days in advance of its actual need, so that
+		// we have time to fix any problem that may come up
+		if latestBegin.After(db.now()) || daysUntilPartitionNeeded > 3 {
+			return tx.Commit()
+		}
 	}
 
-	beginTime, err := time.Parse(time.RFC3339, begin)
-	if err != nil {
-		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
-	}
-	latestTime, err := time.Parse(time.RFC3339, latest)
-	if err != nil {
-		return handleRollback(tx, fmt.Errorf("Invalid partition range: %s, %v", latest, err))
+	if days < 1 {
+		days = defaultPartitionInterval
 	}
 
-	daysUntilPartitionNeeded := latestTime.Sub(db.now()).Hours() / 24
-
-	if beginTime.After(db.now()) {
-		// a table has already been created in preparation for the future
-		return tx.Commit()
-	} else if daysUntilPartitionNeeded < 3 {
-		// arbitrary choice to create the next partition 3 days in advance of its actual need,
-		// which gives us time to fix any problem that may come up
-		return generatePartitionForTime(ctx, tx, db.now(), latestTime)
-	}
-
-	return tx.Commit()
-}
-
-// GeneratePartitionWithTimestamp generates the partition based on the given time
-func (db *DB) GeneratePartitionWithTimestamp(ctx context.Context, begin time.Time) error {
-	tx, err := db.sqldb.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
-		return handleRollback(tx, err)
-	}
-
-	return generatePartitionForTime(ctx, tx, db.now(), begin)
-}
-
-func generatePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin time.Time) error {
-	monthInterval := defaultPartitionInterval
-	begin = time.Date(begin.Year(), begin.Month(), 1, 0, 0, 0, 0, begin.Location()) // month granularity
-	end := begin.AddDate(0, monthInterval, 0)
-	partitionTableNameSuffix := fmt.Sprintf(`%d_%02dto%d_%02d`, begin.Year(), begin.Month(), end.Year(), end.Month())
+	end := begin.AddDate(0, 0, days)
+	suffixTpl := `%d_%02d_%02dto%d_%02d_%02d` // YYYY_MM_DDtoYYYY_MM_DD
+	partitionTableNameSuffix := fmt.Sprintf(suffixTpl, begin.Year(), begin.Month(), begin.Day(), end.Year(), end.Month(), end.Day())
 	name := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
 
 	// nolint
@@ -284,10 +263,10 @@ func generatePartitionForTime(ctx context.Context, tx *sql.Tx, createdAt, begin 
 		WHERE NOT EXISTS (
     		SELECT 1 FROM %s WHERE (
         		(partition_begin <= $3 AND partition_end > $3) OR
-        		(partition_begin <= $4 AND partition_end > $4)
+        		(partition_begin < $4 AND partition_end >= $4)
     		)
 		)`, tablePartitions, tablePartitions)
-	res, err := tx.ExecContext(ctx, stmt, name, createdAt, begin, end)
+	res, err := tx.ExecContext(ctx, stmt, name, db.now(), begin, end)
 	if err != nil {
 		return handleRollback(tx, err)
 	}
