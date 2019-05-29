@@ -13,6 +13,7 @@ type PostgresConfig struct {
 	Username     string
 	Password     string
 	DatabaseName string
+	PartitionTTL int
 }
 
 // Name is used by the settings library to replace the default naming convention.

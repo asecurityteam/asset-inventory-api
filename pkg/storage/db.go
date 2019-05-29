@@ -62,10 +62,11 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb   *sql.DB // this is a unit test seam
-	scripts func(name string) (string, error)
-	once    sync.Once
-	now     func() time.Time // unit test seam
+	sqldb               *sql.DB // this is a unit test seam
+	scripts             func(name string) (string, error)
+	once                sync.Once
+	now                 func() time.Time // unit test seam
+	defaultPartitionTTL int
 }
 
 // RunScript executes a SQL script from disk against the database.
@@ -97,6 +98,7 @@ func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
 		user := postgresConfig.Username
 		password := postgresConfig.Password
 		dbname := postgresConfig.DatabaseName
+		db.defaultPartitionTTL = postgresConfig.PartitionTTL
 
 		if db.now == nil {
 			db.now = time.Now
@@ -324,6 +326,66 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 	}
 
 	return partitions, nil
+}
+
+// DeletePartitions deletes partitions older than the specified number of days
+func (db *DB) DeletePartitions(ctx context.Context, days int) (int, error) {
+	if days == 0 {
+		days = db.defaultPartitionTTL
+	}
+
+	// if no TTL value has been set, do nothing
+	if days == 0 {
+		return 0, nil
+	}
+
+	tx, err := db.sqldb.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
+		return 0, handleRollback(tx, err)
+	}
+
+	deleteFrom := db.now().AddDate(0, 0, -days)
+	stmt := "SELECT name FROM partitions WHERE partition_end <= $1 ORDER BY partition_end DESC"
+	rows, err := tx.QueryContext(ctx, stmt, deleteFrom)
+	if err != nil {
+		return 0, handleRollback(tx, err)
+	}
+
+	partitions := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err = rows.Scan(&name); err != nil {
+			_ = rows.Close()
+			return 0, handleRollback(tx, err)
+		}
+		partitions = append(partitions, name)
+	}
+
+	if err = rows.Close(); err != nil {
+		return 0, handleRollback(tx, err)
+	}
+
+	if len(partitions) == 0 {
+		return 0, tx.Commit()
+	}
+
+	stmt = "DELETE FROM partitions WHERE partition_end <= $1"
+	_, err = tx.ExecContext(ctx, stmt, deleteFrom)
+	if err != nil {
+		return 0, handleRollback(tx, err)
+	}
+
+	dropTables := strings.Join(partitions, ",")
+	stmt = fmt.Sprintf("DROP TABLE %s", dropTables)
+	_, err = tx.ExecContext(ctx, stmt)
+	if err != nil {
+		return 0, handleRollback(tx, err)
+	}
+	return len(partitions), tx.Commit()
 }
 
 // Store an implementation of the Storage interface that records to a database

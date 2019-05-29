@@ -8,7 +8,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	postgresConfig := PostgresConfig{"localhost", "99", "me!", "mypassword!", "name"}
+	postgresConfig := PostgresConfig{
+		Hostname:     "localhost",
+		Port:         "99",
+		Username:     "me!",
+		Password:     "mypassword!",
+		DatabaseName: "name",
+		PartitionTTL: 365,
+	}
 	assert.Equal(t, "Postgres", postgresConfig.Name())
 }
 
