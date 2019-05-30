@@ -4,11 +4,10 @@
 package v1
 
 import (
-	"context"
-	"time"
-
+	context "context"
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/golang/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
+	time "time"
 )
 
 // Mock of PartitionGenerator interface
@@ -72,6 +71,38 @@ func (_m *MockPartitionsGetter) GetPartitions(_param0 context.Context) ([]domain
 
 func (_mr *_MockPartitionsGetterRecorder) GetPartitions(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetPartitions", arg0)
+}
+
+// Mock of PartitionsDeleter interface
+type MockPartitionsDeleter struct {
+	ctrl     *gomock.Controller
+	recorder *_MockPartitionsDeleterRecorder
+}
+
+// Recorder for MockPartitionsDeleter (not exported)
+type _MockPartitionsDeleterRecorder struct {
+	mock *MockPartitionsDeleter
+}
+
+func NewMockPartitionsDeleter(ctrl *gomock.Controller) *MockPartitionsDeleter {
+	mock := &MockPartitionsDeleter{ctrl: ctrl}
+	mock.recorder = &_MockPartitionsDeleterRecorder{mock}
+	return mock
+}
+
+func (_m *MockPartitionsDeleter) EXPECT() *_MockPartitionsDeleterRecorder {
+	return _m.recorder
+}
+
+func (_m *MockPartitionsDeleter) DeletePartitions(_param0 context.Context, _param1 int) (int, error) {
+	ret := _m.ctrl.Call(_m, "DeletePartitions", _param0, _param1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockPartitionsDeleterRecorder) DeletePartitions(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeletePartitions", arg0, arg1)
 }
 
 // Mock of CloudAssetStorer interface

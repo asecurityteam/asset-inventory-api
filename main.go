@@ -46,12 +46,17 @@ func main() {
 		LogFn:  domain.LoggerFromContext,
 		Getter: dbStorage,
 	}
+	deletePartitions := &v1.DeletePartitionsHandler{
+		LogFn:   domain.LoggerFromContext,
+		Deleter: dbStorage,
+	}
 	handlers := map[string]serverfull.Function{
-		"insert":          serverfull.NewFunction(insert.Handle),
-		"fetchByIP":       serverfull.NewFunction(fetchByIP.Handle),
-		"fetchByHostname": serverfull.NewFunction(fetchByHostname.Handle),
-		"createPartition": serverfull.NewFunction(createPartition.Handle),
-		"getPartitions":   serverfull.NewFunction(getPartitions.Handle),
+		"insert":           serverfull.NewFunction(insert.Handle),
+		"fetchByIP":        serverfull.NewFunction(fetchByIP.Handle),
+		"fetchByHostname":  serverfull.NewFunction(fetchByHostname.Handle),
+		"createPartition":  serverfull.NewFunction(createPartition.Handle),
+		"getPartitions":    serverfull.NewFunction(getPartitions.Handle),
+		"deletePartitions": serverfull.NewFunction(deletePartitions.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

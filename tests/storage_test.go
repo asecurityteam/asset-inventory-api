@@ -473,6 +473,33 @@ func TestGeneratePartitions(t *testing.T) {
 	require.True(t, time.Date(2019, time.August, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[1].End), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[1].End))
 }
 
+func TestDeletePartitions(t *testing.T) {
+	before(t, dbStorage) // start with a partition from 07/2019-09/2019
+
+	ts := time.Now().Truncate(24 * time.Hour).UTC()
+	maxAge := 365
+	duration := 14
+	numPartitions := 4
+	ts = ts.AddDate(0, 0, -maxAge)
+	for i := 0; i < numPartitions; i++ {
+		ts = ts.AddDate(0, 0, -duration)
+		err := dbStorage.GeneratePartition(context.Background(), ts, duration)
+		require.NoError(t, err)
+	}
+
+	partitions, err := dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, numPartitions+1, len(partitions))
+
+	deleted, err := dbStorage.DeletePartitions(context.Background(), maxAge)
+	require.NoError(t, err)
+	require.Equal(t, numPartitions, deleted)
+
+	partitions, err = dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, len(partitions))
+}
+
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
 // we can perform some Postgres cleanup/prep/checks that are test-specific
 func connectToDB() (*sql.DB, error) {

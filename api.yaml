@@ -281,6 +281,43 @@ paths:
           async: false
           success: '{"status": 200, "bodyPassthrough": true}'
           error: '{"status": 500, "bodyPassthrough": true}'
+    delete:
+      summary: "Delete old partitions"
+      description: "This is an endpoint to delete partitions older than the specified number of days."
+      parameters:
+        - name: days
+          in: query
+          description: "Optional age in days. If none is specified the serivce default will be used"
+          required: false
+          schema:
+            type: integer
+      responses:
+        200:
+          description: "Successfully deleted"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedPartitions'
+      x-transportd:
+        backend: app
+        enabled:
+          - "metrics"
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "deletePartitions"
+          async: false
+          request: >
+            {
+              #! if .Request.Query.days !#
+              "days": #!index .Request.Query.days 0!#
+              #! end !#
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: '{"status": 500, "bodyPassthrough": true}'
+
 components:
   schemas:
     CloudAssetChanges:
@@ -394,6 +431,11 @@ components:
           type: string
           format: date-time
         days:
+          type: integer
+    DeletedPartitions:
+      type: object
+      properties:
+        deleted:
           type: integer
     Error:
       type: object
