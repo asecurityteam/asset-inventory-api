@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      - postgres
     environment:
       - SERVERFULL_RUNTIME_HTTPSERVER_ADDRESS=:8081
       - SERVERFULL_RUNTIME_CONNSTATE_REPORTINTERVAL=5s
@@ -17,16 +19,36 @@ services:
       - SERVERFULL_RUNTIME_CONNSTATE_NEWCOUNTER=http.server.connstate.new
       - SERVERFULL_RUNTIME_LOGGER_OUTPUT=STDOUT
       - SERVERFULL_RUNTIME_LOGGER_LEVEL=INFO
-      - SERVERFULL_RUNTIME_STATS_OUTPUT=DATADOG
+      - SERVERFULL_RUNTIME_STATS_OUTPUT=NULL
       - SERVERFULL_RUNTIME_STATS_DATADOG_PACKETSIZE=32768
       - SERVERFULL_RUNTIME_STATS_DATADOG_TAGS=
       - SERVERFULL_RUNTIME_STATS_DATADOG_FLUSHINTERVAL=10s
       - SERVERFULL_RUNTIME_STATS_DATADOG_ADDRESS=statsd:8125
       - SERVERFULL_RUNTIME_SIGNALS_INSTALLED=OS
       - SERVERFULL_RUNTIME_SIGNALS_OS_SIGNALS=15 2
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_USERNAME=user"
+      - "POSTGRES_DATABASENAME=assetmgmt"
+      - "POSTGRES_HOSTNAME=postgres"
+      - "POSTGRES_PORT=5432"
   gateway:
     build:
       context: .
       dockerfile: gateway.Dockerfile
     ports:
       - "8080:8080"
+  postgres:
+    image: postgres:11.2
+    ports:
+      - "5432:5432"
+    environment:
+      # while env var names are quite similar to `test` service above, it's just a coincidence
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_USER=user"
+      - "POSTGRES_DB=assetmgmt"
+      - "PGDATA=/var/lib/postgresql/data/pgdata11"
+      - "POSTGRES_PORT=5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "port=5432"
