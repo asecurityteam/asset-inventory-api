@@ -87,9 +87,8 @@ building and testing a bit easier. The following actions are available through t
 
 To run locally:
     1. In api.yml at x-runtime->stats->output (around line 9) change “DATADOG” to “NULL”
-    2. In api.yml at paths->/v1/cloud/change->post->x-transportd->enabled (around line 78) comment out: - “metrics”
-    3. In api.yml at paths->/v1/cloud/ip/{ipAddress}->get->x-transportd->enabled (around line 127) comment out: - “metrics”
-    4. Run: docker-compose up --build --abort-on-container-exit
+    2. In api.yml at all ...->x-transportd->enabled (around lines 78, 127, 187, 240, 274, 304) comment out: - “metrics”
+    3. Run: docker-compose up --build --abort-on-container-exit
 
 
 <a id="markdown-quality-gates" name="quality-gates"></a>
