@@ -85,12 +85,6 @@ building and testing a bit easier. The following actions are available through t
     Generate the project code documentation and make it viewable
     locally.
 
-To run locally:
-    1. In api.yml at x-runtime->stats->output (around line 9) change “DATADOG” to “NULL”
-    2. In api.yml at all ...->x-transportd->enabled (around lines 78, 127, 187, 240, 274, 304) comment out: - “metrics”
-    3. Run: docker-compose up --build --abort-on-container-exit
-
-
 <a id="markdown-quality-gates" name="quality-gates"></a>
 ### Quality Gates
 
