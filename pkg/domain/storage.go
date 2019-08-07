@@ -16,9 +16,9 @@ type PartitionsGetter interface {
 	GetPartitions(context.Context) ([]Partition, error)
 }
 
-// PartitionsDeleter is used to drop partitions older than the specified number of days
+// PartitionsDeleter is used to drop partitions by name.
 type PartitionsDeleter interface {
-	DeletePartitions(context.Context, int) (int, error)
+	DeletePartitions(context.Context, string) error
 }
 
 // CloudAssetStorer interface provides functions for inserting cloud assets

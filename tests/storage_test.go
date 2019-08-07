@@ -509,13 +509,17 @@ func TestDeletePartitions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numPartitions+1, len(partitions))
 
-	deleted, err := dbStorage.DeletePartitions(context.Background(), maxAge)
+	name := partitions[0].Name
+	err = dbStorage.DeletePartitions(context.Background(), name)
 	require.NoError(t, err)
-	require.Equal(t, numPartitions, deleted)
 
 	partitions, err = dbStorage.GetPartitions(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, len(partitions))
+	partitionNames := make([]string, 0, len(partitions))
+	for _, part := range partitions {
+		partitionNames = append(partitionNames, part.Name)
+	}
+	assert.NotContains(t, partitionNames, name)
 }
 
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so

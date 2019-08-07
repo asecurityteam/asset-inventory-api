@@ -13,35 +13,34 @@ func TestDeletePartitions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	days := 365
+	paritionName := "TEST"
 
 	mockDeleter := NewMockPartitionsDeleter(ctrl)
-	mockDeleter.EXPECT().DeletePartitions(gomock.Any(), days).Return(10, nil)
+	mockDeleter.EXPECT().DeletePartitions(gomock.Any(), paritionName).Return(nil)
 
 	h := &DeletePartitionsHandler{
 		LogFn:   testLogFn,
 		Deleter: mockDeleter,
 	}
 
-	res, err := h.Handle(context.Background(), DeletePartitionsInput{Days: days})
+	err := h.Handle(context.Background(), DeletePartitionsInput{Name: paritionName})
 	assert.NoError(t, err)
-	assert.Equal(t, 10, res.Deleted)
 }
 
 func TestDeletePartitionsError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	days := 365
+	partitionName := "TEST"
 
 	mockDeleter := NewMockPartitionsDeleter(ctrl)
-	mockDeleter.EXPECT().DeletePartitions(gomock.Any(), days).Return(0, errors.New(""))
+	mockDeleter.EXPECT().DeletePartitions(gomock.Any(), partitionName).Return(errors.New(""))
 
 	h := &DeletePartitionsHandler{
 		LogFn:   testLogFn,
 		Deleter: mockDeleter,
 	}
 
-	_, err := h.Handle(context.Background(), DeletePartitionsInput{Days: days})
+	err := h.Handle(context.Background(), DeletePartitionsInput{Name: partitionName})
 	assert.Error(t, err)
 }
