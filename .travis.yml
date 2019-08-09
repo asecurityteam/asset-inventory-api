@@ -4,9 +4,9 @@ go:
   - 1.12.x
 services:
   - docker
-install: true
-script:
+install:
   - chmod 777 -R "$(pwd)"
+script:
   - travis_retry make dep
   - make lint
   - make test
