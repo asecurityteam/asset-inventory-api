@@ -324,7 +324,7 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 		return nil, err
 	}
 	for _, v := range partitions {
-		row := db.sqldb.QueryRow(`SELECT count(*) FROM %s;`, v.Name)
+		row := db.sqldb.QueryRow("SELECT count(*) FROM " + v.Name)
 		var count int
 		if err := row.Scan(&count); err != nil {
 			return nil, err
