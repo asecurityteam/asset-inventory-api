@@ -253,7 +253,7 @@ paths:
             }
     get:
       summary: "Get all partitions"
-      description: "This is an endpoint to view all active partitions."
+      description: "This is an endpoint to view all active partitions and their record counts."
       responses:
         200:
           description: "Active partitions"

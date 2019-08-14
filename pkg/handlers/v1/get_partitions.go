@@ -19,6 +19,7 @@ type Partition struct {
 	CreatedAt time.Time `json:"createdAt"`
 	Begin     time.Time `json:"begin"`
 	End       time.Time `json:"end"`
+	Count     int       `json:"count"`
 }
 
 // GetPartitionsHandler handles requests for getting the time based partitions
@@ -41,6 +42,7 @@ func (h *GetPartitionsHandler) Handle(ctx context.Context) (GetPartitionsOutput,
 			CreatedAt: partition.CreatedAt,
 			Begin:     partition.Begin,
 			End:       partition.End,
+			Count:     partition.Count,
 		})
 	}
 	return GetPartitionsOutput{

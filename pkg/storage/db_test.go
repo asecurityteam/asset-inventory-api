@@ -978,6 +978,8 @@ func TestGetPartitions(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"name", "created_at", "partition_begin", "partition_end"}).AddRow(name, createdAt, partitionBegin, partitionEnd)
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
 
+	row := sqlmock.NewRows([]string{"total_records"}).AddRow(0)
+	mock.ExpectQuery("SELECT").WillReturnRows(row).RowsWillBeClosed()
 	results, err := db.GetPartitions(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(results))

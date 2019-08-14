@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain" // must remain here for sql lib to find the postgres driver
+	_ "github.com/lib/pq"                                     // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 )
 
@@ -295,14 +295,16 @@ func handleRollback(tx *sql.Tx, err error) error {
 	return err
 }
 
-// GetPartitions fetches the created partitions in the database
+// GetPartitions fetches the created partitions and gets each record count in the database
 func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
-	stmt := "SELECT name, created_at, partition_begin, partition_end FROM partitions ORDER BY partition_end DESC"
+	//stmt := `SELECT name, created_at, partition_begin, partition_end
+	//			FROM partitions ORDER BY partition_end DESC`
+	stmt := `SELECT name, created_at, partition_begin, partition_end
+				FROM partitions ORDER BY partition_end DESC`
 	rows, err := db.sqldb.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, err
 	}
-
 	partitions := make([]domain.Partition, 0)
 	for rows.Next() {
 		var name string
@@ -320,7 +322,24 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 			End:       end,
 		})
 	}
-
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for _, v := range partitions {
+		stmt2 := fmt.Sprintf(`SELECT count(*) FROM %s`, v.Name)
+		rows, err := db.sqldb.QueryContext(ctx, stmt2)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var count int
+			if err := rows.Scan(&count); err != nil {
+				_ = rows.Close()
+				return nil, err
+			}
+			v.Count = count
+		}
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
