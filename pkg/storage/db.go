@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain" // must remain here for sql lib to find the postgres driver
-	_ "github.com/lib/pq"                                     // must remain here for sql lib to find the postgres driver
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 )
 
@@ -323,13 +323,14 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for _, v := range partitions {
-		row := db.sqldb.QueryRow("SELECT count(*) FROM " + v.Name)
+	for offset, v := range partitions {
+		stmt2 := fmt.Sprintf("SELECT count(*) FROM %s", v.Name) //nolint
+		row := db.sqldb.QueryRowContext(ctx, stmt2)
 		var count int
 		if err := row.Scan(&count); err != nil {
 			return nil, err
 		}
-		v.Count = count
+		partitions[offset].Count = count
 	}
 	return partitions, nil
 }

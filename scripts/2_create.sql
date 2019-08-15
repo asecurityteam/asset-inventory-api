@@ -66,8 +66,7 @@ IF NOT EXISTS partitions
     name VARCHAR PRIMARY KEY,
     created_at TIMESTAMP NOT NULL,
     partition_begin DATE NOT NULL,
-    partition_end DATE NOT NULL,
-    total_records INT
+    partition_end DATE NOT NULL
 );
 
 -- Previously, we had some index creation here, but since we're querying on keys (which are already indexed),

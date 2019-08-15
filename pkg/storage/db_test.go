@@ -970,19 +970,18 @@ func TestGetPartitions(t *testing.T) {
 		sqldb:   mockdb,
 		scripts: scriptFound,
 	}
-
 	name := "partition"
 	createdAt, _ := time.Parse(time.RFC3339, "2019-03-31T00:00:00Z")
 	partitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
 	partitionEnd, _ := time.Parse(time.RFC3339, "2019-07-01T00:00:00Z")
 	rows := sqlmock.NewRows([]string{"name", "created_at", "partition_begin", "partition_end"}).AddRow(name, createdAt, partitionBegin, partitionEnd)
 	mock.ExpectQuery("SELECT").WillReturnRows(rows).RowsWillBeClosed()
-
-	row := sqlmock.NewRows([]string{"total_records"}).AddRow(0)
+	row := sqlmock.NewRows([]string{"c"}).AddRow(10)
 	mock.ExpectQuery("SELECT").WillReturnRows(row).RowsWillBeClosed()
 	results, err := db.GetPartitions(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(results))
+	assert.Equal(t, 10, results[0].Count)
 }
 
 func TestDeletePartitions(t *testing.T) {
