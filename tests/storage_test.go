@@ -455,7 +455,6 @@ func TestGeneratePartitions(t *testing.T) {
 	require.Equal(t, "aws_events_ips_hostnames_2019_08_01to2019_10_30", partitions[0].Name)
 	require.True(t, time.Date(2019, time.August, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[0].Begin), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[0].Begin))
 	require.True(t, time.Date(2019, time.October, 30, 0, 0, 0, 0, time.UTC).Equal(partitions[0].End), fmt.Sprintf("Expected %v to be 2019-10-30T00:00:00Z", partitions[0].End))
-
 	// conflict
 	err = dbStorage.GeneratePartition(context.Background(), time.Date(2019, 07, 01, 0, 0, 0, 0, time.UTC), 0)
 	require.Error(t, err)
@@ -471,6 +470,25 @@ func TestGeneratePartitions(t *testing.T) {
 	require.Equal(t, "aws_events_ips_hostnames_2019_07_01to2019_08_01", partitions[1].Name)
 	require.True(t, time.Date(2019, time.July, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[1].Begin), fmt.Sprintf("Expected %v to be 2019-07-01T00:00:00Z", partitions[1].Begin))
 	require.True(t, time.Date(2019, time.August, 01, 0, 0, 0, 0, time.UTC).Equal(partitions[1].End), fmt.Sprintf("Expected %v to be 2019-08-01T00:00:00Z", partitions[1].End))
+}
+
+func TestPartitionCounts(t *testing.T) {
+	before(t, dbStorage)
+
+	privateIPs := []string{"44.33.22.11"}
+	publicIPs := []string{"88.77.66.55"}
+	hostnames := []string{"yahoo.com"} // nolint
+	timestamp, _ := time.Parse(time.RFC3339, "2019-08-09T08:29:35+00:00")
+
+	fakeCloudAssetChange := newFakeCloudAssetChange(privateIPs, publicIPs, hostnames, timestamp, `arn`, `rtype`, `aid`, `region`, nil, true)
+	err := dbStorage.Store(context.Background(), fakeCloudAssetChange)
+	require.NoError(t, err, "Error storing asset")
+
+	partitions, err := dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err, "Error fetching partitions")
+	require.Equal(t, 1, len(partitions))
+	require.Equal(t, 2, partitions[0].Count) //IP addresses are inserted into separate rows
+
 }
 
 func TestDeletePartitions(t *testing.T) {

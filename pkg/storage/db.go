@@ -313,24 +313,22 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 			_ = rows.Close()
 			return nil, err
 		}
-		partitions = append(partitions, domain.Partition{
-			Name:      name,
-			CreatedAt: createdAt,
-			Begin:     begin,
-			End:       end,
-		})
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	for offset, v := range partitions {
-		stmt2 := fmt.Sprintf("SELECT count(*) FROM %s", v.Name) //nolint
+		stmt2 := fmt.Sprintf("SELECT count(*) FROM %s", name) //nolint
 		row := db.sqldb.QueryRowContext(ctx, stmt2)
 		var count int
 		if err := row.Scan(&count); err != nil {
 			return nil, err
 		}
-		partitions[offset].Count = count
+		partitions = append(partitions, domain.Partition{
+			Name:      name,
+			CreatedAt: createdAt,
+			Begin:     begin,
+			End:       end,
+			Count:     count,
+		})
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	return partitions, nil
 }
