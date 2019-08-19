@@ -42,6 +42,7 @@ type Partition struct {
 	CreatedAt time.Time
 	Begin     time.Time
 	End       time.Time
+	Count     int
 }
 
 // PartitionConflict is used to indicate a partition exists which overlaps with a partition requested to be created

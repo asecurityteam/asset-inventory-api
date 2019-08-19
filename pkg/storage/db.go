@@ -295,14 +295,14 @@ func handleRollback(tx *sql.Tx, err error) error {
 	return err
 }
 
-// GetPartitions fetches the created partitions in the database
+// GetPartitions fetches the created partitions and gets each record count in the database
 func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
-	stmt := "SELECT name, created_at, partition_begin, partition_end FROM partitions ORDER BY partition_end DESC"
+	stmt := `SELECT name, created_at, partition_begin, partition_end
+				FROM partitions ORDER BY partition_end DESC`
 	rows, err := db.sqldb.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, err
 	}
-
 	partitions := make([]domain.Partition, 0)
 	for rows.Next() {
 		var name string
@@ -313,18 +313,23 @@ func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 			_ = rows.Close()
 			return nil, err
 		}
+		stmt2 := fmt.Sprintf("SELECT count(*) FROM %s", name) //nolint
+		row := db.sqldb.QueryRowContext(ctx, stmt2)
+		var count int
+		if err := row.Scan(&count); err != nil {
+			return nil, err
+		}
 		partitions = append(partitions, domain.Partition{
 			Name:      name,
 			CreatedAt: createdAt,
 			Begin:     begin,
 			End:       end,
+			Count:     count,
 		})
 	}
-
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-
 	return partitions, nil
 }
 

@@ -1,4 +1,4 @@
--- Package storage implements the database access layer.  The underlying database
+-- Package storage implements the database access layer. The underlying database
 -- is Postgres, and the tables are defined as such:
 
 CREATE TABLE
@@ -56,7 +56,8 @@ PARTITION BY
         ts
 );
 
--- We use a partitions metadata table to track exisiting partitions and their covered ranges.
+-- We use a partitions metadata table to track exisiting partitions, their covered ranges
+-- and their number of records.
 -- This helps us maintain sequential, disjoint partitions.
 
 CREATE TABLE
