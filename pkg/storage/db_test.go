@@ -983,13 +983,17 @@ func TestGetPartitions(t *testing.T) {
 	assert.Equal(t, 10, results[0].Count)
 }
 
+const (
+	testPartitionName = "TEST_PARTITION"
+)
+
 func TestDeletePartitions(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	name := "TEST_PARTITION"
+
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
 		sqldb:   mockdb,
@@ -997,7 +1001,7 @@ func TestDeletePartitions(t *testing.T) {
 		now:     func() time.Time { return now },
 	}
 
-	partitions := []string{"one", "two", name}
+	partitions := []string{"one", "two", testPartitionName}
 	rows := sqlmock.NewRows([]string{"name"})
 	for _, p := range partitions {
 		rows = rows.AddRow(p)
@@ -1005,11 +1009,11 @@ func TestDeletePartitions(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE").WithArgs(name).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec(fmt.Sprintf("DROP TABLE %s", name)).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE").WithArgs(testPartitionName).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(fmt.Sprintf("DROP TABLE %s", testPartitionName)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	err = db.DeletePartitions(context.Background(), name)
+	err = db.DeletePartitions(context.Background(), testPartitionName)
 	assert.NoError(t, err)
 }
 
@@ -1019,7 +1023,7 @@ func TestDeletePartitionsTxError(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	name := "TEST_PARTITION"
+
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
 		sqldb:   mockdb,
@@ -1027,14 +1031,14 @@ func TestDeletePartitionsTxError(t *testing.T) {
 		now:     func() time.Time { return now },
 	}
 
-	partitions := []string{"one", "two", name}
+	partitions := []string{"one", "two", testPartitionName}
 	rows := sqlmock.NewRows([]string{"name"})
 	for _, p := range partitions {
 		rows = rows.AddRow(p)
 	}
 	mock.ExpectBegin().WillReturnError(errors.New(""))
 
-	err = db.DeletePartitions(context.Background(), name)
+	err = db.DeletePartitions(context.Background(), testPartitionName)
 	assert.Error(t, err)
 }
 
@@ -1044,7 +1048,7 @@ func TestDeletePartitionsLockError(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	name := "TEST_PARTITION"
+
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
 		sqldb:   mockdb,
@@ -1052,7 +1056,7 @@ func TestDeletePartitionsLockError(t *testing.T) {
 		now:     func() time.Time { return now },
 	}
 
-	partitions := []string{"one", "two", name}
+	partitions := []string{"one", "two", testPartitionName}
 	rows := sqlmock.NewRows([]string{"name"})
 	for _, p := range partitions {
 		rows = rows.AddRow(p)
@@ -1061,7 +1065,7 @@ func TestDeletePartitionsLockError(t *testing.T) {
 	mock.ExpectExec("LOCK").WillReturnError(errors.New(""))
 	mock.ExpectRollback()
 
-	err = db.DeletePartitions(context.Background(), name)
+	err = db.DeletePartitions(context.Background(), testPartitionName)
 	assert.Error(t, err)
 }
 
@@ -1071,7 +1075,7 @@ func TestDeletePartitionsDeleteError(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	name := "TEST_PARTITION"
+
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
 		sqldb:   mockdb,
@@ -1081,10 +1085,10 @@ func TestDeletePartitionsDeleteError(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE").WithArgs(name).WillReturnError(errors.New(""))
+	mock.ExpectExec("DELETE").WithArgs(testPartitionName).WillReturnError(errors.New(""))
 	mock.ExpectRollback()
 
-	err = db.DeletePartitions(context.Background(), name)
+	err = db.DeletePartitions(context.Background(), testPartitionName)
 	assert.Error(t, err)
 }
 
@@ -1094,7 +1098,7 @@ func TestDeletePartitionsDropError(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	name := "TEST_PARTITION"
+
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
 		sqldb:   mockdb,
@@ -1104,11 +1108,11 @@ func TestDeletePartitionsDropError(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE").WithArgs(name).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DROP TABLE " + name).WillReturnError(errors.New(""))
+	mock.ExpectExec("DELETE").WithArgs(testPartitionName).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DROP TABLE " + testPartitionName).WillReturnError(errors.New(""))
 	mock.ExpectRollback()
 
-	err = db.DeletePartitions(context.Background(), name)
+	err = db.DeletePartitions(context.Background(), testPartitionName)
 	assert.Error(t, err)
 }
 
