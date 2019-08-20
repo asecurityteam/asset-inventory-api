@@ -239,7 +239,7 @@ paths:
           arn: "createPartition"
           async: false
           request: '#! json .Request.Body !#'
-          success: '{"status": 204, "bodyPassthrough": true}'
+          success: '{"status": 204}'
           error: >
             {
               "status":
@@ -300,7 +300,7 @@ paths:
             {
               "name": #!index .Request.Query.name 0!#
             }
-          success: '{"status": 204, "bodyPassthrough": true}'
+          success: '{"status": 204}'
           error: '{"status": 500, "bodyPassthrough": true}'
 
 components:
