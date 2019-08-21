@@ -29,5 +29,4 @@ require (
 	golang.org/x/net v0.0.0-20190509222800-a4d6f7feada5 // indirect
 	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862 // indirect
 	golang.org/x/tools v0.0.0-20190510151030-63859f3815cb // indirect
-	github.com/lib/pq v1.0.0
 )
