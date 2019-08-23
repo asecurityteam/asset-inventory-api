@@ -3,9 +3,9 @@ RUN mkdir -p /go/src/github.com/asecurityteam/asset-inventory-api
 WORKDIR $GOPATH/src/github.com/asecurityteam/asset-inventory-api
 COPY --chown=sdcli:sdcli . .
 RUN sdcli go dep
-RUN GO111MODULE=on GOFLAGS='-mod=vendor' go get github.com/gobuffalo/packr/v2/packr2
+RUN GO111MODULE=on go get github.com/gobuffalo/packr/v2/packr2
 RUN packr2
-RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -o /opt/app main.go
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS="-mod=vendor" GO111MODULE=on go build -a -o /opt/app main.go
 
 ##################################
 
