@@ -239,7 +239,7 @@ paths:
           arn: "createPartition"
           async: false
           request: '#! json .Request.Body !#'
-          success: '{"status": 204, "bodyPassthrough": true}'
+          success: '{"status": 204}'
           error: >
             {
               "status":
@@ -274,22 +274,18 @@ paths:
           success: '{"status": 200, "bodyPassthrough": true}'
           error: '{"status": 500, "bodyPassthrough": true}'
     delete:
-      summary: "Delete old partitions"
-      description: "This is an endpoint to delete partitions older than the specified number of days."
+      summary: "Delete a specific partition"
+      description: "This is an endpoint to delete partitions specified by partition name."
       parameters:
-        - name: days
+        - name: name
           in: query
-          description: "Optional age in days. If none is specified the serivce default will be used"
-          required: false
+          description: "The name of the partition to delete."
+          required: true
           schema:
-            type: integer
+            type: string
       responses:
-        200:
+        204:
           description: "Successfully deleted"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeletedPartitions'
       x-transportd:
         backend: app
         enabled:
@@ -302,11 +298,9 @@ paths:
           async: false
           request: >
             {
-              #! if .Request.Query.days !#
-              "days": #!index .Request.Query.days 0!#
-              #! end !#
+              "name": #!index .Request.Query.name 0!#
             }
-          success: '{"status": 200, "bodyPassthrough": true}'
+          success: '{"status": 204}'
           error: '{"status": 500, "bodyPassthrough": true}'
 
 components:

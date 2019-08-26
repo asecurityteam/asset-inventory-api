@@ -7,14 +7,9 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-// DeletePartitionsInput has an optional value, days, which is the age of partitions to delete
+// DeletePartitionsInput contains the partition name to delete.
 type DeletePartitionsInput struct {
-	Days int `json:"days"`
-}
-
-// DeletePartitionsOutput returns the number of partitions which were deleted
-type DeletePartitionsOutput struct {
-	Deleted int `json:"deleted"`
+	Name string `json:"name"`
 }
 
 // DeletePartitionsHandler handles requests for deleting partitions
@@ -24,13 +19,10 @@ type DeletePartitionsHandler struct {
 }
 
 // Handle handles the partition creation request
-func (h *DeletePartitionsHandler) Handle(ctx context.Context, input DeletePartitionsInput) (DeletePartitionsOutput, error) {
-	result, err := h.Deleter.DeletePartitions(ctx, input.Days)
-	if err != nil {
+func (h *DeletePartitionsHandler) Handle(ctx context.Context, input DeletePartitionsInput) error {
+	if err := h.Deleter.DeletePartitions(ctx, input.Name); err != nil {
 		h.LogFn(ctx).Error(logs.StorageError{Reason: err.Error()})
-		return DeletePartitionsOutput{}, err
+		return err
 	}
-	return DeletePartitionsOutput{
-		Deleted: result,
-	}, nil
+	return nil
 }
