@@ -6,10 +6,11 @@ package v1
 
 import (
 	context "context"
-	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 	time "time"
+
+	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockPartitionGenerator is a mock of PartitionGenerator interface

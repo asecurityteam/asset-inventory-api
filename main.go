@@ -56,13 +56,13 @@ func main() {
 		Deleter: dbStorage,
 	}
 	handlers := map[string]serverfull.Function{
-		"insert":           serverfull.NewFunction(insert.Handle),
-		"fetchByIP":        serverfull.NewFunction(fetchByIP.Handle),
-		"fetchByHostname":  serverfull.NewFunction(fetchByHostname.Handle),
+		"insert":            serverfull.NewFunction(insert.Handle),
+		"fetchByIP":         serverfull.NewFunction(fetchByIP.Handle),
+		"fetchByHostname":   serverfull.NewFunction(fetchByHostname.Handle),
 		"fetchAssetsByTime": serverfull.NewFunction(fetchAllByTime.Handle),
-		"createPartition":  serverfull.NewFunction(createPartition.Handle),
-		"getPartitions":    serverfull.NewFunction(getPartitions.Handle),
-		"deletePartitions": serverfull.NewFunction(deletePartitions.Handle),
+		"createPartition":   serverfull.NewFunction(createPartition.Handle),
+		"getPartitions":     serverfull.NewFunction(getPartitions.Handle),
+		"deletePartitions":  serverfull.NewFunction(deletePartitions.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

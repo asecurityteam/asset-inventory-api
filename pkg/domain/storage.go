@@ -36,7 +36,7 @@ type CloudAssetByHostnameFetcher interface {
 	FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]CloudAssetDetails, error)
 }
 
-// CloudAllByTimestampFetcher fetches details for all cloud assets based on limit and optional offset with a given point in time
+// CloudAssetAllByTimestampFetcher fetches details for all cloud assets based on limit and optional offset with a given point in time
 type CloudAssetAllByTimestampFetcher interface {
 	FetchAll(ctx context.Context, when time.Time, count uint, offset uint) ([]CloudAssetDetails, error)
 }

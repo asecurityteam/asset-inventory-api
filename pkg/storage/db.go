@@ -505,8 +505,8 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	return err
 }
 
-//
-func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint) ([]domain.CloudAssetDetails, error){
+// FetchAll gets all the assets present at the specified time
+func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint) ([]domain.CloudAssetDetails, error) {
 	return db.runQuery(ctx, bulkResourcesQuery, when, count, offset)
 }
 

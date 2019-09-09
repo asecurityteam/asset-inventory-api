@@ -43,8 +43,8 @@ type CloudAssetFetchByHostnameParameters struct {
 type CloudAssetFetchAllByTimestampParameters struct {
 	Timestamp string `json:"time"`
 	// we use the pointer type to detect if the value was not present in input as otherwise the int variable would be 0, which is a valid input
-	Count *uint `json:count`
-	Offset *uint `json:count`
+	Count  *uint `json:"count"`
+	Offset *uint `json:"offset"`
 }
 
 // CloudFetchByIPHandler defines a lambda handler for fetching cloud assets with a given IP address
@@ -140,7 +140,7 @@ func (h *CloudFetchAllByTimestampHandler) Handle(ctx context.Context, input Clou
 		return CloudAssets{}, InvalidInput{Field: "count", Cause: e}
 	}
 
-	var offset uint = 0
+	var offset uint
 	if input.Offset != nil {
 		offset = *input.Offset
 	}
