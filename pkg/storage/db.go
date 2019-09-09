@@ -60,6 +60,35 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"    aws_resources ON " +
 	"        latest.aws_resources_id = aws_resources.id;"
 
+// This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
+// TODO - run performance analysis, possibly do something else on SQL level (optimize query or adjust schema)
+const bulkResourcesQuery = `
+WITH lc AS (
+	SELECT 
+	 ev.aws_resources_id, ev.aws_ips_ip, ev.aws_hostnames_hostname, ev.is_public, ev.ts , ev.is_join,
+	 MAX(ev.ts) OVER (PARTITION BY ev.aws_resources_id) as max_ts
+	FROM
+	 aws_events_ips_hostnames as ev
+	WHERE
+	 ev.ts <= $1
+)
+SELECT  
+ lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.ts , lc.is_join, 
+ res.account_id, res.region, res.type, res.meta, 
+ lc.max_ts
+FROM
+ lc
+LEFT OUTER JOIN 
+ aws_resources as res
+ON 
+ lc.aws_resources_id = res.id
+WHERE 
+ lc.ts = lc.max_ts AND lc.is_join = 'true' 
+ORDER BY lc.ts DESC
+LIMIT $2 
+OFFSET $3
+`
+
 // DB represents a convenient database abstraction layer
 type DB struct {
 	sqldb               *sql.DB // this is a unit test seam
@@ -474,6 +503,11 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 	_, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname) // nolint
 	return err
+}
+
+//
+func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint) ([]domain.CloudAssetDetails, error){
+	return db.runQuery(ctx, bulkResourcesQuery, when, count, offset)
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time

@@ -85,6 +85,75 @@ paths:
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
             #! else !# 500
             #! end !#, "bodyPassthrough": true}'
+  /v1/cloud/asset:
+    get:
+      summary: "Retrieve a list of known cloud assets at point in time"
+      parameters:
+        - name: "time"
+          in: "query"
+          description: "The point in time details for asset list"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "count"
+          in: "query"
+          description: "Number of cloud assets to return"
+          required: true
+          schema:
+            type: "integer"
+            minimum: 1
+        - name: "offset"
+          in: "query"
+          description: "Offset of the first cloud asset to return for paged API access. Zero-based."
+          required: false
+          schema:
+            type: "integer"
+            minimum: 0
+      responses:
+        200:
+          description: "List of all assets found with the IP address at the given time"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudAssets"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "fetchAssetsByTime"
+          async: false
+          request: >
+            {
+              "time": "#!index .Request.Query.time 0!#",
+              "count": #!index .Request.Query.count 0!# #! if .Request.Query.offset !# ,
+              "offset": #!index .Request.Query.offset 0!#
+              #! end !#
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
   /v1/cloud/ip/{ipAddress}:
     get:
       summary: "Retrieve a cloud asset at a point in time by IP Address"

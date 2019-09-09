@@ -38,6 +38,11 @@ func main() {
 		StatFn:  domain.StatFromContext,
 		Fetcher: dbStorage,
 	}
+	fetchAllByTime := &v1.CloudFetchAllByTimestampHandler{
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: dbStorage,
+	}
 	createPartition := &v1.CreatePartitionHandler{
 		LogFn:     domain.LoggerFromContext,
 		Generator: dbStorage,
@@ -54,6 +59,7 @@ func main() {
 		"insert":           serverfull.NewFunction(insert.Handle),
 		"fetchByIP":        serverfull.NewFunction(fetchByIP.Handle),
 		"fetchByHostname":  serverfull.NewFunction(fetchByHostname.Handle),
+		"fetchAssetsByTime": serverfull.NewFunction(fetchAllByTime.Handle),
 		"createPartition":  serverfull.NewFunction(createPartition.Handle),
 		"getPartitions":    serverfull.NewFunction(getPartitions.Handle),
 		"deletePartitions": serverfull.NewFunction(deletePartitions.Handle),

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,14 @@ type CloudAssetFetchByIPParameters struct {
 type CloudAssetFetchByHostnameParameters struct {
 	Hostname  string `json:"hostname"`
 	Timestamp string `json:"time"`
+}
+
+// CloudAssetFetchAllByTimestampParameters represents the incoming payload for bulk fetching cloud assets for point in time with optional pagination
+type CloudAssetFetchAllByTimestampParameters struct {
+	Timestamp string `json:"time"`
+	// we use the pointer type to detect if the value was not present in input as otherwise the int variable would be 0, which is a valid input
+	Count *uint `json:count`
+	Offset *uint `json:count`
 }
 
 // CloudFetchByIPHandler defines a lambda handler for fetching cloud assets with a given IP address
@@ -103,6 +112,46 @@ func (h *CloudFetchByHostnameHandler) Handle(ctx context.Context, input CloudAss
 	}
 	if len(assets) == 0 {
 		return CloudAssets{}, NotFound{ID: input.Hostname}
+	}
+
+	return extractOutput(assets), nil
+}
+
+// CloudFetchAllByTimestampHandler defines a lambda handler for bulk fetching cloud assets known at specific point in time
+type CloudFetchAllByTimestampHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAssetAllByTimestampFetcher
+}
+
+// Handle handles fetching cloud assets by hostname
+func (h *CloudFetchAllByTimestampHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimestampParameters) (CloudAssets, error) {
+	logger := h.LogFn(ctx)
+
+	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
+	}
+
+	if input.Count == nil {
+		e = errors.New("missing or malformed required parameter count")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "count", Cause: e}
+	}
+
+	var offset uint = 0
+	if input.Offset != nil {
+		offset = *input.Offset
+	}
+
+	assets, e := h.Fetcher.FetchAll(ctx, ts, *input.Count, offset)
+	if e != nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+		return CloudAssets{}, e
+	}
+	if len(assets) == 0 {
+		return CloudAssets{}, NotFound{ID: "any"}
 	}
 
 	return extractOutput(assets), nil
