@@ -38,7 +38,7 @@ func main() {
 		StatFn:  domain.StatFromContext,
 		Fetcher: dbStorage,
 	}
-	fetchAllByTime := &v1.CloudFetchAllByTimestampHandler{
+	fetchAllAssetsByTime := &v1.CloudFetchAllAssetsByTimeHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
 		Fetcher: dbStorage,
@@ -59,7 +59,7 @@ func main() {
 		"insert":            serverfull.NewFunction(insert.Handle),
 		"fetchByIP":         serverfull.NewFunction(fetchByIP.Handle),
 		"fetchByHostname":   serverfull.NewFunction(fetchByHostname.Handle),
-		"fetchAssetsByTime": serverfull.NewFunction(fetchAllByTime.Handle),
+		"fetchAllAssetsByTime": serverfull.NewFunction(fetchAllAssetsByTime.Handle),
 		"createPartition":   serverfull.NewFunction(createPartition.Handle),
 		"getPartitions":     serverfull.NewFunction(getPartitions.Handle),
 		"deletePartitions":  serverfull.NewFunction(deletePartitions.Handle),

@@ -133,7 +133,7 @@ paths:
           - "responsevalidation"
           - "lambda"
         lambda:
-          arn: "fetchAssetsByTime"
+          arn: "fetchAllAssetsByTime"
           async: false
           request: >
             {

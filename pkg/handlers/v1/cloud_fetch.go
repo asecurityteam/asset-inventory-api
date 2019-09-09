@@ -117,15 +117,15 @@ func (h *CloudFetchByHostnameHandler) Handle(ctx context.Context, input CloudAss
 	return extractOutput(assets), nil
 }
 
-// CloudFetchAllByTimestampHandler defines a lambda handler for bulk fetching cloud assets known at specific point in time
-type CloudFetchAllByTimestampHandler struct {
+// CloudFetchAllAssetsByTimeHandler defines a lambda handler for bulk fetching cloud assets known at specific point in time
+type CloudFetchAllAssetsByTimeHandler struct {
 	LogFn   domain.LogFn
 	StatFn  domain.StatFn
-	Fetcher domain.CloudAssetAllByTimestampFetcher
+	Fetcher domain.CloudAllAssetsByTimeFetcher
 }
 
 // Handle handles fetching cloud assets by hostname
-func (h *CloudFetchAllByTimestampHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimestampParameters) (CloudAssets, error) {
+func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimestampParameters) (CloudAssets, error) {
 	logger := h.LogFn(ctx)
 
 	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
