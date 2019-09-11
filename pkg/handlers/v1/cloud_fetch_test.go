@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +29,14 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 	}
 }
 
+func newCloudFetchAllAssetsByTimeHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimeHandler {
+	return &CloudFetchAllAssetsByTimeHandler{
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
+		Fetcher: fetcher,
+	}
+}
+
 func validFetchByIPInput() CloudAssetFetchByIPParameters {
 	return CloudAssetFetchByIPParameters{
 		IPAddress: "1.1.1.1",
@@ -39,6 +49,55 @@ func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 		Hostname:  "hostname",
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 	}
+}
+
+func validFetchAllByTimestampInput() CloudAssetFetchAllByTimestampParameters {
+	var count uint = 100
+	var offset uint = 1
+	return CloudAssetFetchAllByTimestampParameters{
+		Timestamp: time.Now().Format(time.RFC3339Nano),
+		Count:     &count,
+		Offset:    &offset,
+	}
+}
+
+func TestCloudFetchAllAssetsByTimeInvalidDate(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Timestamp = "not a valid date"
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeNoCount(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Count = nil
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeStorageError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, *input.Count, *input.Offset).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
+	require.NotNil(t, e)
+}
+func TestCloudFetchAllAssetsByTimeNoResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, *input.Count, *input.Offset).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
+	require.NotNil(t, e)
 }
 
 func TestFetchByIPInvalidInput(t *testing.T) {
