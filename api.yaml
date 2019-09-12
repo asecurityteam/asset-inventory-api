@@ -100,20 +100,16 @@ paths:
           in: "query"
           description: "Maximum number of matching cloud assets to return per page. 100 by default"
           required: false
-          default: "100"
+          default: 100
           schema:
             type: "integer"
             minimum: 1
         - name: "type"
           in: "query"
-          description: "Limit search to a specific AWS resource type"
+          description: "Limit search to a specific AWS resource type. Currently supported values: AWS::EC2::Instance, AWS::ElasticLoadBalancing::LoadBalancer, AWS::ElasticLoadBalancingV2::LoadBalancer"
           required: false
           schema:
             type: "string"
-            enum:
-              - AWS::EC2::Instance
-              - AWS::ElasticLoadBalancing::LoadBalancer
-              - AWS::ElasticLoadBalancingV2::LoadBalancer
       responses:
         200:
           description: "First page of the list of all assets found at the given time, limited to count"
