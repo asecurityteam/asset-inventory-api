@@ -87,36 +87,40 @@ paths:
             #! end !#, "bodyPassthrough": true}'
   /v1/cloud/asset:
     get:
-      summary: "Retrieve a list of known cloud assets at point in time"
+      summary: "Retrieve a list of known cloud assets at point in time in reverse order by time (newest to oldest) split into pages of 'count' items."
       parameters:
         - name: "time"
           in: "query"
-          description: "The point in time details for asset list"
+          description: "The point in time for the first page of results to fetch"
           required: true
           schema:
             type: "string"
             format: "date-time"
         - name: "count"
           in: "query"
-          description: "Number of cloud assets to return"
-          required: true
+          description: "Maximum number of matching cloud assets to return per page. 100 by default"
+          required: false
+          default: "100"
           schema:
             type: "integer"
             minimum: 1
-        - name: "offset"
+        - name: "type"
           in: "query"
-          description: "Offset of the first cloud asset to return for paged API access. Zero-based."
+          description: "Limit search to a specific AWS resource type"
           required: false
           schema:
-            type: "integer"
-            minimum: 0
+            type: "string"
+            enum:
+              - AWS::EC2::Instance
+              - AWS::ElasticLoadBalancing::LoadBalancer
+              - AWS::ElasticLoadBalancingV2::LoadBalancer
       responses:
         200:
-          description: "List of all assets found with the IP address at the given time"
+          description: "First page of the list of all assets found at the given time, limited to count"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CloudAssets"
+                $ref: "#/components/schemas/BulkCloudAssets"
         400:
           description: "Invalid input"
           content:
@@ -138,9 +142,59 @@ paths:
           request: >
             {
               "time": "#!index .Request.Query.time 0!#",
-              "count": #!index .Request.Query.count 0!# #! if .Request.Query.offset !# ,
-              "offset": #!index .Request.Query.offset 0!#
+              "count": #!if .Request.Query.count !# #!index .Request.Query.count 0!# #! else !# 100 #! end !# #!if .Request.Query.type !# ,
+              "type": "#!index .Request.Query.type 0!#" #! end !#
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
               #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
+  /v1/cloud/asset/{PageToken}:
+    get:
+      summary: "Retrieve the next page of cloud assets at point in time in reverse order by time (newest to oldest)"
+      parameters:
+        - name: "PageToken"
+          in: "path"
+          description: "The token for the page in the list provided by a previous cloud asset fetch call"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        200:
+          description: "The page from the list of all assets found at the given time"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkCloudAssets"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "fetchMoreAssetsByPageToken"
+          async: false
+          request: >
+            {
+              "pageToken": "#!.Request.URL.PageToken!#",
             }
           success: '{"status": 200, "bodyPassthrough": true}'
           error: >
@@ -423,6 +477,15 @@ components:
           enum: [ADDED, DELETED]
       required:
         - changeType
+    BulkCloudAssets:
+      type: object
+      properties:
+        nextPageToken:
+          type: string
+        response:
+          type: array
+          items:
+            $ref: "#/components/schemas/CloudAssetDetails"
     CloudAssets:
       type: object
       properties:
