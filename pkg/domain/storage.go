@@ -53,3 +53,12 @@ type PartitionConflict struct {
 func (e PartitionConflict) Error() string {
 	return fmt.Sprintf("A partition already exists which overlaps with the requested partition, %s", e.Name)
 }
+
+// NotFoundPartition is used to indicate a request to delete a partition which does not exist in the db
+type NotFoundPartition struct {
+	Name string
+}
+
+func (e NotFoundPartition) Error() string {
+	return fmt.Sprintf("A partition does not exist for the requested name, %s", e.Name)
+}
