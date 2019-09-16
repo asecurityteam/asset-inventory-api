@@ -153,9 +153,9 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-  /v1/cloud/asset/{PageToken}:
+  /v1/cloud/bulk/{PageToken}:
     get:
-      summary: "Retrieve the next page of cloud assets at point in time in reverse order by time (newest to oldest)"
+      summary: "Retrieve the next page of bulk cloud assets at point in time in reverse order by time (newest to oldest)"
       parameters:
         - name: "PageToken"
           in: "path"
