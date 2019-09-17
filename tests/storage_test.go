@@ -559,7 +559,7 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 		partitionNames = append(partitionNames, part.Name)
 	}
 
-	assert.Equal(t, numPartitions+1, len(partitions))
+	assert.Equal(t, numPartitions+1, len(partitionNames))
 }
 
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
