@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"encoding/base32"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,9 +12,21 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
+const (
+	awsEC2 = "AWS::EC2::Instance"
+	awsELB = "AWS::ElasticLoadBalancing::LoadBalancer"
+	awsALB = "AWS::ElasticLoadBalancingV2::LoadBalancer"
+)
+
 // CloudAssets represents a list of assets
 type CloudAssets struct {
 	Assets []CloudAssetDetails `json:"assets"`
+}
+
+// PagedCloudAssets represents a list of assets with next page token for bulk requests
+type PagedCloudAssets struct {
+	CloudAssets
+	NextPageToken string `json:"nextPageToken"`
 }
 
 // CloudAssetDetails represent an asset and associated attributes
@@ -42,9 +56,42 @@ type CloudAssetFetchByHostnameParameters struct {
 // CloudAssetFetchAllByTimestampParameters represents the incoming payload for bulk fetching cloud assets for point in time with optional pagination
 type CloudAssetFetchAllByTimestampParameters struct {
 	Timestamp string `json:"time"`
-	// we use the pointer type to detect if the value was not present in input as otherwise the int variable would be 0, which is a valid input
-	Count  *uint `json:"count"`
-	Offset *uint `json:"offset"`
+	Count     uint   `json:"count"`
+	Offset    uint   `json:"offset"`
+	Type      string `json:"type"`
+}
+
+func (p *CloudAssetFetchAllByTimestampParameters) toNextPageToken() (string, error) {
+	nextPageParameters := CloudAssetFetchAllByTimestampParameters{
+		Timestamp: p.Timestamp,
+		Count:     p.Count,
+		Offset:    p.Offset + p.Count,
+		Type:      p.Type,
+	}
+	js, err := json.Marshal(nextPageParameters)
+	if err != nil {
+		return "", err
+	}
+	token := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(js)
+	return token, nil
+}
+
+func fetchAllByTimeStampParametersForToken(token string) (*CloudAssetFetchAllByTimestampParameters, error) {
+	js, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(token)
+	if err != nil {
+		return nil, err
+	}
+	ret := CloudAssetFetchAllByTimestampParameters{}
+	err = json.Unmarshal(js, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+// CloudAssetFetchAllByTimeStampPageParameters represents the request for subsequent pages of bulk fetching cloud assets
+type CloudAssetFetchAllByTimeStampPageParameters struct {
+	PageToken string `json:"pageToken"`
 }
 
 // CloudFetchByIPHandler defines a lambda handler for fetching cloud assets with a given IP address
@@ -117,6 +164,15 @@ func (h *CloudFetchByHostnameHandler) Handle(ctx context.Context, input CloudAss
 	return extractOutput(assets), nil
 }
 
+func validateAssetType(input string) (string, error) {
+	switch input {
+	case awsEC2, awsELB, awsALB:
+		return input, nil
+	default:
+		return "", fmt.Errorf("unknown asset type %s", input)
+	}
+}
+
 // CloudFetchAllAssetsByTimeHandler defines a lambda handler for bulk fetching cloud assets known at specific point in time
 type CloudFetchAllAssetsByTimeHandler struct {
 	LogFn   domain.LogFn
@@ -124,37 +180,97 @@ type CloudFetchAllAssetsByTimeHandler struct {
 	Fetcher domain.CloudAllAssetsByTimeFetcher
 }
 
-// Handle handles fetching cloud assets by hostname
-func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimestampParameters) (CloudAssets, error) {
+// Handle handles fetching cloud assets with pagination
+func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimestampParameters) (PagedCloudAssets, error) {
 	logger := h.LogFn(ctx)
 
 	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "time", Cause: e}
 	}
 
-	if input.Count == nil {
+	if input.Count == 0 {
 		e = errors.New("missing or malformed required parameter count")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return CloudAssets{}, InvalidInput{Field: "count", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "count", Cause: e}
 	}
 
-	var offset uint
-	if input.Offset != nil {
-		offset = *input.Offset
+	assetType, e := validateAssetType(input.Type)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "type", Cause: e}
 	}
 
-	assets, e := h.Fetcher.FetchAll(ctx, ts, *input.Count, offset)
+	var offset uint = 0 // do not offset as this is the first page
+	assets, e := h.Fetcher.FetchAll(ctx, ts, input.Count, offset, assetType)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
-		return CloudAssets{}, e
+		return PagedCloudAssets{}, e
 	}
 	if len(assets) == 0 {
-		return CloudAssets{}, NotFound{ID: "any"}
+		return PagedCloudAssets{}, NotFound{ID: "any"}
 	}
 
-	return extractOutput(assets), nil
+	nextPageToken, e := input.toNextPageToken()
+	if e != nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+	}
+	return PagedCloudAssets{extractOutput(assets), nextPageToken}, nil
+}
+
+// CloudFetchAllAssetsByTimePageHandler defines a lambda handler for bulk fetching subsequent pages of cloud assets known at specific point in time
+type CloudFetchAllAssetsByTimePageHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAllAssetsByTimeFetcher
+}
+
+// Handle handles subsequent page fetching of cloud assets
+func (h *CloudFetchAllAssetsByTimePageHandler) Handle(ctx context.Context, input CloudAssetFetchAllByTimeStampPageParameters) (PagedCloudAssets, error) {
+	logger := h.LogFn(ctx)
+	params, e := fetchAllByTimeStampParametersForToken(input.PageToken)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "PageToken", Cause: e}
+	}
+	ts, e := time.Parse(time.RFC3339Nano, params.Timestamp)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "PageToken", Cause: e}
+	}
+
+	if params.Count == 0 {
+		e = errors.New("missing or malformed required parameter count")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "count", Cause: e}
+	}
+
+	if params.Offset == 0 {
+		e = errors.New("missing or malformed required parameter offset")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "offset", Cause: e}
+	}
+
+	assetType, e := validateAssetType(params.Type)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return PagedCloudAssets{}, InvalidInput{Field: "type", Cause: e}
+	}
+
+	logger.Info(fmt.Sprintf("count: %d offset: %d, type: %s ,ts %v", params.Count, params.Offset, assetType, ts))
+	assets, e := h.Fetcher.FetchAll(ctx, ts, params.Count, params.Offset, assetType)
+	if e != nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+		return PagedCloudAssets{}, e
+	}
+	logger.Info(fmt.Sprintf("count: %d offset: %d, type: %s ,ts %v, r %d", params.Count, params.Offset, assetType, ts, len(assets)))
+	if len(assets) == 0 {
+		return PagedCloudAssets{}, NotFound{ID: "any"}
+	}
+
+	nextPageToken, e := params.toNextPageToken()
+	return PagedCloudAssets{extractOutput(assets), nextPageToken}, nil
 }
 
 func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {

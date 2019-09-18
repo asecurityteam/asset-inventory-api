@@ -53,11 +53,12 @@ func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 
 func validFetchAllByTimestampInput() CloudAssetFetchAllByTimestampParameters {
 	var count uint = 100
-	var offset uint = 1
+	var offset uint = 0
 	return CloudAssetFetchAllByTimestampParameters{
 		Timestamp: time.Now().Format(time.RFC3339Nano),
-		Count:     &count,
-		Offset:    &offset,
+		Count:     count,
+		Offset:    offset,
+		Type:      awsEC2,
 	}
 }
 
@@ -68,9 +69,16 @@ func TestCloudFetchAllAssetsByTimeInvalidDate(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestCloudFetchAllAssetsByTimeNoCount(t *testing.T) {
+func TestCloudFetchAllAssetsByTimeInvalidCount(t *testing.T) {
 	input := validFetchAllByTimestampInput()
-	input.Count = nil
+	input.Count = 0
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeInvalidType(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Type = "Very wrong type"
 	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
 	require.NotNil(t, err)
 }
@@ -82,7 +90,7 @@ func TestCloudFetchAllAssetsByTimeStorageError(t *testing.T) {
 	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
 	input := validFetchAllByTimestampInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
-	fetcher.EXPECT().FetchAll(gomock.Any(), ts, *input.Count, *input.Offset).Return([]domain.CloudAssetDetails{}, errors.New(""))
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, errors.New(""))
 
 	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
 	require.NotNil(t, e)
@@ -94,7 +102,7 @@ func TestCloudFetchAllAssetsByTimeNoResults(t *testing.T) {
 	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
 	input := validFetchAllByTimestampInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
-	fetcher.EXPECT().FetchAll(gomock.Any(), ts, *input.Count, *input.Offset).Return([]domain.CloudAssetDetails{}, nil)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, nil)
 
 	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
 	require.NotNil(t, e)

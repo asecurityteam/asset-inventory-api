@@ -73,9 +73,8 @@ WITH lc AS (
 	 ev.ts <= $1
 )
 SELECT  
- lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.ts , lc.is_join, 
- res.account_id, res.region, res.type, res.meta, 
- lc.max_ts
+ lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.is_join, lc.ts,
+ res.account_id, res.region, res.type, res.meta
 FROM
  lc
 LEFT OUTER JOIN 
@@ -83,10 +82,10 @@ LEFT OUTER JOIN
 ON 
  lc.aws_resources_id = res.id
 WHERE 
- lc.ts = lc.max_ts AND lc.is_join = 'true' 
+ lc.ts = lc.max_ts AND lc.is_join = 'true' AND res.type = $2
 ORDER BY lc.ts DESC
-LIMIT $2 
-OFFSET $3
+LIMIT $3 
+OFFSET $4
 `
 
 // DB represents a convenient database abstraction layer
@@ -506,8 +505,8 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 }
 
 // FetchAll gets all the assets present at the specified time
-func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint) ([]domain.CloudAssetDetails, error) {
-	return db.runQuery(ctx, bulkResourcesQuery, when, count, offset)
+func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
+	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time
@@ -546,6 +545,9 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var timestamp time.Time
 
 		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		if err != nil {
+			return nil, err
+		}
 
 		if err == nil {
 			if metaBytes != nil {

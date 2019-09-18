@@ -100,14 +100,14 @@ paths:
           in: "query"
           description: "Maximum number of matching cloud assets to return per page. 100 by default"
           required: false
-          default: 100
           schema:
             type: "integer"
             minimum: 1
+            default: 100
         - name: "type"
           in: "query"
-          description: "Limit search to a specific AWS resource type. Currently supported values: AWS::EC2::Instance, AWS::ElasticLoadBalancing::LoadBalancer, AWS::ElasticLoadBalancingV2::LoadBalancer"
-          required: false
+          description: "AWS resource type. Currently supported values: AWS::EC2::Instance, AWS::ElasticLoadBalancing::LoadBalancer, AWS::ElasticLoadBalancingV2::LoadBalancer"
+          required: true
           schema:
             type: "string"
       responses:
@@ -138,8 +138,8 @@ paths:
           request: >
             {
               "time": "#!index .Request.Query.time 0!#",
-              "count": #!if .Request.Query.count !# #!index .Request.Query.count 0!# #! else !# 100 #! end !# #!if .Request.Query.type !# ,
-              "type": "#!index .Request.Query.type 0!#" #! end !#
+              "count": #!if .Request.Query.count !# #!index .Request.Query.count 0!# #! else !# 100 #! end !# ,
+              "type": "#!index .Request.Query.type 0!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
           error: >
@@ -190,7 +190,7 @@ paths:
           async: false
           request: >
             {
-              "pageToken": "#!.Request.URL.PageToken!#",
+              "pageToken": "#!.Request.URL.PageToken!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
           error: >
