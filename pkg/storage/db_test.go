@@ -1116,6 +1116,33 @@ func TestDeletePartitionsDropError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestDeletePartitionsNotFoundError(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
+	db := DB{
+		sqldb:   mockdb,
+		scripts: scriptFound,
+		now:     func() time.Time { return now },
+	}
+
+	nonexistentPartition := "UNREAL_PARTITION"
+
+	mock.ExpectBegin()
+	mock.ExpectExec("LOCK").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE").WithArgs(nonexistentPartition).WillReturnResult(sqlmock.NewResult(1, 0))
+	mock.ExpectRollback()
+
+	err = db.DeletePartitions(context.Background(), nonexistentPartition)
+	require.Error(t, err)
+	_, ok := err.(domain.NotFoundPartition)
+	assert.True(t, ok)
+}
+
 func fakeCloudAssetChanges() domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}

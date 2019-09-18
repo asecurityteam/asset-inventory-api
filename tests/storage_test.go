@@ -522,6 +522,46 @@ func TestDeletePartitions(t *testing.T) {
 	assert.NotContains(t, partitionNames, name)
 }
 
+func TestDeleteNotFoundPartition(t *testing.T) {
+	before(t, dbStorage)
+
+	ts := time.Now().Truncate(24 * time.Hour).UTC()
+	maxAge := 365
+	duration := 14
+	numPartitions := 4
+	ts = ts.AddDate(0, 0, -maxAge)
+	for i := 0; i < numPartitions; i++ {
+		ts = ts.AddDate(0, 0, -duration)
+		err := dbStorage.GeneratePartition(context.Background(), ts, duration)
+		require.NoError(t, err)
+	}
+
+	partitions, err := dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, numPartitions+1, len(partitions))
+
+	partitionNames := make([]string, 0, len(partitions))
+	for _, part := range partitions {
+		partitionNames = append(partitionNames, part.Name)
+	}
+	nonexistentPartition := partitions[0].Name + "_notFoundTest"
+	require.NotContains(t, partitionNames, nonexistentPartition)
+
+	err = dbStorage.DeletePartitions(context.Background(), nonexistentPartition)
+	require.Error(t, err)
+	_, ok := err.(domain.NotFoundPartition)
+	assert.True(t, ok)
+
+	partitions, err = dbStorage.GetPartitions(context.Background())
+	require.NoError(t, err)
+	partitionNames = make([]string, 0, len(partitions))
+	for _, part := range partitions {
+		partitionNames = append(partitionNames, part.Name)
+	}
+
+	assert.Equal(t, numPartitions+1, len(partitionNames))
+}
+
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
 // we can perform some Postgres cleanup/prep/checks that are test-specific
 func connectToDB() (*sql.DB, error) {

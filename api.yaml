@@ -286,6 +286,8 @@ paths:
       responses:
         204:
           description: "Successfully deleted"
+        404:
+          description: "The partition is not found"
       x-transportd:
         backend: app
         enabled:
@@ -298,10 +300,17 @@ paths:
           async: false
           request: >
             {
-              "name": #!index .Request.Query.name 0!#
+              "name": "#!index .Request.Query.name 0!#"
             }
           success: '{"status": 204}'
-          error: '{"status": 500, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+                #! if eq .Response.Body.errorType "NotFoundPartition" !# 404,
+                #! else !# 500,
+                #! end !#
+                "bodyPassthrough": true
+            }
 
 components:
   schemas:

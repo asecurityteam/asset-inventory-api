@@ -345,8 +345,17 @@ func (db *DB) DeletePartitions(ctx context.Context, name string) error {
 	}
 
 	stmt := "DELETE FROM partitions WHERE name = $1"
-	_, err = tx.ExecContext(ctx, stmt, name)
+	res, err := tx.ExecContext(ctx, stmt, name)
 	if err != nil {
+		return handleRollback(tx, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return handleRollback(tx, err)
+	}
+	if rows == 0 { //no rows deleted due to named partition not found
+		err := domain.NotFoundPartition{Name: name}
 		return handleRollback(tx, err)
 	}
 
