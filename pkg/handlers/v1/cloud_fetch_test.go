@@ -412,17 +412,17 @@ func Test_validateAssetType(t *testing.T) {
 
 func Test_fetchAllByTimeStampParametersForToken(t *testing.T) {
 	validParameters := validFetchAllByTimestampInput()
-	validToken,_:=validParameters.toNextPageToken()
-	validParameters.Offset+=validParameters.Count //next page
-	brokenJson:=base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("this is not json"))
+	validToken, _ := validParameters.toNextPageToken()
+	validParameters.Offset += validParameters.Count //next page
+	brokenJS := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("this is not json"))
 	tests := []struct {
 		name    string
-		token	string
+		token   string
 		want    *CloudAssetFetchAllByTimestampParameters
 		wantErr bool
 	}{
 		{"not base32", "this is not base32 $@&%#@&*^*&%(*", nil, true},
-		{"not valid json", brokenJson, nil, true},
+		{"not valid json", brokenJS, nil, true},
 		{"valid", validToken, &validParameters, false},
 	}
 	for _, tt := range tests {
