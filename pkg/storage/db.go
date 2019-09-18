@@ -549,47 +549,45 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 			return nil, err
 		}
 
-		if err == nil {
-			if metaBytes != nil {
-				var i map[string]string
-				_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
-				row.Tags = i
-			}
-			if tempMap[row.ARN] == nil {
-				tempMap[row.ARN] = &row
-			}
-			found := false
-			if hostname.Valid {
-				for _, val := range tempMap[row.ARN].Hostnames {
-					if strings.EqualFold(val, hostname.String) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
-				}
-			}
-			found = false
-			var ipAddresses *[]string
-			if isPublic {
-				ipAddresses = &tempMap[row.ARN].PublicIPAddresses
-			} else {
-				ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
-			}
-			for _, val := range *ipAddresses {
-				if strings.EqualFold(val, ipAddress) {
+		if metaBytes != nil {
+			var i map[string]string
+			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			row.Tags = i
+		}
+		if tempMap[row.ARN] == nil {
+			tempMap[row.ARN] = &row
+		}
+		found := false
+		if hostname.Valid {
+			for _, val := range tempMap[row.ARN].Hostnames {
+				if strings.EqualFold(val, hostname.String) {
 					found = true
 					break
 				}
 			}
 			if !found {
-				newArray := append(*ipAddresses, ipAddress)
-				if isPublic {
-					tempMap[row.ARN].PublicIPAddresses = newArray
-				} else {
-					tempMap[row.ARN].PrivateIPAddresses = newArray
-				}
+				tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
+			}
+		}
+		found = false
+		var ipAddresses *[]string
+		if isPublic {
+			ipAddresses = &tempMap[row.ARN].PublicIPAddresses
+		} else {
+			ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
+		}
+		for _, val := range *ipAddresses {
+			if strings.EqualFold(val, ipAddress) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			newArray := append(*ipAddresses, ipAddress)
+			if isPublic {
+				tempMap[row.ARN].PublicIPAddresses = newArray
+			} else {
+				tempMap[row.ARN].PrivateIPAddresses = newArray
 			}
 		}
 	}

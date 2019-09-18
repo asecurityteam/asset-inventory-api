@@ -202,7 +202,7 @@ func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input Clo
 		return PagedCloudAssets{}, InvalidInput{Field: "type", Cause: e}
 	}
 
-	var offset uint = 0 // do not offset as this is the first page
+	var offset uint // do not offset as this is the first page
 	assets, e := h.Fetcher.FetchAll(ctx, ts, input.Count, offset, assetType)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
@@ -269,7 +269,7 @@ func (h *CloudFetchAllAssetsByTimePageHandler) Handle(ctx context.Context, input
 		return PagedCloudAssets{}, NotFound{ID: "any"}
 	}
 
-	nextPageToken, e := params.toNextPageToken()
+	nextPageToken, _ := params.toNextPageToken()
 	return PagedCloudAssets{extractOutput(assets), nextPageToken}, nil
 }
 

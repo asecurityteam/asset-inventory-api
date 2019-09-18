@@ -53,7 +53,7 @@ func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 
 func validFetchAllByTimestampInput() CloudAssetFetchAllByTimestampParameters {
 	var count uint = 100
-	var offset uint = 0
+	var offset uint
 	return CloudAssetFetchAllByTimestampParameters{
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 		Count:     count,
