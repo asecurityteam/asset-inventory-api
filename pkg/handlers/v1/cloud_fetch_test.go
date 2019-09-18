@@ -2,7 +2,9 @@ package v1
 
 import (
 	"context"
+	"encoding/base32"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -31,6 +33,14 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 
 func newCloudFetchAllAssetsByTimeHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimeHandler {
 	return &CloudFetchAllAssetsByTimeHandler{
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
+		Fetcher: fetcher,
+	}
+}
+
+func newCloudFetchAllAssetsByTimePageHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimePageHandler {
+	return &CloudFetchAllAssetsByTimePageHandler{
 		LogFn:   testLogFn,
 		StatFn:  testStatFn,
 		Fetcher: fetcher,
@@ -106,6 +116,37 @@ func TestCloudFetchAllAssetsByTimeNoResults(t *testing.T) {
 
 	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
 	require.NotNil(t, e)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidDate(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Timestamp = "not a valid date"
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken},
+	)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidCount(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Count = 0
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidType(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Type = "Very wrong type"
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, err)
 }
 
 func TestFetchByIPInvalidInput(t *testing.T) {
@@ -338,6 +379,62 @@ func TestExtractOutput(t *testing.T) {
 		t.Run(tt.name, func(*testing.T) {
 			actual := extractOutput(tt.input)
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_validateAssetType(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"ValidEC2", awsEC2, awsEC2, false},
+		{"ValidALB", awsALB, awsALB, false},
+		{"ValidELB", awsELB, awsELB, false},
+		{"Invalid", "not a valid asset type", "", true},
+		{"Empty", "", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateAssetType(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAssetType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("validateAssetType() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_fetchAllByTimeStampParametersForToken(t *testing.T) {
+	validParameters := validFetchAllByTimestampInput()
+	validToken,_:=validParameters.toNextPageToken()
+	validParameters.Offset+=validParameters.Count //next page
+	brokenJson:=base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("this is not json"))
+	tests := []struct {
+		name    string
+		token	string
+		want    *CloudAssetFetchAllByTimestampParameters
+		wantErr bool
+	}{
+		{"not base32", "this is not base32 $@&%#@&*^*&%(*", nil, true},
+		{"not valid json", brokenJson, nil, true},
+		{"valid", validToken, &validParameters, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := fetchAllByTimeStampParametersForToken(tt.token)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fetchAllByTimeStampParametersForToken() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("fetchAllByTimeStampParametersForToken() got = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
