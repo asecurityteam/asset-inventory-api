@@ -60,6 +60,34 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"    aws_resources ON " +
 	"        latest.aws_resources_id = aws_resources.id;"
 
+// This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
+// TODO - run performance analysis, possibly do something else on SQL level (optimize query or adjust schema)
+const bulkResourcesQuery = `
+WITH lc AS (
+	SELECT 
+	 ev.aws_resources_id, ev.aws_ips_ip, ev.aws_hostnames_hostname, ev.is_public, ev.ts , ev.is_join,
+	 MAX(ev.ts) OVER (PARTITION BY ev.aws_resources_id) as max_ts
+	FROM
+	 aws_events_ips_hostnames as ev
+	WHERE
+	 ev.ts <= $1
+)
+SELECT  
+ lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.is_join, lc.ts,
+ res.account_id, res.region, res.type, res.meta
+FROM
+ lc
+LEFT OUTER JOIN 
+ aws_resources as res
+ON 
+ lc.aws_resources_id = res.id
+WHERE 
+ lc.ts = lc.max_ts AND lc.is_join = 'true' AND res.type = $2
+ORDER BY lc.ts DESC
+LIMIT $3 
+OFFSET $4
+`
+
 // DB represents a convenient database abstraction layer
 type DB struct {
 	sqldb               *sql.DB // this is a unit test seam
@@ -485,6 +513,11 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 	return err
 }
 
+// FetchAll gets all the assets present at the specified time
+func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
+	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
+}
+
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
@@ -521,48 +554,49 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var timestamp time.Time
 
 		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		if err != nil {
+			return nil, err
+		}
 
-		if err == nil {
-			if metaBytes != nil {
-				var i map[string]string
-				_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
-				row.Tags = i
-			}
-			if tempMap[row.ARN] == nil {
-				tempMap[row.ARN] = &row
-			}
-			found := false
-			if hostname.Valid {
-				for _, val := range tempMap[row.ARN].Hostnames {
-					if strings.EqualFold(val, hostname.String) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
-				}
-			}
-			found = false
-			var ipAddresses *[]string
-			if isPublic {
-				ipAddresses = &tempMap[row.ARN].PublicIPAddresses
-			} else {
-				ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
-			}
-			for _, val := range *ipAddresses {
-				if strings.EqualFold(val, ipAddress) {
+		if metaBytes != nil {
+			var i map[string]string
+			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			row.Tags = i
+		}
+		if tempMap[row.ARN] == nil {
+			tempMap[row.ARN] = &row
+		}
+		found := false
+		if hostname.Valid {
+			for _, val := range tempMap[row.ARN].Hostnames {
+				if strings.EqualFold(val, hostname.String) {
 					found = true
 					break
 				}
 			}
 			if !found {
-				newArray := append(*ipAddresses, ipAddress)
-				if isPublic {
-					tempMap[row.ARN].PublicIPAddresses = newArray
-				} else {
-					tempMap[row.ARN].PrivateIPAddresses = newArray
-				}
+				tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
+			}
+		}
+		found = false
+		var ipAddresses *[]string
+		if isPublic {
+			ipAddresses = &tempMap[row.ARN].PublicIPAddresses
+		} else {
+			ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
+		}
+		for _, val := range *ipAddresses {
+			if strings.EqualFold(val, ipAddress) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			newArray := append(*ipAddresses, ipAddress)
+			if isPublic {
+				tempMap[row.ARN].PublicIPAddresses = newArray
+			} else {
+				tempMap[row.ARN].PrivateIPAddresses = newArray
 			}
 		}
 	}

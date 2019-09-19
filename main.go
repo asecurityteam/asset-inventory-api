@@ -38,6 +38,16 @@ func main() {
 		StatFn:  domain.StatFromContext,
 		Fetcher: dbStorage,
 	}
+	fetchAllAssetsByTime := &v1.CloudFetchAllAssetsByTimeHandler{
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: dbStorage,
+	}
+	fetchAllAssetsByTimePage := &v1.CloudFetchAllAssetsByTimePageHandler{
+		LogFn:   domain.LoggerFromContext,
+		StatFn:  domain.StatFromContext,
+		Fetcher: dbStorage,
+	}
 	createPartition := &v1.CreatePartitionHandler{
 		LogFn:     domain.LoggerFromContext,
 		Generator: dbStorage,
@@ -51,12 +61,14 @@ func main() {
 		Deleter: dbStorage,
 	}
 	handlers := map[string]serverfull.Function{
-		"insert":           serverfull.NewFunction(insert.Handle),
-		"fetchByIP":        serverfull.NewFunction(fetchByIP.Handle),
-		"fetchByHostname":  serverfull.NewFunction(fetchByHostname.Handle),
-		"createPartition":  serverfull.NewFunction(createPartition.Handle),
-		"getPartitions":    serverfull.NewFunction(getPartitions.Handle),
-		"deletePartitions": serverfull.NewFunction(deletePartitions.Handle),
+		"insert":                     serverfull.NewFunction(insert.Handle),
+		"fetchByIP":                  serverfull.NewFunction(fetchByIP.Handle),
+		"fetchByHostname":            serverfull.NewFunction(fetchByHostname.Handle),
+		"fetchAllAssetsByTime":       serverfull.NewFunction(fetchAllAssetsByTime.Handle),
+		"fetchMoreAssetsByPageToken": serverfull.NewFunction(fetchAllAssetsByTimePage.Handle),
+		"createPartition":            serverfull.NewFunction(createPartition.Handle),
+		"getPartitions":              serverfull.NewFunction(getPartitions.Handle),
+		"deletePartitions":           serverfull.NewFunction(deletePartitions.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

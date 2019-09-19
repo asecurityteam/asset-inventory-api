@@ -36,6 +36,11 @@ type CloudAssetByHostnameFetcher interface {
 	FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]CloudAssetDetails, error)
 }
 
+// CloudAllAssetsByTimeFetcher fetches details for all cloud assets based on limit and optional offset with a given point in time
+type CloudAllAssetsByTimeFetcher interface {
+	FetchAll(ctx context.Context, when time.Time, count uint, offset uint, assetType string) ([]CloudAssetDetails, error)
+}
+
 // Partition represents a database partition with the specified time range
 type Partition struct {
 	Name      string

@@ -2,9 +2,13 @@ package v1
 
 import (
 	"context"
+	"encoding/base32"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/golang/mock/gomock"
@@ -27,6 +31,22 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 	}
 }
 
+func newCloudFetchAllAssetsByTimeHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimeHandler {
+	return &CloudFetchAllAssetsByTimeHandler{
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
+		Fetcher: fetcher,
+	}
+}
+
+func newCloudFetchAllAssetsByTimePageHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimePageHandler {
+	return &CloudFetchAllAssetsByTimePageHandler{
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
+		Fetcher: fetcher,
+	}
+}
+
 func validFetchByIPInput() CloudAssetFetchByIPParameters {
 	return CloudAssetFetchByIPParameters{
 		IPAddress: "1.1.1.1",
@@ -39,6 +59,123 @@ func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 		Hostname:  "hostname",
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 	}
+}
+
+func validFetchAllByTimestampInput() CloudAssetFetchAllByTimestampParameters {
+	var count uint = 100
+	var offset uint
+	return CloudAssetFetchAllByTimestampParameters{
+		Timestamp: time.Now().Format(time.RFC3339Nano),
+		Count:     count,
+		Offset:    offset,
+		Type:      awsEC2,
+	}
+}
+
+func TestCloudFetchAllAssetsByTimeInvalidDate(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Timestamp = "not a valid date"
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeInvalidCount(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Count = 0
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeInvalidType(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Type = "Very wrong type"
+	_, err := newCloudFetchAllAssetsByTimeHandler(nil).Handle(context.Background(), input)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimeStorageError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
+	require.NotNil(t, e)
+}
+func TestCloudFetchAllAssetsByTimeNoResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newCloudFetchAllAssetsByTimeHandler(fetcher).Handle(context.Background(), input)
+	require.NotNil(t, e)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidDate(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Timestamp = "not a valid date"
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken},
+	)
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidCount(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Count = 0
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimePageInvalidType(t *testing.T) {
+	input := validFetchAllByTimestampInput()
+	input.Type = "Very wrong type"
+	pageToken, _ := input.toNextPageToken()
+	_, err := newCloudFetchAllAssetsByTimePageHandler(nil).Handle(
+		context.Background(),
+		CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, err)
+}
+
+func TestCloudFetchAllAssetsByTimePageStorageError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	pageToken, _ := input.toNextPageToken()
+	input.Offset += input.Count //emulate the paging
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newCloudFetchAllAssetsByTimePageHandler(fetcher).Handle(context.Background(), CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, e)
+}
+func TestCloudFetchAllAssetsByTimePageNoResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	pageToken, _ := input.toNextPageToken()
+	input.Offset += input.Count //emulate the paging
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newCloudFetchAllAssetsByTimePageHandler(fetcher).Handle(context.Background(), CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, e)
 }
 
 func TestFetchByIPInvalidInput(t *testing.T) {
@@ -271,6 +408,62 @@ func TestExtractOutput(t *testing.T) {
 		t.Run(tt.name, func(*testing.T) {
 			actual := extractOutput(tt.input)
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_validateAssetType(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"ValidEC2", awsEC2, awsEC2, false},
+		{"ValidALB", awsALB, awsALB, false},
+		{"ValidELB", awsELB, awsELB, false},
+		{"Invalid", "not a valid asset type", "", true},
+		{"Empty", "", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateAssetType(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAssetType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("validateAssetType() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_fetchAllByTimeStampParametersForToken(t *testing.T) {
+	validParameters := validFetchAllByTimestampInput()
+	validToken, _ := validParameters.toNextPageToken()
+	validParameters.Offset += validParameters.Count //next page
+	brokenJS := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("this is not json"))
+	tests := []struct {
+		name    string
+		token   string
+		want    *CloudAssetFetchAllByTimestampParameters
+		wantErr bool
+	}{
+		{"not base32", "this is not base32 $@&%#@&*^*&%(*", nil, true},
+		{"not valid json", brokenJS, nil, true},
+		{"valid", validToken, &validParameters, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := fetchAllByTimeStampParametersForToken(tt.token)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fetchAllByTimeStampParametersForToken() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("fetchAllByTimeStampParametersForToken() got = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
