@@ -241,7 +241,7 @@ func (h *CloudFetchAllAssetsByTimePageHandler) Handle(ctx context.Context, input
 	}
 
 	//generic error to report to caller to avoid exposing the internal token structure NB, the specific error is still logged
-	tokenError:=errors.New("malformed pageToken")
+	tokenError := errors.New("malformed pageToken")
 	if params.Count == 0 {
 		e = errors.New("missing or malformed required parameter count")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
