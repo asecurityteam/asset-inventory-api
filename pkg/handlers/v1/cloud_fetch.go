@@ -232,39 +232,39 @@ func (h *CloudFetchAllAssetsByTimePageHandler) Handle(ctx context.Context, input
 	params, e := fetchAllByTimeStampParametersForToken(input.PageToken)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return PagedCloudAssets{}, InvalidInput{Field: "PageToken", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "pageToken", Cause: e}
 	}
 	ts, e := time.Parse(time.RFC3339Nano, params.Timestamp)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return PagedCloudAssets{}, InvalidInput{Field: "PageToken", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "pageToken", Cause: e}
 	}
 
+	//generic error to report to caller to avoid exposing the internal token structure NB, the specific error is still logged
+	tokenError:=errors.New("malformed pageToken")
 	if params.Count == 0 {
 		e = errors.New("missing or malformed required parameter count")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return PagedCloudAssets{}, InvalidInput{Field: "count", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "pageToken", Cause: tokenError}
 	}
 
 	if params.Offset == 0 {
 		e = errors.New("missing or malformed required parameter offset")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return PagedCloudAssets{}, InvalidInput{Field: "offset", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "pageToken", Cause: tokenError}
 	}
 
 	assetType, e := validateAssetType(params.Type)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return PagedCloudAssets{}, InvalidInput{Field: "type", Cause: e}
+		return PagedCloudAssets{}, InvalidInput{Field: "pageToken", Cause: tokenError}
 	}
 
-	logger.Info(fmt.Sprintf("count: %d offset: %d, type: %s ,ts %v", params.Count, params.Offset, assetType, ts))
 	assets, e := h.Fetcher.FetchAll(ctx, ts, params.Count, params.Offset, assetType)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
 		return PagedCloudAssets{}, e
 	}
-	logger.Info(fmt.Sprintf("count: %d offset: %d, type: %s ,ts %v, r %d", params.Count, params.Offset, assetType, ts, len(assets)))
 	if len(assets) == 0 {
 		return PagedCloudAssets{}, NotFound{ID: "any"}
 	}
