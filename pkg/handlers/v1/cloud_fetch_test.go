@@ -149,6 +149,35 @@ func TestCloudFetchAllAssetsByTimePageInvalidType(t *testing.T) {
 	require.NotNil(t, err)
 }
 
+func TestCloudFetchAllAssetsByTimePageStorageError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	pageToken, _ := input.toNextPageToken()
+	input.Offset += input.Count //emulate the paging
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newCloudFetchAllAssetsByTimePageHandler(fetcher).Handle(context.Background(), CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, e)
+}
+func TestCloudFetchAllAssetsByTimePageNoResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAllAssetsByTimeFetcher(ctrl)
+	input := validFetchAllByTimestampInput()
+	pageToken, _ := input.toNextPageToken()
+	input.Offset += input.Count //emulate the paging
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchAll(gomock.Any(), ts, input.Count, input.Offset, input.Type).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newCloudFetchAllAssetsByTimePageHandler(fetcher).Handle(context.Background(), CloudAssetFetchAllByTimeStampPageParameters{PageToken: pageToken})
+	require.NotNil(t, e)
+}
+
 func TestFetchByIPInvalidInput(t *testing.T) {
 	tc := []struct {
 		name  string
