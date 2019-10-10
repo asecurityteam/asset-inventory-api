@@ -1,7 +1,7 @@
 <a id="markdown-Asset Inventory API" name="Asset-Inventory-API"></a>
 # Asset Inventory API - An API service to store and retrieve asset inventory data
 [![Documentation](https://godoc.org/github.com/asecurityteam/asset-inventory-api?status.svg)](http://godoc.org/github.com/asecurityteam/asset-inventory-api)
-[![Build Status](https://travis-ci.org/asecurityteam/asset-inventory-api.png?branch=master)](https://travis-ci.org/asecurityteam/asset-inventory-api)
+[![Build Status](https://travis-ci.com/asecurityteam/asset-inventory-api.png?branch=master)](https://travis-ci.com/asecurityteam/asset-inventory-api)
 [![codecov.io](https://codecov.io/github/asecurityteam/asset-inventory-api/coverage.svg?branch=master)](https://codecov.io/github/asecurityteam/asset-inventory-api?branch=master)
 
 <https://github.com/asecurityteam/asset-inventory-api>
