@@ -64,7 +64,7 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 // TODO - run performance analysis, possibly do something else on SQL level (optimize query or adjust schema)
 const bulkResourcesQuery = `
 WITH lc AS (
-	SELECT 
+	SELECT
 	 ev.aws_resources_id, ev.aws_ips_ip, ev.aws_hostnames_hostname, ev.is_public, ev.ts , ev.is_join,
 	 MAX(ev.ts) OVER (PARTITION BY ev.aws_resources_id) as max_ts
 	FROM
@@ -72,19 +72,19 @@ WITH lc AS (
 	WHERE
 	 ev.ts <= $1
 )
-SELECT  
+SELECT
  lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.is_join, lc.ts,
  res.account_id, res.region, res.type, res.meta
 FROM
  lc
-LEFT OUTER JOIN 
+LEFT OUTER JOIN
  aws_resources as res
-ON 
+ON
  lc.aws_resources_id = res.id
-WHERE 
+WHERE
  lc.ts = lc.max_ts AND lc.is_join = 'true' AND res.type = $2
 ORDER BY lc.ts DESC
-LIMIT $3 
+LIMIT $3
 OFFSET $4
 `
 
@@ -117,16 +117,11 @@ func (db *DB) RunScript(ctx context.Context, name string) error {
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, postgresConfig *PostgresConfig) error {
+func (db *DB) Init(ctx context.Context, host string, port string, user string, password string, dbname string, partitionTTL int) error {
 	var initerr error
 	db.once.Do(func() {
 
-		host := postgresConfig.Hostname
-		port := postgresConfig.Port
-		user := postgresConfig.Username
-		password := postgresConfig.Password
-		dbname := postgresConfig.DatabaseName
-		db.defaultPartitionTTL = postgresConfig.PartitionTTL
+		db.defaultPartitionTTL = partitionTTL
 
 		if db.now == nil {
 			db.now = time.Now

@@ -23,15 +23,14 @@ var scriptFound = func(string) (string, error) { return scriptText, nil }
 func TestDBInitHandleOpenError(t *testing.T) {
 	thedb := DB{}
 
-	postgresConfig := PostgresConfig{
-		Hostname:     "this is not a hostname",
-		Port:         "99",
-		Username:     "me!",
-		Password:     "mypassword!",
-		DatabaseName: "name",
-	}
+	hostname := "this is not a hostname"
+	port := "99"
+	username := "me!"
+	password := "mypassword!"
+	databasename := "name"
+	partitionTTL := 2
 
-	if err := thedb.Init(context.Background(), &postgresConfig); err == nil {
+	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL); err == nil {
 		t.Errorf("DB.Init should have returned a non-nil error")
 	}
 }

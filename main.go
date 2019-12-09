@@ -11,18 +11,44 @@ import (
 	"github.com/asecurityteam/settings"
 )
 
-func main() {
-	ctx := context.Background()
-	source, err := settings.NewEnvSource(os.Environ())
+type config struct {
+	PostgresConfig     *storage.PostgresConfig
+	PostgresReadConfig *storage.PostgresReadConfig
+}
+
+func (*config) Name() string {
+	return "Postgres"
+}
+
+type component struct {
+	PostgresConfig     *storage.PostgresConfigComponent
+	PostgresReadConfig *storage.PostgresReadConfigComponent
+}
+
+func newComponent() *component {
+	return &component{
+		PostgresConfig:     storage.NewPostgresComponent(),
+		PostgresReadConfig: storage.NewPostgresReadComponent(),
+	}
+}
+
+func (c *component) Settings() *config {
+	return &config{
+		PostgresConfig:     c.PostgresConfig.Settings(),
+		PostgresReadConfig: c.PostgresReadConfig.Settings(),
+	}
+}
+
+func (c *component) New(ctx context.Context, conf *config) (func(context.Context, settings.Source) error, error) {
+	dbStorage, err := c.PostgresConfig.New(ctx, conf.PostgresConfig)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
+	}
+	readDbStorage, err := c.PostgresReadConfig.New(ctx, conf.PostgresReadConfig)
+	if err != nil {
+		return nil, err
 	}
 
-	postgresConfigComponent := &storage.PostgresConfigComponent{}
-	dbStorage := new(storage.DB)
-	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
-		panic(err.Error())
-	}
 	insert := &v1.CloudInsertHandler{
 		LogFn:            domain.LoggerFromContext,
 		StatFn:           domain.StatFromContext,
@@ -31,22 +57,22 @@ func main() {
 	fetchByIP := &v1.CloudFetchByIPHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: readDbStorage,
 	}
 	fetchByHostname := &v1.CloudFetchByHostnameHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: readDbStorage,
 	}
 	fetchAllAssetsByTime := &v1.CloudFetchAllAssetsByTimeHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: readDbStorage,
 	}
 	fetchAllAssetsByTimePage := &v1.CloudFetchAllAssetsByTimePageHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: readDbStorage,
 	}
 	createPartition := &v1.CreatePartitionHandler{
 		LogFn:     domain.LoggerFromContext,
@@ -54,7 +80,7 @@ func main() {
 	}
 	getPartitions := &v1.GetPartitionsHandler{
 		LogFn:  domain.LoggerFromContext,
-		Getter: dbStorage,
+		Getter: readDbStorage,
 	}
 	deletePartitions := &v1.DeletePartitionsHandler{
 		LogFn:   domain.LoggerFromContext,
@@ -72,7 +98,23 @@ func main() {
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}
-	if err := serverfull.Start(ctx, source, fetcher); err != nil {
+	return func(ctx context.Context, source settings.Source) error {
+		return serverfull.Start(ctx, source, fetcher)
+	}, nil
+}
+
+func main() {
+	ctx := context.Background()
+	source, err := settings.NewEnvSource(os.Environ())
+	if err != nil {
+		panic(err.Error())
+	}
+	runner := new(func(context.Context, settings.Source) error)
+	cmp := newComponent()
+	if err = settings.NewComponent(ctx, source, cmp, runner); err != nil {
+		panic(err.Error())
+	}
+	if err := (*runner)(ctx, source); err != nil {
 		panic(err.Error())
 	}
 }

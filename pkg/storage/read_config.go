@@ -6,8 +6,8 @@ import (
 	packr "github.com/gobuffalo/packr/v2"
 )
 
-// PostgresConfig contains the Postgres database configuration arguments
-type PostgresConfig struct {
+// PostgresReadConfig contains the Postgres database configuration arguments for the ReadReplica
+type PostgresReadConfig struct {
 	Hostname     string
 	Port         string
 	Username     string
@@ -17,26 +17,26 @@ type PostgresConfig struct {
 }
 
 // Name is used by the settings library to replace the default naming convention.
-func (c *PostgresConfig) Name() string {
-	return "Postgres"
+func (c *PostgresReadConfig) Name() string {
+	return "PostgresRead"
 }
 
-// PostgresConfigComponent satisfies the settings library Component API,
+// PostgresReadConfigComponent satisfies the settings library Component API,
 // and may be used by the settings.NewComponent function.
-type PostgresConfigComponent struct{}
+type PostgresReadConfigComponent struct{}
 
-// NewPostgresComponent generates a PostgresConfigComponent
-func NewPostgresComponent() *PostgresConfigComponent {
-	return &PostgresConfigComponent{}
+// NewPostgresReadComponent generates a new PostgresReadConfigComponent
+func NewPostgresReadComponent() *PostgresReadConfigComponent {
+	return &PostgresReadConfigComponent{}
 }
 
 // Settings populates a set of defaults if none are provided via config.
-func (*PostgresConfigComponent) Settings() *PostgresConfig {
-	return &PostgresConfig{}
+func (*PostgresReadConfigComponent) Settings() *PostgresReadConfig {
+	return &PostgresReadConfig{}
 }
 
 // New constructs a DB from a config.
-func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
+func (*PostgresReadConfigComponent) New(ctx context.Context, c *PostgresReadConfig) (*DB, error) {
 	scripts := packr.New("scripts", "../../scripts")
 	db := &DB{
 		scripts: scripts.FindString,
