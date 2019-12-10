@@ -29,19 +29,36 @@ var db *sql.DB
 var dbStorage *storage.DB
 var ctx context.Context
 
+const postgres = "postgres"
+const localhost = "localhost"
+const disable = "disable"
+const sslRequired = "require"
+
+type component struct {
+	PostgresConfig     *storage.PostgresConfigComponent
+	PostgresReadConfig *storage.PostgresReadConfigComponent
+}
+
+func newComponent() *component {
+	return &component{
+		PostgresConfig:     storage.NewPostgresComponent(),
+		PostgresReadConfig: storage.NewPostgresReadComponent(),
+	}
+}
+
 func TestMain(m *testing.M) {
 
 	// wipe the database entirely, which will result in testing DB.Init
 	// handling of lack of pre-existing database
-	sslmode := "disable"
 	host := os.Getenv("POSTGRES_HOSTNAME")
-	if host != "localhost" && host != "postgres" {
-		sslmode = "require"
+	sslmode := disable
+	if host != localhost && host != postgres {
+		sslmode = sslRequired
 	}
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 		"password=%s dbname=%s sslmode=%s",
-		host, os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_USERNAME"), os.Getenv("POSTGRES_PASSWORD"), "postgres", sslmode)
-	pgdb, err := sql.Open("postgres", psqlInfo)
+		host, os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_USERNAME"), os.Getenv("POSTGRES_PASSWORD"), postgres, sslmode)
+	pgdb, err := sql.Open(postgres, psqlInfo)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -57,13 +74,18 @@ func TestMain(m *testing.M) {
 		panic(err.Error())
 	}
 
-	postgresConfigComponent := &storage.PostgresConfigComponent{}
-	dbStorage = new(storage.DB)
-	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
+	runner := new(func(context.Context, settings.Source) error)
+	cmp := newComponent()
+	if err = settings.NewComponent(ctx, source, cmp, runner); err != nil {
 		panic(err.Error())
 	}
 
 	db, err = connectToDB()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	_, err = connectToReadDB()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -571,14 +593,43 @@ func connectToDB() (*sql.DB, error) {
 	password := os.Getenv("POSTGRES_PASSWORD")
 	dbname := os.Getenv("POSTGRES_DATABASENAME")
 
-	sslmode := "disable"
-	if host != "localhost" && host != "postgres" {
-		sslmode = "require"
+	sslmode := disable
+	if host != localhost && host != postgres {
+		sslmode = sslRequired
 	}
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 		"password=%s dbname=%s sslmode=%s",
 		host, port, user, password, dbname, sslmode)
-	pgdb, err := sql.Open("postgres", psqlInfo)
+	pgdb, err := sql.Open(postgres, psqlInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	err = pgdb.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	return pgdb, nil
+}
+
+// returns a raw sql.DB object, rather than the storage.DB abstraction, so
+// we can perform some Postgres (ReadReplica) cleanup/prep/checks that are test-specific
+func connectToReadDB() (*sql.DB, error) {
+	host := os.Getenv("POSTGRES_READ_HOSTNAME")
+	port := os.Getenv("POSTGRES_READ_PORT")
+	user := os.Getenv("POSTGRES_READ_USERNAME")
+	password := os.Getenv("POSTGRES_READ_PASSWORD")
+	dbname := os.Getenv("POSTGRES_READ_DATABASENAME")
+
+	sslmode := disable
+	if host != localhost && host != postgres {
+		sslmode = sslRequired
+	}
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
+		"password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode)
+	pgdb, err := sql.Open(postgres, psqlInfo)
 	if err != nil {
 		return nil, err
 	}
