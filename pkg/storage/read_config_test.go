@@ -20,16 +20,16 @@ func TestReadName(t *testing.T) {
 }
 
 func TestReadShouldReturnSame(t *testing.T) {
-	postgresConfigComponent := PostgresConfigComponent{}
+	postgresConfigComponent := PostgresReadConfigComponent{}
 	postgresConfig := postgresConfigComponent.Settings()
 	assert.NotNil(t, postgresConfig)
 	assert.NotEmpty(t, postgresConfig.Hostname)
 }
 
 func TestReadShouldFailToMakeNewDB(t *testing.T) {
-	postgresConfig := PostgresConfig{}
+	postgresConfig := PostgresReadConfig{}
 
-	postgresConfigComponent := PostgresConfigComponent{}
+	postgresConfigComponent := PostgresReadConfigComponent{}
 	_, err := postgresConfigComponent.New(context.Background(), &postgresConfig)
 	assert.NotNil(t, err)
 }
