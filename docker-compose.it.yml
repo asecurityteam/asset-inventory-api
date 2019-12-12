@@ -13,8 +13,7 @@ services:
       - "POSTGRESREAD_DATABASENAME=assetmgmt"
       - "POSTGRESREAD_HOSTNAME=postgres"
       - "POSTGRESREAD_PORT=5432"
-    entrypoint: /usr/local/go/bin/go
-    command: test -v -tags=integration -race ./tests
+    command: go integration
     working_dir: ${DIR}
     volumes:
       - ${DIR}:${DIR}
