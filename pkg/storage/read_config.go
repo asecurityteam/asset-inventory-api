@@ -39,7 +39,7 @@ func (*PostgresReadConfigComponent) Settings() *PostgresReadConfig {
 	}
 }
 
-// Unlike Master, Replica DB has no scripts and does not attempt to create the database as it can not by definition
+// New - Unlike Master, Replica DB has no scripts and does not attempt to create the database as it can not by definition
 func (*PostgresReadConfigComponent) New(ctx context.Context, c *PostgresReadConfig) (*DB, error) {
 	db := &DB{}
 	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
