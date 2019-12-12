@@ -16,8 +16,8 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/settings"
-	packr "github.com/gobuffalo/packr/v2"
-	pq "github.com/lib/pq"
+	"github.com/gobuffalo/packr/v2"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,18 +33,6 @@ const postgres = "postgres"
 const localhost = "localhost"
 const disable = "disable"
 const sslRequired = "require"
-
-type component struct {
-	PostgresConfig     *storage.PostgresConfigComponent
-	PostgresReadConfig *storage.PostgresReadConfigComponent
-}
-
-func newComponent() *component {
-	return &component{
-		PostgresConfig:     storage.NewPostgresComponent(),
-		PostgresReadConfig: storage.NewPostgresReadComponent(),
-	}
-}
 
 func TestMain(m *testing.M) {
 
@@ -74,9 +62,10 @@ func TestMain(m *testing.M) {
 		panic(err.Error())
 	}
 
-	runner := new(func(context.Context, settings.Source) error)
-	cmp := newComponent()
-	if err = settings.NewComponent(ctx, source, cmp, runner); err != nil {
+	// we need this for the DB to get created
+	postgresConfigComponent := &storage.PostgresConfigComponent{}
+	dbStorage = new(storage.DB)
+	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
 		panic(err.Error())
 	}
 
@@ -616,11 +605,11 @@ func connectToDB() (*sql.DB, error) {
 // returns a raw sql.DB object, rather than the storage.DB abstraction, so
 // we can perform some Postgres (ReadReplica) cleanup/prep/checks that are test-specific
 func connectToReadDB() (*sql.DB, error) {
-	host := os.Getenv("POSTGRES_READ_HOSTNAME")
-	port := os.Getenv("POSTGRES_READ_PORT")
-	user := os.Getenv("POSTGRES_READ_USERNAME")
-	password := os.Getenv("POSTGRES_READ_PASSWORD")
-	dbname := os.Getenv("POSTGRES_READ_DATABASENAME")
+	host := os.Getenv("POSTGRESREAD_HOSTNAME")
+	port := os.Getenv("POSTGRESREAD_PORT")
+	user := os.Getenv("POSTGRESREAD_USERNAME")
+	password := os.Getenv("POSTGRESREAD_PASSWORD")
+	dbname := os.Getenv("POSTGRESREAD_DATABASENAME")
 
 	sslmode := disable
 	if host != localhost && host != postgres {

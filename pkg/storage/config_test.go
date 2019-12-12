@@ -23,7 +23,7 @@ func TestShouldReturnSame(t *testing.T) {
 	postgresConfigComponent := PostgresConfigComponent{}
 	postgresConfig := postgresConfigComponent.Settings()
 	assert.NotNil(t, postgresConfig)
-	assert.Empty(t, postgresConfig.DatabaseName)
+	assert.NotEmpty(t, postgresConfig.Hostname)
 }
 
 func TestShouldFailToMakeNewDB(t *testing.T) {

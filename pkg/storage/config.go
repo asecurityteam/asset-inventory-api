@@ -32,7 +32,13 @@ func NewPostgresComponent() *PostgresConfigComponent {
 
 // Settings populates a set of defaults if none are provided via config.
 func (*PostgresConfigComponent) Settings() *PostgresConfig {
-	return &PostgresConfig{}
+	return &PostgresConfig{
+		Hostname:     "localhost",
+		Port:         "5432",
+		Username:     "aiapi",
+		DatabaseName: "aiapi",
+		PartitionTTL: 360,
+	}
 }
 
 // New constructs a DB from a config.

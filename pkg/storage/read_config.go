@@ -2,8 +2,6 @@ package storage
 
 import (
 	"context"
-
-	packr "github.com/gobuffalo/packr/v2"
 )
 
 // PostgresReadConfig contains the Postgres database configuration arguments for the ReadReplica
@@ -32,15 +30,18 @@ func NewPostgresReadComponent() *PostgresReadConfigComponent {
 
 // Settings populates a set of defaults if none are provided via config.
 func (*PostgresReadConfigComponent) Settings() *PostgresReadConfig {
-	return &PostgresReadConfig{}
+	return &PostgresReadConfig{
+		Hostname:     "localhost",
+		Port:         "5432",
+		Username:     "aiapi",
+		DatabaseName: "aiapi",
+		PartitionTTL: 360,
+	}
 }
 
-// New constructs a DB from a config.
+// Unlike Master, Replica DB has no scripts and does not attempt to create the database as it can not by definition
 func (*PostgresReadConfigComponent) New(ctx context.Context, c *PostgresReadConfig) (*DB, error) {
-	scripts := packr.New("scripts", "../../scripts")
-	db := &DB{
-		scripts: scripts.FindString,
-	}
+	db := &DB{}
 	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
 		return nil, err
 	}

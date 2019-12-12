@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"os"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -17,7 +19,7 @@ type config struct {
 }
 
 func (*config) Name() string {
-	return "Postgres"
+	return "AIAPI"
 }
 
 type component struct {
@@ -111,6 +113,14 @@ func main() {
 	}
 	runner := new(func(context.Context, settings.Source) error)
 	cmp := newComponent()
+	fs := flag.NewFlagSet("asset-inventory-api", flag.ContinueOnError)
+	fs.Usage = func() {}
+	if err = fs.Parse(os.Args[1:]); err == flag.ErrHelp {
+		sg, _ := settings.GroupFromComponent(cmp)
+		fmt.Println("Usage:")
+		fmt.Println(settings.ExampleEnvGroups([]settings.Group{sg}))
+		return
+	}
 	if err = settings.NewComponent(ctx, source, cmp, runner); err != nil {
 		panic(err.Error())
 	}
