@@ -10,7 +10,7 @@ import (
 func TestReadName(t *testing.T) {
 	postgresConfig := PostgresReadConfig{
 		Hostname:     "localhost",
-		Port:         "99",
+		Port:         99,
 		Username:     "me!",
 		Password:     "mypassword!",
 		DatabaseName: "name",

@@ -9,7 +9,7 @@ import (
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
 	Hostname     string
-	Port         string
+	Port         uint16
 	Username     string
 	Password     string
 	DatabaseName string
@@ -34,7 +34,7 @@ func NewPostgresComponent() *PostgresConfigComponent {
 func (*PostgresConfigComponent) Settings() *PostgresConfig {
 	return &PostgresConfig{
 		Hostname:     "localhost",
-		Port:         "5432",
+		Port:         5432,
 		Username:     "aiapi",
 		DatabaseName: "aiapi",
 		PartitionTTL: 360,

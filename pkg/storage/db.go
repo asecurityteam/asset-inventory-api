@@ -117,7 +117,7 @@ func (db *DB) RunScript(ctx context.Context, name string) error {
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, host string, port string, user string, password string, dbname string, partitionTTL int) error {
+func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int) error {
 	var initerr error
 	db.once.Do(func() {
 
@@ -134,7 +134,7 @@ func (db *DB) Init(ctx context.Context, host string, port string, user string, p
 			}
 			// we establish a connection against a known-to-exist dbname so we can check
 			// if we need to create our desired dbname
-			psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
+			psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 				"password=%s dbname=%s sslmode=%s",
 				host, port, user, password, "postgres", sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
@@ -159,7 +159,7 @@ func (db *DB) Init(ctx context.Context, host string, port string, user string, p
 				}
 			}
 
-			psqlInfo = fmt.Sprintf("host=%s port=%s user=%s "+
+			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
 				"password=%s dbname=%s sslmode=%s",
 				host, port, user, password, dbname, sslmode)
 			err = db.use(psqlInfo)

@@ -24,7 +24,7 @@ func TestDBInitHandleOpenError(t *testing.T) {
 	thedb := DB{}
 
 	hostname := "this is not a hostname"
-	port := "99"
+	port := uint16(99)
 	username := "me!"
 	password := "mypassword!"
 	databasename := "name"

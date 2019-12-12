@@ -7,7 +7,7 @@ import (
 // PostgresReadConfig contains the Postgres database configuration arguments for the ReadReplica
 type PostgresReadConfig struct {
 	Hostname     string
-	Port         string
+	Port         uint16
 	Username     string
 	Password     string
 	DatabaseName string
@@ -32,7 +32,7 @@ func NewPostgresReadComponent() *PostgresReadConfigComponent {
 func (*PostgresReadConfigComponent) Settings() *PostgresReadConfig {
 	return &PostgresReadConfig{
 		Hostname:     "localhost",
-		Port:         "5432",
+		Port:         5432,
 		Username:     "aiapi",
 		DatabaseName: "aiapi",
 		PartitionTTL: 360,
