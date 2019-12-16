@@ -9,7 +9,7 @@ import (
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
 	Hostname     string
-	Port         string
+	Port         uint16
 	Username     string
 	Password     string
 	DatabaseName string
@@ -25,9 +25,20 @@ func (c *PostgresConfig) Name() string {
 // and may be used by the settings.NewComponent function.
 type PostgresConfigComponent struct{}
 
+// NewPostgresComponent generates a PostgresConfigComponent
+func NewPostgresComponent() *PostgresConfigComponent {
+	return &PostgresConfigComponent{}
+}
+
 // Settings populates a set of defaults if none are provided via config.
 func (*PostgresConfigComponent) Settings() *PostgresConfig {
-	return &PostgresConfig{}
+	return &PostgresConfig{
+		Hostname:     "localhost",
+		Port:         5432,
+		Username:     "aiapi",
+		DatabaseName: "aiapi",
+		PartitionTTL: 360,
+	}
 }
 
 // New constructs a DB from a config.
@@ -36,7 +47,7 @@ func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB
 	db := &DB{
 		scripts: scripts.FindString,
 	}
-	if err := db.Init(ctx, c); err != nil {
+	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
 		return nil, err
 	}
 	return db, nil

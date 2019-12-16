@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestName(t *testing.T) {
-	postgresConfig := PostgresConfig{
+func TestReadName(t *testing.T) {
+	postgresConfig := PostgresReadConfig{
 		Hostname:     "localhost",
 		Port:         99,
 		Username:     "me!",
@@ -16,20 +16,20 @@ func TestName(t *testing.T) {
 		DatabaseName: "name",
 		PartitionTTL: 365,
 	}
-	assert.Equal(t, "Postgres", postgresConfig.Name())
+	assert.Equal(t, "PostgresRead", postgresConfig.Name())
 }
 
-func TestShouldReturnSame(t *testing.T) {
-	postgresConfigComponent := PostgresConfigComponent{}
+func TestReadShouldReturnSame(t *testing.T) {
+	postgresConfigComponent := PostgresReadConfigComponent{}
 	postgresConfig := postgresConfigComponent.Settings()
 	assert.NotNil(t, postgresConfig)
 	assert.NotEmpty(t, postgresConfig.Hostname)
 }
 
-func TestShouldFailToMakeNewDB(t *testing.T) {
-	postgresConfig := PostgresConfig{}
+func TestReadShouldFailToMakeNewDB(t *testing.T) {
+	postgresConfig := PostgresReadConfig{}
 
-	postgresConfigComponent := PostgresConfigComponent{}
+	postgresConfigComponent := PostgresReadConfigComponent{}
 	_, err := postgresConfigComponent.New(context.Background(), &postgresConfig)
 	assert.NotNil(t, err)
 }
