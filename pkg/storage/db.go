@@ -117,7 +117,7 @@ func (db *DB) RunScript(ctx context.Context, name string) error {
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int) error {
+func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int,  readOnly bool) error {
 	var initerr error
 	db.once.Do(func() {
 
@@ -151,7 +151,7 @@ func (db *DB) Init(ctx context.Context, host string, port uint16, user string, p
 				return // from the unnamed once.Do function
 			}
 
-			if !dbExists {
+			if !dbExists && !readOnly {
 				err = db.create(dbname)
 				if err != nil {
 					initerr = err
@@ -175,7 +175,9 @@ func (db *DB) Init(ctx context.Context, host string, port uint16, user string, p
 			}
 
 		}
-		initerr = db.RunScript(ctx, createScript)
+		if !readOnly {
+			initerr = db.RunScript(ctx, createScript)
+		}
 
 	})
 	return initerr

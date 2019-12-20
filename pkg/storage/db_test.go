@@ -30,7 +30,7 @@ func TestDBInitHandleOpenError(t *testing.T) {
 	databasename := "name"
 	partitionTTL := 2
 
-	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL); err == nil {
+	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL, true); err == nil {
 		t.Errorf("DB.Init should have returned a non-nil error")
 	}
 }
