@@ -47,7 +47,7 @@ func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB
 	db := &DB{
 		scripts: scripts.FindString,
 	}
-	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
+	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL, false); err != nil {
 		return nil, err
 	}
 	return db, nil
