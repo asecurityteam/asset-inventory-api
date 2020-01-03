@@ -82,7 +82,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 	}
 	getPartitions := &v1.GetPartitionsHandler{
 		LogFn:  domain.LoggerFromContext,
-		Getter: readDbStorage,
+		Getter: dbStorage,
 	}
 	deletePartitions := &v1.DeletePartitionsHandler{
 		LogFn:   domain.LoggerFromContext,
