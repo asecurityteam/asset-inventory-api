@@ -61,8 +61,61 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"    aws_resources ON " +
 	"        latest.aws_resources_id = aws_resources.id;"
 
+// Query to find resource by private IP using v2 schema
+// nolint
+const resourceByPrivateIPQuery = `select ia.private_ip,
+       res.arn_id,
+       res.meta,
+       ar.region,
+       rt.resource_type,
+       aa.account
+from aws_private_ip_assignment ia
+         left join aws_resource res on ia.aws_resource_id = res.id
+         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+         left join aws_account aa on res.aws_account_id = aa.id
+where ia.private_ip = $1
+  and ia.not_before < $2
+  and (ia.not_after is null or ia.not_after > $2)
+`
+
+// Query to find resource by public IP using v2 schema
+// nolint
+const resourceByPublicIPQuery = `select ia.public_ip,
+       res.arn_id,
+       res.meta,
+       ar.region,
+       rt.resource_type,
+       aa.account
+from aws_public_ip_assignment ia
+         left join aws_resource res on ia.aws_resource_id = res.id
+         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+         left join aws_account aa on res.aws_account_id = aa.id
+where ia.public_ip = $1
+  and ia.not_before < $2
+  and (ia.not_after is null or ia.not_after > $2)
+`
+
+// Query to find resource by hostname using v2 schema
+// nolint
+const resourceByHostnameQuery = `select ia.aws_hostname,
+       res.arn_id,
+       res.meta,
+       ar.region,
+       rt.resource_type,
+       aa.account
+from aws_public_ip_assignment ia
+         left join aws_resource res on ia.aws_resource_id = res.id
+         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+         left join aws_account aa on res.aws_account_id = aa.id
+where ia.aws_hostname = $1
+  and ia.not_before < $2
+  and (ia.not_after is null or ia.not_after > $2)
+`
+
 // This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
-// TODO - run performance analysis, possibly do something else on SQL level (optimize query or adjust schema)
 const bulkResourcesQuery = `
 WITH lc AS (
 	SELECT
@@ -88,6 +141,8 @@ ORDER BY lc.ts DESC
 LIMIT $3
 OFFSET $4
 `
+
+//TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
 type DB struct {
