@@ -41,7 +41,9 @@ create table aws_public_ip_assignment
     aws_resource_id bigint    not null,
     foreign key (aws_resource_id) references aws_resource (id)
 );
+
 create index idx_public_ip on aws_public_ip_assignment (public_ip);
+
 create index idx_aws_hostname on aws_public_ip_assignment (aws_hostname);
 
 create table aws_private_ip_assignment
