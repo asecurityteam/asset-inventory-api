@@ -76,10 +76,10 @@ from aws_private_ip_assignment ia
 where ia.private_ip = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-`
+` // nolint: varcheck
 
 // Query to find resource by public IP using v2 schema
-const resourceByPublicIpQuery = `select ia.public_ip,
+const resourceByPublicIPQuery = `select ia.public_ip,
        res.arn_id,
        res.meta,
        ar.region,
@@ -93,7 +93,7 @@ from aws_public_ip_assignment ia
 where ia.public_ip = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-`
+` // nolint: varcheck
 
 // Query to find resource by hostname using v2 schema
 const resourceByHostnameQuery = `select ia.aws_hostname,
@@ -110,7 +110,7 @@ from aws_public_ip_assignment ia
 where ia.aws_hostname = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-`
+` // nolint: varcheck
 
 // This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
 const bulkResourcesQuery = `
@@ -139,7 +139,7 @@ LIMIT $3
 OFFSET $4
 `
 
-//TODO Optimized query to retrieve all the 'active' resources utilising v2 schema. Out of scope currently.
+//TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
 type DB struct {
