@@ -62,6 +62,7 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 	"        latest.aws_resources_id = aws_resources.id;"
 
 // Query to find resource by private IP using v2 schema
+// nolint
 const resourceByPrivateIPQuery = `select ia.private_ip,
        res.arn_id,
        res.meta,
@@ -76,9 +77,10 @@ from aws_private_ip_assignment ia
 where ia.private_ip = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-` // nolint: varcheck
+`
 
 // Query to find resource by public IP using v2 schema
+// nolint
 const resourceByPublicIPQuery = `select ia.public_ip,
        res.arn_id,
        res.meta,
@@ -93,9 +95,10 @@ from aws_public_ip_assignment ia
 where ia.public_ip = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-` // nolint: varcheck
+`
 
 // Query to find resource by hostname using v2 schema
+// nolint
 const resourceByHostnameQuery = `select ia.aws_hostname,
        res.arn_id,
        res.meta,
@@ -110,7 +113,7 @@ from aws_public_ip_assignment ia
 where ia.aws_hostname = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
-` // nolint: varcheck
+`
 
 // This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
 const bulkResourcesQuery = `
