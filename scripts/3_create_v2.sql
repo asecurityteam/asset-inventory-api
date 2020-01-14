@@ -36,7 +36,7 @@ create table aws_public_ip_assignment
     id              bigserial primary key,
     not_before      timestamp not null,
     not_after       timestamp,
-    public_ip       inet,
+    public_ip       inet not null,
     aws_hostname    varchar   not null,
     aws_resource_id bigint    not null,
     foreign key (aws_resource_id) references aws_resource (id)
@@ -51,7 +51,7 @@ create table aws_private_ip_assignment
     id              bigserial primary key,
     not_before      timestamp not null,
     not_after       timestamp,
-    private_ip      inet,
+    private_ip      inet not null,
     aws_resource_id int       not null,
     foreign key (aws_resource_id) references aws_resource (id)
 );
