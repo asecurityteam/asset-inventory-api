@@ -16,7 +16,8 @@ require (
 	github.com/gobuffalo/genny v0.1.1 // indirect
 	github.com/gobuffalo/gogen v0.1.1 // indirect
 	github.com/gobuffalo/packr/v2 v2.2.0
-	github.com/golang/mock v0.0.0-20190508161146-9fa652df1129
+	github.com/golang-migrate/migrate/v4 v4.8.0
+	github.com/golang/mock v1.2.0
 	github.com/justinas/alice v0.0.0-20171023064455-03f45bd4b7da // indirect
 	github.com/karrick/godirwalk v1.10.0 // indirect
 	github.com/lib/pq v1.1.1
@@ -29,9 +30,6 @@ require (
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529 // indirect
-	golang.org/x/net v0.0.0-20190509222800-a4d6f7feada5 // indirect
 	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862 // indirect
-	golang.org/x/tools v0.0.0-20190510151030-63859f3815cb // indirect
-	gopkg.in/yaml.v2 v2.2.2 // indirect
+	golang.org/x/tools v0.0.0-20200129045341-207d3de1faaf // indirect
 )

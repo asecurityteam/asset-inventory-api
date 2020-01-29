@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 )
 
 func TestGetPartitionsError(t *testing.T) {

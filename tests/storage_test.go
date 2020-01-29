@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
-	"github.com/asecurityteam/settings"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
+	"github.com/asecurityteam/settings"
 )
 
 // db refers to a raw Postgres, without the "storage.DB" abstraction

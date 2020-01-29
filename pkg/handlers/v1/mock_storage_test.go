@@ -9,8 +9,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	gomock "github.com/golang/mock/gomock"
+
+	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
 )
 
 // MockPartitionGenerator is a mock of PartitionGenerator interface

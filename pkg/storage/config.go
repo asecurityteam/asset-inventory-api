@@ -2,18 +2,20 @@ package storage
 
 import (
 	"context"
-
-	packr "github.com/gobuffalo/packr/v2"
+	"errors"
+	"os"
 )
 
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
-	Hostname     string
-	Port         uint16
-	Username     string
-	Password     string
-	DatabaseName string
-	PartitionTTL int
+	Hostname         string
+	Port             uint16
+	Username         string
+	Password         string
+	DatabaseName     string
+	PartitionTTL     int
+	MinSchemaVersion uint
+	MigrationsPath	 string
 }
 
 // Name is used by the settings library to replace the default naming convention.
@@ -33,22 +35,36 @@ func NewPostgresComponent() *PostgresConfigComponent {
 // Settings populates a set of defaults if none are provided via config.
 func (*PostgresConfigComponent) Settings() *PostgresConfig {
 	return &PostgresConfig{
-		Hostname:     "localhost",
-		Port:         5432,
-		Username:     "aiapi",
-		DatabaseName: "aiapi",
-		PartitionTTL: 360,
+		Hostname:         "localhost",
+		Port:             5432,
+		Username:         "aiapi",
+		DatabaseName:     "aiapi",
+		PartitionTTL:     360,
+		MinSchemaVersion: 1,
+		MigrationsPath:   "/db-migrations",
 	}
 }
 
 // New constructs a DB from a config.
 func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
-	scripts := packr.New("scripts", "../../scripts")
-	db := &DB{
-		scripts: scripts.FindString,
+	if mp, err := os.Stat(c.MigrationsPath); err != nil || !mp.IsDir() {
+		return nil, errors.New("migrations path must exist and be a directory")
 	}
-	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL, false); err != nil {
+	db := &DB{
+		migrationsSourceURL: "file://" +  c.MigrationsPath,
+	}
+	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
 		return nil, err
 	}
+	schemaVersion, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if schemaVersion < c.MinSchemaVersion {
+		if err := db.MigrateSchemaToVersion(ctx, c.MinSchemaVersion); err != nil {
+			return nil, err
+		}
+	}
+
 	return db, nil
 }

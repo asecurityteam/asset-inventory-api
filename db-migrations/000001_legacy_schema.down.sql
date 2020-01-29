@@ -1,1 +1,1 @@
-RAISE NOTICE 'Unable to roll back below legacy schema';
+RAISE NOTICE 'Unable to roll back beyond first legacy schema';
