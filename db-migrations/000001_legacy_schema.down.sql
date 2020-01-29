@@ -1,0 +1,1 @@
+RAISE NOTICE 'Unable to roll back below legacy schema';
