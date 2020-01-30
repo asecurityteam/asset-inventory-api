@@ -11,8 +11,8 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
+	_ "github.com/golang-migrate/migrate/v4/source/file" // used internally by migrate
+	_ "github.com/lib/pq"                                // must remain here for sql lib to find the postgres driver
 	"github.com/pkg/errors"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -25,7 +25,6 @@ const (
 	tableAWSIPS                = "aws_ips"
 	tableAWSHostnames          = "aws_hostnames"
 	tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
-	createScript               = "2_create.sql"
 
 	added = "ADDED" // one of the network event types we track
 
@@ -34,8 +33,9 @@ const (
 type migrationDirection int
 
 const (
-	Up migrationDirection = iota // used internally to designate migration direction
-	Down
+	// used internally to designate migration direction
+	up migrationDirection = iota
+	down
 )
 
 // can't use Sprintf in a const, so...
@@ -164,14 +164,19 @@ type DB struct {
 	migrationsSourceURL string
 }
 
+// MigrateSchemaUp performs a database schema migration one version up
 func (db *DB) MigrateSchemaUp(ctx context.Context) (uint, error) {
-	return db.migrateSchema(ctx, Up)
+	return db.migrateSchema(ctx, up)
 }
 
+// MigrateSchemaDown performs a database schema rollback one version down
 func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
-	return db.migrateSchema(ctx, Down)
+	return db.migrateSchema(ctx, down)
 }
 
+//TODO - need to figure out how to get migrate.* to work with contexts properly (possibly file the PR with them)
+//until then, suppress the warning re: unused ctx as we want it as the part of the interface for migrations
+//nolint:unparam
 func (db *DB) getMigrator(ctx context.Context) (*migrate.Migrate, error) {
 	driver, err := postgres.WithInstance(db.sqldb, &postgres.Config{})
 	if err != nil {
@@ -182,6 +187,7 @@ func (db *DB) getMigrator(ctx context.Context) (*migrate.Migrate, error) {
 		"postgres", driver)
 }
 
+// MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
 func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
 	m, err := db.getMigrator(ctx)
 	if err != nil {
@@ -190,6 +196,7 @@ func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
 	return m.Migrate(version)
 }
 
+// GetSchemaVersion retrieves the current version of database schema
 func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
 	m, err := db.getMigrator(ctx)
 	if err != nil {
@@ -212,9 +219,9 @@ func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, er
 		return 0, err
 	}
 	switch d {
-	case Up:
+	case up:
 		err = m.Up()
-	case Down:
+	case down:
 		err = m.Down()
 	default:
 		return 0, errors.New("Unknown migration direction")

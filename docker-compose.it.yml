@@ -16,6 +16,7 @@ services:
     command: go integration
     working_dir: ${DIR}
     volumes:
+      - ${DIR}/db-migrations:/db-migrations
       - ${DIR}:${DIR}
     depends_on:
       - postgres

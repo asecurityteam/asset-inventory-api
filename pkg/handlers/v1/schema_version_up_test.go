@@ -30,10 +30,10 @@ func TestSchemaVersionUp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	v := uint(rand.Uint32()+1) // version number to use for test
+	v := uint(rand.Uint32() + 1) // version number to use for test
 
 	mockMigrator := NewMockSchemaMigratorUp(ctrl)
-	mockMigrator.EXPECT().MigrateSchemaUp(gomock.Any()).Return(uint(v), nil)
+	mockMigrator.EXPECT().MigrateSchemaUp(gomock.Any()).Return(v, nil)
 
 	handler := SchemaVersionUpHandler{
 		LogFn:    testLogFn,

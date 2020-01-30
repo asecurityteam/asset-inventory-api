@@ -629,19 +629,18 @@ func connectToReadDB() (*sql.DB, error) {
 // from prior tests
 func before(t *testing.T, db *storage.DB) {
 	v, err := db.GetSchemaVersion(context.Background())
-	if err!=nil { //the migrations mechanism was not initialized yet
+	if err != nil { //the migrations mechanism was not initialized yet
 		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
 		return
 	}
 	require.Equal(t, v, uint(1)) //we are expected to always start with v1 if the schema was initialized
 	// wipe the database
-	_ ,err = db.MigrateSchemaDown(context.Background())
+	_, err = db.MigrateSchemaDown(context.Background())
 	require.NoError(t, err)
 	// re-create the tables
 	require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
 	require.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
-
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
 func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint

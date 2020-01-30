@@ -93,11 +93,11 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		Getter: dbStorage,
 	}
 	schemaVersionUp := &v1.SchemaVersionUpHandler{
-		LogFn:  domain.LoggerFromContext,
+		LogFn:    domain.LoggerFromContext,
 		Migrator: dbStorage,
 	}
 	schemaVersionDown := &v1.SchemaVersionDownHandler{
-		LogFn:  domain.LoggerFromContext,
+		LogFn:    domain.LoggerFromContext,
 		Migrator: dbStorage,
 	}
 	handlers := map[string]serverfull.Function{
@@ -109,7 +109,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"createPartition":            serverfull.NewFunction(createPartition.Handle),
 		"getPartitions":              serverfull.NewFunction(getPartitions.Handle),
 		"deletePartitions":           serverfull.NewFunction(deletePartitions.Handle),
-		"getSchemaVersion":              serverfull.NewFunction(getSchemaVersion.Handle),
+		"getSchemaVersion":           serverfull.NewFunction(getSchemaVersion.Handle),
 		"schemaVersionUp":            serverfull.NewFunction(schemaVersionUp.Handle),
 		"schemaVersionDown":          serverfull.NewFunction(schemaVersionDown.Handle),
 	}
