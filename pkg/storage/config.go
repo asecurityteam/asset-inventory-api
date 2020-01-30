@@ -15,7 +15,7 @@ type PostgresConfig struct {
 	DatabaseName     string
 	PartitionTTL     int
 	MinSchemaVersion uint
-	MigrationsPath	 string
+	MigrationsPath   string
 }
 
 // Name is used by the settings library to replace the default naming convention.
@@ -51,7 +51,7 @@ func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB
 		return nil, errors.New("migrations path must exist and be a directory")
 	}
 	db := &DB{
-		migrationsSourceURL: "file://" +  c.MigrationsPath,
+		migrationsSourceURL: "file://" + c.MigrationsPath,
 	}
 	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
 		return nil, err

@@ -28,6 +28,14 @@ const (
 	createScript               = "2_create.sql"
 
 	added = "ADDED" // one of the network event types we track
+
+)
+
+type migrationDirection int
+
+const (
+	Up migrationDirection = iota // used internally to designate migration direction
+	Down
 )
 
 // can't use Sprintf in a const, so...
@@ -156,14 +164,26 @@ type DB struct {
 	migrationsSourceURL string
 }
 
-func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
+func (db *DB) MigrateSchemaUp(ctx context.Context) (uint, error) {
+	return db.migrateSchema(ctx, Up)
+}
+
+func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
+	return db.migrateSchema(ctx, Down)
+}
+
+func (db *DB) getMigrator(ctx context.Context) (*migrate.Migrate, error) {
 	driver, err := postgres.WithInstance(db.sqldb, &postgres.Config{})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	m, err := migrate.NewWithDatabaseInstance(
+	return migrate.NewWithDatabaseInstance(
 		db.migrationsSourceURL,
 		"postgres", driver)
+}
+
+func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
+	m, err := db.getMigrator(ctx)
 	if err != nil {
 		return err
 	}
@@ -171,13 +191,7 @@ func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
 }
 
 func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
-	driver, err := postgres.WithInstance(db.sqldb, &postgres.Config{})
-	if err != nil {
-		return 0, err
-	}
-	m, err := migrate.NewWithDatabaseInstance(
-		db.migrationsSourceURL,
-		"postgres", driver)
+	m, err := db.getMigrator(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -190,6 +204,29 @@ func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
 		return 0, err
 	}
 	return v, nil
+}
+
+func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
+	m, err := db.getMigrator(ctx)
+	if err != nil {
+		return 0, err
+	}
+	switch d {
+	case Up:
+		err = m.Up()
+	case Down:
+		err = m.Down()
+	default:
+		return 0, errors.New("Unknown migration direction")
+	}
+	if err != nil {
+		return 0, err
+	}
+	version, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return version, nil
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE

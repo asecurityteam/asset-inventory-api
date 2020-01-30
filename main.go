@@ -88,6 +88,18 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		LogFn:   domain.LoggerFromContext,
 		Deleter: dbStorage,
 	}
+	getSchemaVersion := &v1.GetSchemaVersionHandler{
+		LogFn:  domain.LoggerFromContext,
+		Getter: dbStorage,
+	}
+	schemaVersionUp := &v1.SchemaVersionUpHandler{
+		LogFn:  domain.LoggerFromContext,
+		Migrator: dbStorage,
+	}
+	schemaVersionDown := &v1.SchemaVersionDownHandler{
+		LogFn:  domain.LoggerFromContext,
+		Migrator: dbStorage,
+	}
 	handlers := map[string]serverfull.Function{
 		"insert":                     serverfull.NewFunction(insert.Handle),
 		"fetchByIP":                  serverfull.NewFunction(fetchByIP.Handle),
@@ -97,6 +109,9 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"createPartition":            serverfull.NewFunction(createPartition.Handle),
 		"getPartitions":              serverfull.NewFunction(getPartitions.Handle),
 		"deletePartitions":           serverfull.NewFunction(deletePartitions.Handle),
+		"getSchemaVersion":              serverfull.NewFunction(getSchemaVersion.Handle),
+		"schemaVersionUp":            serverfull.NewFunction(schemaVersionUp.Handle),
+		"schemaVersionDown":          serverfull.NewFunction(schemaVersionDown.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

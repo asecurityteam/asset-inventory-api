@@ -7,7 +7,7 @@ import (
 )
 
 // SchemaVersionGetter is used to retrieve the current version of DB schema
-type SchemaVersionChecker interface {
+type SchemaVersionGetter interface {
 	GetSchemaVersion(ctx context.Context) (uint, error)
 }
 
