@@ -36,6 +36,12 @@ const (
 	down
 )
 
+const(
+	// Lowest version of database schema current code is able to handle
+	MinimumSchemaVersion uint = 1
+	// Version of database schema that cleans the database completely. Use cautiously!
+	EmptySchemaVersion uint = 0
+)
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
 const latestStatusQuery = "WITH latest_candidates AS ( " +
@@ -172,7 +178,7 @@ func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
 	return db.migrateSchema(ctx, down)
 }
 
-// MigrateSchemaToVersion performs one or more database migrator to bring schema to the specified version
+// MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
 func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
 	return db.migrator.Migrate(version)
 }

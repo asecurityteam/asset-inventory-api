@@ -48,7 +48,7 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 		Username:         "aiapi",
 		DatabaseName:     "aiapi",
 		PartitionTTL:     360,
-		MinSchemaVersion: 1,
+		MinSchemaVersion: MinimumSchemaVersion,
 		MigrationsPath:   "/db-migrations",
 	}
 }
@@ -82,6 +82,9 @@ func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB
 	if err != nil {
 		return nil, err
 	}
-
+	// ErrNoChange means we are already on required version so we are good
+	if err := db.MigrateSchemaToVersion(context.Background(), c.MinSchemaVersion); err != nil && err!=migrate.ErrNoChange {
+		return nil, err
+	}
 	return db, nil
 }
