@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSchemaVersionDownError(t *testing.T) {
+func TestSchemaVersionStepDownError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockMigrator := NewMockSchemaMigratorDown(ctrl)
 	mockMigrator.EXPECT().MigrateSchemaDown(gomock.Any()).Return(uint(0), errors.New(""))
 
-	handler := SchemaVersionDownHandler{
+	handler := SchemaVersionStepDownHandler{
 		LogFn:    testLogFn,
 		Migrator: mockMigrator,
 	}
@@ -26,7 +26,7 @@ func TestSchemaVersionDownError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestSchemaVersionDown(t *testing.T) {
+func TestSchemaVersionStepDown(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -35,7 +35,7 @@ func TestSchemaVersionDown(t *testing.T) {
 	mockMigrator := NewMockSchemaMigratorDown(ctrl)
 	mockMigrator.EXPECT().MigrateSchemaDown(gomock.Any()).Return(v, nil)
 
-	handler := SchemaVersionDownHandler{
+	handler := SchemaVersionStepDownHandler{
 		LogFn:    testLogFn,
 		Migrator: mockMigrator,
 	}

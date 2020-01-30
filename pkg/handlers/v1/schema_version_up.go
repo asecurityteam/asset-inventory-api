@@ -7,14 +7,14 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-// SchemaVersionUpHandler handles requests for schema migration
-type SchemaVersionUpHandler struct {
+// SchemaVersionStepUpHandler handles requests for schema migration
+type SchemaVersionStepUpHandler struct {
 	LogFn    domain.LogFn
 	Migrator domain.SchemaMigratorUp
 }
 
 // Handle handles the partition creation request
-func (h *SchemaVersionUpHandler) Handle(ctx context.Context) (SchemaVersion, error) {
+func (h *SchemaVersionStepUpHandler) Handle(ctx context.Context) (SchemaVersion, error) {
 	newVersion, err := h.Migrator.MigrateSchemaUp(ctx)
 	if err != nil {
 		h.LogFn(ctx).Error(logs.StorageError{Reason: err.Error()})

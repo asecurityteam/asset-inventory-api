@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -963,4 +966,105 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
+}
+
+func TestGetSchemaVersionErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
+	db := &DB{migrator: migrator}
+	_, err := db.GetSchemaVersion(context.Background())
+	require.NotNil(t, err)
+}
+
+func TestGetSchemaVersionNil(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
+	db := &DB{migrator: migrator}
+	v, err := db.GetSchemaVersion(context.Background())
+	require.Equal(t, uint(0), v)
+	require.Nil(t, err)
+}
+
+func TestGetSchemaVersionSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
+	db := &DB{migrator: migrator}
+	v, err := db.GetSchemaVersion(context.Background())
+	require.Equal(t, version, v)
+	require.Nil(t, err)
+}
+
+func TestMigrateSchemaToVersionErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Migrate(version).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	err := db.MigrateSchemaToVersion(context.Background(), version)
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaToVersionSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Migrate(version).Return(nil)
+	db := &DB{migrator: migrator}
+	err := db.MigrateSchemaToVersion(context.Background(), version)
+	require.Nil(t, err)
+}
+
+func TestMigrateSchemaUpErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	_, err := db.MigrateSchemaUp(context.Background())
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaUpSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
+	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
+	db := &DB{migrator: migrator}
+	v, err := db.MigrateSchemaUp(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, version, v)
+}
+
+func TestMigrateSchemaDownErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	_, err := db.MigrateSchemaDown(context.Background())
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaDownSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
+	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
+	db := &DB{migrator: migrator}
+	v, err := db.MigrateSchemaDown(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, version, v)
 }

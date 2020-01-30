@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file" // used internally by migrate
-	_ "github.com/lib/pq"                                // must remain here for sql lib to find the postgres driver
+
 	"github.com/pkg/errors"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -157,11 +155,11 @@ OFFSET $4
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb               *sql.DB // this is a unit test seam
+	sqldb               *sql.DB                // this is a unit test seam
+	migrator            domain.StorageMigrator // another unit test seam
 	once                sync.Once
 	now                 func() time.Time // unit test seam
 	defaultPartitionTTL int
-	migrationsSourceURL string
 }
 
 // MigrateSchemaUp performs a database schema migration one version up
@@ -174,35 +172,14 @@ func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
 	return db.migrateSchema(ctx, down)
 }
 
-//TODO - need to figure out how to get migrate.* to work with contexts properly (possibly file the PR with them)
-//until then, suppress the warning re: unused ctx as we want it as the part of the interface for migrations
-//nolint:unparam
-func (db *DB) getMigrator(ctx context.Context) (*migrate.Migrate, error) {
-	driver, err := postgres.WithInstance(db.sqldb, &postgres.Config{})
-	if err != nil {
-		return nil, err
-	}
-	return migrate.NewWithDatabaseInstance(
-		db.migrationsSourceURL,
-		"postgres", driver)
-}
-
-// MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
+// MigrateSchemaToVersion performs one or more database migrator to bring schema to the specified version
 func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
-	m, err := db.getMigrator(ctx)
-	if err != nil {
-		return err
-	}
-	return m.Migrate(version)
+	return db.migrator.Migrate(version)
 }
 
 // GetSchemaVersion retrieves the current version of database schema
 func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
-	m, err := db.getMigrator(ctx)
-	if err != nil {
-		return 0, err
-	}
-	v, _, err := m.Version()
+	v, _, err := db.migrator.Version()
 	if err == migrate.ErrNilVersion {
 		// special handling for the version not being present
 		return 0, nil
@@ -214,15 +191,12 @@ func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
 }
 
 func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
-	m, err := db.getMigrator(ctx)
-	if err != nil {
-		return 0, err
-	}
+	var err error
 	switch d {
 	case up:
-		err = m.Up()
+		err = db.migrator.Steps(1)
 	case down:
-		err = m.Down()
+		err = db.migrator.Steps(-1)
 	default:
 		return 0, errors.New("Unknown migration direction")
 	}

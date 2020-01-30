@@ -2,8 +2,16 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // used internally by migrate
+	_ "github.com/lib/pq"                                // must remain here for sql lib to find the postgres driver
+
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 )
 
 // PostgresConfig contains the Postgres database configuration arguments
@@ -45,25 +53,34 @@ func (*PostgresConfigComponent) Settings() *PostgresConfig {
 	}
 }
 
-// New constructs a DB from a config.
-func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
-	if mp, err := os.Stat(c.MigrationsPath); err != nil || !mp.IsDir() {
-		return nil, errors.New("migrations path must exist and be a directory")
+// NewStorageMigrator constructs an instance of StorageMigrator implemented by psql driver + file migration back-end
+func NewStorageMigrator(sourcePath string, db *sql.DB) (domain.StorageMigrator, error) {
+	if mp, err := os.Stat(sourcePath); err != nil || !mp.IsDir() {
+		return nil, errors.New("migrator path must exist and be a directory")
 	}
-	db := &DB{
-		migrationsSourceURL: "file://" + c.MigrationsPath,
-	}
-	if err := db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
-		return nil, err
-	}
-	schemaVersion, err := db.GetSchemaVersion(ctx)
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return nil, err
 	}
-	if schemaVersion < c.MinSchemaVersion {
-		if err := db.MigrateSchemaToVersion(ctx, c.MinSchemaVersion); err != nil {
-			return nil, err
-		}
+	migrator, err := migrate.NewWithDatabaseInstance(
+		"file://"+sourcePath,
+		"postgres", driver)
+	if err != nil {
+		return nil, err
+	}
+	return migrator, nil
+}
+
+// New constructs a DB from a config.
+func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
+	db := &DB{}
+	var err error
+	if err = db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
+		return nil, err
+	}
+	db.migrator, err = NewStorageMigrator(c.MigrationsPath, db.sqldb)
+	if err != nil {
+		return nil, err
 	}
 
 	return db, nil
