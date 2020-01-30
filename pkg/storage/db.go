@@ -36,12 +36,13 @@ const (
 	down
 )
 
-const(
-	// Lowest version of database schema current code is able to handle
+const (
+	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
 	MinimumSchemaVersion uint = 1
-	// Version of database schema that cleans the database completely. Use cautiously!
+	// EmptySchemaVersion Version of database schema that cleans the database completely. Use cautiously!
 	EmptySchemaVersion uint = 0
 )
+
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
 const latestStatusQuery = "WITH latest_candidates AS ( " +

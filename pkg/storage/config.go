@@ -83,7 +83,7 @@ func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB
 		return nil, err
 	}
 	// ErrNoChange means we are already on required version so we are good
-	if err := db.MigrateSchemaToVersion(context.Background(), c.MinSchemaVersion); err != nil && err!=migrate.ErrNoChange {
+	if err := db.MigrateSchemaToVersion(context.Background(), c.MinSchemaVersion); err != nil && err != migrate.ErrNoChange {
 		return nil, err
 	}
 	return db, nil

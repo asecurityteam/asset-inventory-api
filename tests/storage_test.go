@@ -23,11 +23,6 @@ import (
 var dbStorage *storage.DB
 var ctx context.Context
 
-const postgres = "postgres"
-const localhost = "localhost"
-const disable = "disable"
-const sslRequired = "require"
-
 func TestMain(m *testing.M) {
 	ctx = context.Background()
 	source, err := settings.NewEnvSource(os.Environ())
@@ -545,7 +540,7 @@ func before(t *testing.T, db *storage.DB) {
 	// we are expected to always start with known working version if the schema was initialized, there's no sense in proceeding if the DB is broken
 	assert.Equal(t, storage.MinimumSchemaVersion, v)
 	// wipe the database
-	for version:=storage.MinimumSchemaVersion; version>storage.EmptySchemaVersion;  {
+	for version := storage.MinimumSchemaVersion; version > storage.EmptySchemaVersion; {
 		version, err = db.MigrateSchemaDown(context.Background())
 		assert.NoError(t, err)
 	}
