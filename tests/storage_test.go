@@ -9,12 +9,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/gobuffalo/packr/v2"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -52,10 +49,6 @@ func TestMain(m *testing.M) {
 		panic(err.Error())
 	}
 	defer pgdb.Close()
-
-	if err = wipeDatabase(pgdb, os.Getenv("POSTGRES_DATABASENAME")); err != nil {
-		panic(err.Error())
-	}
 
 	ctx = context.Background()
 	source, err := settings.NewEnvSource(os.Environ())
@@ -635,38 +628,20 @@ func connectToReadDB() (*sql.DB, error) {
 // before is the function all tests should call to ensure no state is carried over
 // from prior tests
 func before(t *testing.T, db *storage.DB) {
-	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
-	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
+	v, err := db.GetSchemaVersion(context.Background())
+	if err!=nil { //the migrations mechanism was not initialized yet
+		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
+		return
+	}
+	require.Equal(t, v, uint(1)) //we are expected to always start with v1 if the schema was initialized
+	// wipe the database
+	_ ,err = db.MigrateSchemaDown(context.Background())
+	require.NoError(t, err)
+	// re-create the tables
+	require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
 	require.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
 
-// dropTables is a utility function called by "before"
-func wipeDatabase(db *sql.DB, dbName string) error {
-
-	sqlFile := "0_wipe.sql"
-
-	box := packr.New("box", "../scripts")
-	_, err := box.Find(sqlFile)
-	if err != nil {
-		return err
-	}
-	s, err := box.FindString(sqlFile)
-	if err != nil {
-		return err
-	}
-
-	if _, err = db.Exec(fmt.Sprintf(s, dbName)); err != nil {
-		if driverErr, ok := err.(*pq.Error); ok {
-			if strings.EqualFold(driverErr.Code.Name(), "invalid_catalog_name") { // from https://www.postgresql.org/docs/11/errcodes-appendix.html
-				// it's ok the DB does not exist; this might by the very first run
-				return nil
-			}
-		}
-		return err
-	}
-
-	return nil
-}
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save
 func newFakeCloudAssetChange(privateIPs []string, publicIPs []string, hostnames []string, timestamp time.Time, arn string, resourceType string, accountID string, region string, tags map[string]string, added bool) domain.CloudAssetChanges { // nolint
