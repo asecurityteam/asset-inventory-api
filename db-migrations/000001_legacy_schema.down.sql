@@ -5,3 +5,4 @@ DROP TABLE IF EXISTS aws_ips;
 DROP TABLE IF EXISTS aws_hostnames;
 DROP TABLE IF EXISTS partitions;
 COMMIT;
+
