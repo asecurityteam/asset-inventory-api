@@ -9,7 +9,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
+	"github.com/golang-migrate/migrate/v4"
+
 	"github.com/pkg/errors"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -22,9 +23,24 @@ const (
 	tableAWSIPS                = "aws_ips"
 	tableAWSHostnames          = "aws_hostnames"
 	tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
-	createScript               = "2_create.sql"
 
 	added = "ADDED" // one of the network event types we track
+
+)
+
+type migrationDirection int
+
+const (
+	// used internally to designate migration direction
+	up migrationDirection = iota
+	down
+)
+
+const (
+	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
+	MinimumSchemaVersion uint = 1
+	// EmptySchemaVersion Version of database schema that cleans the database completely. Use cautiously!
+	EmptySchemaVersion uint = 0
 )
 
 // can't use Sprintf in a const, so...
@@ -146,35 +162,64 @@ OFFSET $4
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb               *sql.DB // this is a unit test seam
-	scripts             func(name string) (string, error)
+	sqldb               *sql.DB                // this is a unit test seam
+	migrator            domain.StorageMigrator // another unit test seam
 	once                sync.Once
 	now                 func() time.Time // unit test seam
 	defaultPartitionTTL int
 }
 
-// RunScript executes a SQL script from disk against the database.
-func (db *DB) RunScript(ctx context.Context, name string) error {
-	scriptContent, err := db.scripts(name)
+// MigrateSchemaUp performs a database schema migration one version up
+func (db *DB) MigrateSchemaUp(ctx context.Context) (uint, error) {
+	return db.migrateSchema(ctx, up)
+}
+
+// MigrateSchemaDown performs a database schema rollback one version down
+func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
+	return db.migrateSchema(ctx, down)
+}
+
+// MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
+func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
+	return db.migrator.Migrate(version)
+}
+
+// GetSchemaVersion retrieves the current version of database schema
+func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
+	v, _, err := db.migrator.Version()
+	if err == migrate.ErrNilVersion {
+		// special handling for the version not being present
+		return 0, nil
+	}
 	if err != nil {
-		return err
+		return 0, err
 	}
-	tx, err := db.sqldb.BeginTx(ctx, nil)
+	return v, nil
+}
+
+func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
+	var err error
+	switch d {
+	case up:
+		err = db.migrator.Steps(1)
+	case down:
+		err = db.migrator.Steps(-1)
+	default:
+		return 0, errors.New("Unknown migration direction")
+	}
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if _, err := tx.ExecContext(ctx, scriptContent); err != nil {
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("failed to rollback from %s because of %s", err.Error(), rbErr.Error())
-		}
-		return err
+	version, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return 0, err
 	}
-	return tx.Commit()
+	return version, nil
 }
 
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int, readOnly bool) error {
-	var initerr error
+func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int) error {
+	var initErr error
 	db.once.Do(func() {
 
 		db.defaultPartitionTTL = partitionTTL
@@ -195,73 +240,30 @@ func (db *DB) Init(ctx context.Context, host string, port uint16, user string, p
 				host, port, user, password, "postgres", sslmode)
 			pgdb, err := sql.Open("postgres", psqlInfo)
 			if err != nil {
-				initerr = err
+				initErr = err
 				return // from the unnamed once.Do function
 			}
 
 			db.sqldb = pgdb
-
-			dbExists, err := db.doesDBExist(dbname)
-			if err != nil {
-				initerr = err
-				return // from the unnamed once.Do function
-			}
-
-			if !dbExists && !readOnly {
-				err = db.create(dbname)
-				if err != nil {
-					initerr = err
-					return // from the unnamed once.Do function
-				}
-			}
 
 			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
 				"password=%s dbname=%s sslmode=%s",
 				host, port, user, password, dbname, sslmode)
 			err = db.use(psqlInfo)
 			if err != nil {
-				initerr = err
+				initErr = err
 				return // from the unnamed once.Do function
 			}
 
 			err = db.ping()
 			if err != nil {
-				initerr = err
+				initErr = err
 				return // from the unnamed once.Do function
 			}
 
 		}
-		if !readOnly {
-			initerr = db.RunScript(ctx, createScript)
-		}
-
 	})
-	return initerr
-}
-
-func (db *DB) doesDBExist(dbName string) (bool, error) {
-	row := db.sqldb.QueryRow("SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1);", dbName)
-	var id string
-	if err := row.Scan(&id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			return false, nil
-		default:
-			return false, err
-		}
-	}
-
-	return true, nil
-}
-
-func (db *DB) create(name string) error {
-
-	_, err := db.sqldb.Exec("CREATE DATABASE " + name + ";") // nolint
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return initErr
 }
 
 // use function's intent is to close the existing connection (pgdb parameter) and open

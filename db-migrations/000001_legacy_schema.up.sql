@@ -1,3 +1,4 @@
+BEGIN;
 -- Package storage implements the database access layer. The underlying database
 -- is Postgres, and the tables are defined as such:
 
@@ -77,3 +78,4 @@ IF NOT EXISTS partitions
 -- The underlying code must be careful to create new partition tables when necessary.  Future updates to
 -- the implementation where we want to track more asset types and values would require creation of new
 -- tables, done by either a database admin or here in code, perhaps in the Init function.
+COMMIT;

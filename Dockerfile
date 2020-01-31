@@ -24,6 +24,7 @@ COPY --from=BUILDER /opt/app .
 COPY --from=CERTS /zoneinfo.zip /
 # the tls certificates:
 COPY --from=CERTS /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY db-migrations /db-migrations
 
 ENV ZONEINFO /zoneinfo.zip
 ENTRYPOINT ["/app"]

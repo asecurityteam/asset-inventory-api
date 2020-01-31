@@ -4,81 +4,37 @@ package inttest
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
 	"github.com/asecurityteam/settings"
-	"github.com/gobuffalo/packr/v2"
-	"github.com/lib/pq"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-// db refers to a raw Postgres, without the "storage.DB" abstraction
-var db *sql.DB
 
 // dbStorage is the struct with the functions being tested
 var dbStorage *storage.DB
 var ctx context.Context
 
-const postgres = "postgres"
-const localhost = "localhost"
-const disable = "disable"
-const sslRequired = "require"
-
 func TestMain(m *testing.M) {
-
-	// wipe the database entirely, which will result in testing DB.Init
-	// handling of lack of pre-existing database
-	host := os.Getenv("POSTGRES_HOSTNAME")
-	sslmode := disable
-	if host != localhost && host != postgres {
-		sslmode = sslRequired
-	}
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=%s",
-		host, os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_USERNAME"), os.Getenv("POSTGRES_PASSWORD"), postgres, sslmode)
-	pgdb, err := sql.Open(postgres, psqlInfo)
-	if err != nil {
-		panic(err.Error())
-	}
-	defer pgdb.Close()
-
-	if err = wipeDatabase(pgdb, os.Getenv("POSTGRES_DATABASENAME")); err != nil {
-		panic(err.Error())
-	}
-
 	ctx = context.Background()
 	source, err := settings.NewEnvSource(os.Environ())
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// we need this for the DB to get created
 	postgresConfigComponent := &storage.PostgresConfigComponent{}
 	dbStorage = new(storage.DB)
 	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
 		panic(err.Error())
 	}
-
-	db, err = connectToDB()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	_, err = connectToReadDB()
-	if err != nil {
-		panic(err.Error())
-	}
-
 	os.Exit(m.Run())
 }
 
@@ -573,98 +529,24 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 	assert.Equal(t, numPartitions+1, len(partitionNames))
 }
 
-// returns a raw sql.DB object, rather than the storage.DB abstraction, so
-// we can perform some Postgres cleanup/prep/checks that are test-specific
-func connectToDB() (*sql.DB, error) {
-	host := os.Getenv("POSTGRES_HOSTNAME")
-	port := os.Getenv("POSTGRES_PORT")
-	user := os.Getenv("POSTGRES_USERNAME")
-	password := os.Getenv("POSTGRES_PASSWORD")
-	dbname := os.Getenv("POSTGRES_DATABASENAME")
-
-	sslmode := disable
-	if host != localhost && host != postgres {
-		sslmode = sslRequired
-	}
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=%s",
-		host, port, user, password, dbname, sslmode)
-	pgdb, err := sql.Open(postgres, psqlInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	err = pgdb.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return pgdb, nil
-}
-
-// returns a raw sql.DB object, rather than the storage.DB abstraction, so
-// we can perform some Postgres (ReadReplica) cleanup/prep/checks that are test-specific
-func connectToReadDB() (*sql.DB, error) {
-	host := os.Getenv("POSTGRESREAD_HOSTNAME")
-	port := os.Getenv("POSTGRESREAD_PORT")
-	user := os.Getenv("POSTGRESREAD_USERNAME")
-	password := os.Getenv("POSTGRESREAD_PASSWORD")
-	dbname := os.Getenv("POSTGRESREAD_DATABASENAME")
-
-	sslmode := disable
-	if host != localhost && host != postgres {
-		sslmode = sslRequired
-	}
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=%s",
-		host, port, user, password, dbname, sslmode)
-	pgdb, err := sql.Open(postgres, psqlInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	err = pgdb.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return pgdb, nil
-}
-
 // before is the function all tests should call to ensure no state is carried over
 // from prior tests
 func before(t *testing.T, db *storage.DB) {
-	require.NoError(t, db.RunScript(context.Background(), "1_clean.sql"))
-	require.NoError(t, db.RunScript(context.Background(), "2_create.sql"))
-	require.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
-}
-
-// dropTables is a utility function called by "before"
-func wipeDatabase(db *sql.DB, dbName string) error {
-
-	sqlFile := "0_wipe.sql"
-
-	box := packr.New("box", "../scripts")
-	_, err := box.Find(sqlFile)
-	if err != nil {
-		return err
+	v, err := db.GetSchemaVersion(context.Background())
+	if err != nil { //the migrations mechanism was not initialized yet
+		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
+		return
 	}
-	s, err := box.FindString(sqlFile)
-	if err != nil {
-		return err
+	// we are expected to always start with known working version if the schema was initialized, there's no sense in proceeding if the DB is broken
+	assert.Equal(t, storage.MinimumSchemaVersion, v)
+	// wipe the database
+	for version := storage.MinimumSchemaVersion; version > storage.EmptySchemaVersion; {
+		version, err = db.MigrateSchemaDown(context.Background())
+		assert.NoError(t, err)
 	}
-
-	if _, err = db.Exec(fmt.Sprintf(s, dbName)); err != nil {
-		if driverErr, ok := err.(*pq.Error); ok {
-			if strings.EqualFold(driverErr.Code.Name(), "invalid_catalog_name") { // from https://www.postgresql.org/docs/11/errcodes-appendix.html
-				// it's ok the DB does not exist; this might by the very first run
-				return nil
-			}
-		}
-		return err
-	}
-
-	return nil
+	// re-create the tables with supported schema
+	assert.NoError(t, db.MigrateSchemaToVersion(context.Background(), storage.MinimumSchemaVersion))
+	assert.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
 
 // newFakeCloudAssetChange is a utility function to create the struct that is the inbound change report we need to save

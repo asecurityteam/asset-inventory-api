@@ -10,9 +10,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 )
 
 func newFetchByIPHandler(fetcher domain.CloudAssetByIPFetcher) *CloudFetchByIPHandler {

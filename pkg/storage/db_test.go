@@ -6,19 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-)
 
-var scriptText = "SELECT 1"
-var scriptNotFound = func(string) (string, error) { return "", errors.New("not found") }
-var scriptFound = func(string) (string, error) { return scriptText, nil }
+	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+)
 
 func TestDBInitHandleOpenError(t *testing.T) {
 	thedb := DB{}
@@ -30,126 +30,9 @@ func TestDBInitHandleOpenError(t *testing.T) {
 	databasename := "name"
 	partitionTTL := 2
 
-	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL, true); err == nil {
+	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL); err == nil {
 		t.Errorf("DB.Init should have returned a non-nil error")
 	}
-}
-
-func TestDoesDBExistTrue(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
-	}
-
-	rows := sqlmock.NewRows([]string{"id"}).AddRow(1)
-	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnRows(rows).RowsWillBeClosed()
-
-	exists, _ := thedb.doesDBExist("somename")
-	if !exists {
-		t.Errorf("DB.doesDBExist should have returned true")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestDoesDBExistFalse(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
-	}
-
-	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnError(sql.ErrNoRows)
-
-	exists, _ := thedb.doesDBExist("somename")
-	if exists {
-		t.Errorf("DB.doesDBExist should have returned false")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestDoesDBExistError(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
-	}
-
-	mock.ExpectQuery("SELECT datname FROM pg_catalog.pg_database WHERE").WithArgs("somename").WillReturnError(errors.New("unexpected error"))
-
-	_, err = thedb.doesDBExist("somename")
-	if err == nil {
-		t.Errorf("DB.doesDBExist should have returned a non-nil error")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestCreateDBSuccess(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
-	}
-
-	mock.ExpectExec("CREATE DATABASE").WillReturnResult(sqlmock.NewResult(1, 1))
-
-	err = thedb.create("somename")
-	if err != nil {
-		t.Errorf("DB.create should have returned a nil error")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestCreateDBError(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
-	}
-
-	mock.ExpectExec("CREATE DATABASE").WillReturnError(errors.New("unexpected error"))
-
-	err = thedb.create("somename")
-	if err == nil {
-		t.Errorf("DB.create should have returned a non-nil error")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-
 }
 
 func TestDBUseError(t *testing.T) {
@@ -185,8 +68,7 @@ func TestGracefulHandlingOfTxBeginFailure(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin().WillReturnError(fmt.Errorf("could not start transaction"))
@@ -211,8 +93,7 @@ func TestShouldINSERTResource(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin()
@@ -239,8 +120,7 @@ func TestShouldRollbackOnFailureToINSERT(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin()
@@ -266,8 +146,7 @@ func TestShouldRollbackOnFailureToINSERT2(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin()
@@ -297,8 +176,7 @@ func TestGoldenPath(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin()
@@ -330,8 +208,7 @@ func TestGetIPsAtTime(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -371,8 +248,7 @@ func TestGetIPsAtTimeMultiRows(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -426,8 +302,7 @@ func TestGetHostnamesAtTime(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -467,8 +342,7 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -501,80 +375,6 @@ func TestGetHostnamesAtTimeMultiRows(t *testing.T) {
 	}
 }
 
-func TestScriptNotFound(t *testing.T) {
-	mockdb, _, err := sqlmock.New()
-	require.NoError(t, err)
-	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptNotFound,
-	}
-
-	require.Error(t, thedb.RunScript(context.Background(), "script1"))
-}
-
-func TestRunScriptTxFailBegin(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer mockdb.Close()
-
-	mock.ExpectBegin().WillReturnError(errors.New("tx fail"))
-	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-	}
-
-	require.Error(t, thedb.RunScript(context.Background(), "script1"))
-}
-
-func TestRunScriptTxRollbackOnFail(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer mockdb.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectExec(scriptText).WillReturnError(errors.New("bad query"))
-	mock.ExpectRollback()
-	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-	}
-
-	require.Error(t, thedb.RunScript(context.Background(), "script1"))
-}
-
-func TestRunScriptTxRollbackFail(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer mockdb.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectExec(scriptText).WillReturnError(errors.New("bad query"))
-	mock.ExpectRollback().WillReturnError(errors.New("bad rollback"))
-	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-	}
-
-	require.Error(t, thedb.RunScript(context.Background(), "script1"))
-}
-
-func TestRunScriptTxCommit(t *testing.T) {
-	mockdb, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer mockdb.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectExec(scriptText).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectCommit()
-	thedb := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-	}
-	require.NoError(t, thedb.RunScript(context.Background(), "script1"))
-}
-
 func TestGeneratePartitionNeedOne(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
@@ -586,9 +386,8 @@ func TestGeneratePartitionNeedOne(t *testing.T) {
 	createdAt := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
@@ -619,9 +418,8 @@ func TestGeneratePartitionNeedOneButShouldNotCreateItYet(t *testing.T) {
 	createdAt := time.Date(2019, 9, 10, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
@@ -646,9 +444,8 @@ func TestGeneratePartitionAlreadyExists(t *testing.T) {
 	createdAt := time.Date(2019, 03, 28, 0, 0, 0, 0, time.UTC) // date is _before_ the already-existing future partition
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-04-01T00:00:00Z")
@@ -673,8 +470,7 @@ func TestGeneratePartitionFirstTime(t *testing.T) {
 	createdAt := time.Date(2019, time.May, 5, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
+		sqldb: mockdb,
 		now: func() time.Time {
 			return createdAt
 		},
@@ -704,8 +500,7 @@ func TestGeneratePartitionScanError(t *testing.T) {
 	defer mockdb.Close()
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
+		sqldb: mockdb,
 		now: func() time.Time {
 			return time.Date(2019, time.May, 1, 0, 0, 0, 0, time.UTC)
 		},
@@ -727,8 +522,7 @@ func TestGeneratePartitionInvalidPartition(t *testing.T) {
 	defer mockdb.Close()
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
+		sqldb: mockdb,
 	}
 
 	rows := sqlmock.NewRows([]string{"partition_begin", "partition_end"}).AddRow("not a valid date", "also invalid")
@@ -750,9 +544,8 @@ func TestGeneratePartitionTxError(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	mock.ExpectBegin().WillReturnError(errors.New(""))
@@ -771,9 +564,8 @@ func TestGeneratePartitionLockError(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	mock.ExpectBegin()
@@ -793,9 +585,8 @@ func TestGeneratePartitionInsertFailure(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
@@ -823,9 +614,8 @@ func TestGeneratePartitionConflict(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-03-01T00:00:00Z")
@@ -854,9 +644,8 @@ func TestGeneratePartitionCreateFailure(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 12, 12, 12, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	latestPartitionBegin, _ := time.Parse(time.RFC3339, "2019-01-01T00:00:00Z")
@@ -886,9 +675,8 @@ func TestGeneratePartitionWithTimestamp(t *testing.T) {
 	createdAt := time.Date(2019, 03, 03, 0, 0, 0, 0, time.UTC)
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	ts, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
@@ -916,9 +704,8 @@ func TestGeneratePartitionWithTimestampAndDuration(t *testing.T) {
 	days := 14
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return createdAt },
+		sqldb: mockdb,
+		now:   func() time.Time { return createdAt },
 	}
 
 	ts, _ := time.Parse(time.RFC3339, "2019-10-01T00:00:00Z")
@@ -943,8 +730,7 @@ func TestGetPartitionsScanError(t *testing.T) {
 	defer mockdb.Close()
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
+		sqldb: mockdb,
 	}
 
 	createdAt, _ := time.Parse(time.RFC3339, "2019-03-31T00:00:00Z")
@@ -965,8 +751,7 @@ func TestGetPartitions(t *testing.T) {
 	defer mockdb.Close()
 
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
+		sqldb: mockdb,
 	}
 	name := "partition"
 	createdAt, _ := time.Parse(time.RFC3339, "2019-03-31T00:00:00Z")
@@ -995,9 +780,8 @@ func TestDeletePartitions(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	partitions := []string{"one", "two", testPartitionName}
@@ -1025,9 +809,8 @@ func TestDeletePartitionsTxError(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	partitions := []string{"one", "two", testPartitionName}
@@ -1050,9 +833,8 @@ func TestDeletePartitionsLockError(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	partitions := []string{"one", "two", testPartitionName}
@@ -1077,9 +859,8 @@ func TestDeletePartitionsDeleteError(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	mock.ExpectBegin()
@@ -1100,9 +881,8 @@ func TestDeletePartitionsDropError(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	mock.ExpectBegin()
@@ -1124,9 +904,8 @@ func TestDeletePartitionsNotFoundError(t *testing.T) {
 
 	now := time.Date(2019, 9, 29, 0, 0, 0, 0, time.UTC)
 	db := DB{
-		sqldb:   mockdb,
-		scripts: scriptFound,
-		now:     func() time.Time { return now },
+		sqldb: mockdb,
+		now:   func() time.Time { return now },
 	}
 
 	nonexistentPartition := "UNREAL_PARTITION"
@@ -1187,4 +966,105 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
+}
+
+func TestGetSchemaVersionErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
+	db := &DB{migrator: migrator}
+	_, err := db.GetSchemaVersion(context.Background())
+	require.NotNil(t, err)
+}
+
+func TestGetSchemaVersionNil(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
+	db := &DB{migrator: migrator}
+	v, err := db.GetSchemaVersion(context.Background())
+	require.Equal(t, uint(0), v)
+	require.Nil(t, err)
+}
+
+func TestGetSchemaVersionSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
+	db := &DB{migrator: migrator}
+	v, err := db.GetSchemaVersion(context.Background())
+	require.Equal(t, version, v)
+	require.Nil(t, err)
+}
+
+func TestMigrateSchemaToVersionErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Migrate(version).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	err := db.MigrateSchemaToVersion(context.Background(), version)
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaToVersionSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Migrate(version).Return(nil)
+	db := &DB{migrator: migrator}
+	err := db.MigrateSchemaToVersion(context.Background(), version)
+	require.Nil(t, err)
+}
+
+func TestMigrateSchemaUpErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	_, err := db.MigrateSchemaUp(context.Background())
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaUpSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
+	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
+	db := &DB{migrator: migrator}
+	v, err := db.MigrateSchemaUp(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, version, v)
+}
+
+func TestMigrateSchemaDownErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	_, err := db.MigrateSchemaDown(context.Background())
+	require.Error(t, err)
+}
+
+func TestMigrateSchemaDownSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
+	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
+	db := &DB{migrator: migrator}
+	v, err := db.MigrateSchemaDown(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, version, v)
 }

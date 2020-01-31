@@ -1,3 +1,4 @@
+BEGIN;
 create table aws_region
 (
     id     serial primary key,
@@ -57,3 +58,4 @@ create table aws_private_ip_assignment
 );
 
 create index idx_private_ip on aws_private_ip_assignment (private_ip);
+COMMIT;
