@@ -37,10 +37,12 @@ const (
 )
 
 const (
-	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
-	MinimumSchemaVersion uint = 1
 	// EmptySchemaVersion Version of database schema that cleans the database completely. Use cautiously!
 	EmptySchemaVersion uint = 0
+	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
+	MinimumSchemaVersion uint = 1
+	// DualWriteSchemaVersion Lowest version of database schema that supports dual-writes
+	DualWriteSchemaVersion uint = 2
 )
 
 // can't use Sprintf in a const, so...
@@ -473,9 +475,122 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 		}
 		return err
 	}
-	return tx.Commit()
-
+	if err=tx.Commit(); err!=nil{
+		return err
+	}
+	ver, err := db.GetSchemaVersion(ctx)
+	if err!=nil || ver < DualWriteSchemaVersion {
+		return nil
+	}
+	return db.storeV2(ctx, cloudAssetChanges)
 }
+func (db *DB) storeV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error{
+	tx, err := db.sqldb.Begin()
+	if err != nil {
+		return err
+	}
+
+	if err = db.ensureResourceExists(ctx, cloudAssetChanges, tx); err == nil {
+		arnID:=arnIDFromARN(cloudAssetChanges.ARN)
+		for _, val := range cloudAssetChanges.Changes {
+			for _, ip := range val.PrivateIPAddresses {
+				if strings.EqualFold(added, val.ChangeType) {
+					err = db.assignPrivateIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
+				}else{
+					err = db.releasePrivateIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
+				}
+				if err!=nil {
+					break
+				}
+			}
+			for ix, ip := range val.PublicIPAddresses {
+				if strings.EqualFold(added, val.ChangeType) {
+					hostname := val.Hostnames[ix]
+					err = db.assignPublicIP(ctx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+				}else{
+					err = db.releasePublicIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
+				}
+			}
+			if err != nil {
+				break
+			}
+		}
+	}
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
+		}
+		return err
+	}
+	if err=tx.Commit(); err!=nil{
+		return err
+	}
+	return nil
+}
+
+func (db *DB) ensureResourceExists(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
+	const createResourceQuery string =`
+with sel as (
+    select val.arn_id,
+           val.region,
+           aws_region.id        as aws_region_id,
+           val.account,
+           aws_account.id       as aws_account_id,
+           val.resource_type,
+           aws_resource_type.id as aws_resource_type_id,
+           val.meta
+    from (
+             values (text $1, text $2, text $3, text $4, jsonb $5)
+         ) val (arn_id, region, account, resource_type, meta)
+             left join aws_region using (region)
+             left join aws_account using (account)
+             left join aws_resource_type using (resource_type)),
+     ins_aws_region as (
+         insert into aws_region (region)
+             select distinct region from sel where aws_region_id is null
+             returning id as aws_region_id, region
+     ),
+     ins_aws_account as (
+         insert into aws_account (account)
+             select distinct account from sel where aws_account_id is null
+             returning id as aws_account_id, account
+     ),
+     ins_aws_resource_type as (
+         insert into aws_resource_type (resource_type)
+             select distinct resource_type from sel where aws_resource_type_id is null
+             returning id as aws_resource_type_id, resource_type
+     )
+insert
+into aws_resource (arn_id, aws_region_id, aws_account_id, aws_resource_type_id, meta)
+select sel.arn_id,
+       coalesce(sel.aws_region_id, ins_aws_region.aws_region_id),
+       coalesce(sel.aws_account_id, ins_aws_account.aws_account_id),
+       coalesce(sel.aws_resource_type_id, ins_aws_resource_type.aws_resource_type_id),
+       sel.meta
+from sel
+         left join ins_aws_region using (region)
+         left join ins_aws_account using (account)
+         left join ins_aws_resource_type using (resource_type)
+on conflict do nothing 
+`
+	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
+	if _, err := tx.ExecContext(ctx,
+		createResourceQuery,
+		arnIDFromARN(cloudAssetChanges.ARN),
+		cloudAssetChanges.Region,
+		cloudAssetChanges.AccountID,
+		cloudAssetChanges.ResourceType,
+		tagsBytes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func arnIDFromARN(ARN string) string{
+	parts := strings.SplitAfterN(ARN,"/",-1)
+	return parts[len(parts)-1]
+}
+
 
 func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
 	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
@@ -668,4 +783,24 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 	return cloudAssetDetails, nil
 
+}
+
+func (db *DB) assignPrivateIP(ctx context.Context, arnID string, ip string, when time.Time) error {
+	panic("implement me")
+	return nil
+}
+
+func (db *DB) releasePrivateIP(ctx context.Context, arnID string, ip string, when time.Time) error {
+	panic("implement me")
+	return nil
+}
+
+func (db *DB) assignPublicIP(ctx context.Context, arnID string, ip string, hostname string, when time.Time) error {
+	panic("implement me")
+	return nil
+}
+
+func (db *DB) releasePublicIP(ctx context.Context, arnID string, ip string, when time.Time) error {
+	panic("implement me")
+	return nil
 }
