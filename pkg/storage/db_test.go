@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -926,8 +927,10 @@ func TestDeletePartitionsNotFoundError(t *testing.T) {
 	_, ok := err.(domain.NotFoundPartition)
 	assert.True(t, ok)
 }
-
 func fakeCloudAssetChanges() domain.CloudAssetChanges {
+	return fakeCloudChange("ADDED")
+}
+func fakeCloudChange(changeType string) domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}
 	hostnames := []string{"google.com"}
@@ -936,7 +939,7 @@ func fakeCloudAssetChanges() domain.CloudAssetChanges {
 			PrivateIPAddresses: privateIPs,
 			PublicIPAddresses:  publicIPs,
 			Hostnames:          hostnames,
-			ChangeType:         "ADDED",
+			ChangeType:         changeType,
 		},
 	}
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
@@ -1073,4 +1076,189 @@ func TestMigrateSchemaDownSuccess(t *testing.T) {
 	v, err := db.MigrateSchemaDown(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, version, v)
+}
+
+func TestStoreV2ErrorEnsureResource(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnError(errors.New("failed to store resource"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudAssetChanges()); err == nil {
+		t.Errorf("error was expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2Assign(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudAssetChanges()); err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2Remove(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudChange("DELETED")); err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2FailPrivate(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnError(errors.New("failed to store assignment"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving private resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2FailPublic(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                              // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`do $$ begin update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnError(errors.New("failed to store assignment")) // nolint
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving private resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2FailTxOpen(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
+	ctx := context.Background()
+	if err = theDB.StoreV2(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 }

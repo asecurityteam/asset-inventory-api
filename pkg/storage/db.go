@@ -482,9 +482,11 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 	if err != nil || ver < DualWriteSchemaVersion {
 		return nil
 	}
-	return db.storeV2(ctx, cloudAssetChanges)
+	return db.StoreV2(ctx, cloudAssetChanges)
 }
-func (db *DB) storeV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
+
+// StoreV2 an implementation of the Storage interface that records to a database using new schema, to replace Store
+func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
 	if err != nil {
 		return err
