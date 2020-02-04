@@ -175,8 +175,14 @@ func TestGoldenPath(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	thedb := DB{
-		sqldb: mockdb,
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockMigrator := NewMockStorageMigrator(ctrl)
+	mockMigrator.EXPECT().Version().Return(MinimumSchemaVersion, false, nil)
+
+	theDB := DB{
+		sqldb:    mockdb,
+		migrator: mockMigrator,
 	}
 
 	mock.ExpectBegin()
@@ -191,7 +197,7 @@ func TestGoldenPath(t *testing.T) {
 
 	ctx := context.Background()
 
-	if err = thedb.Store(ctx, fakeCloudAssetChanges()); err != nil {
+	if err = theDB.Store(ctx, fakeCloudAssetChanges()); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
