@@ -485,7 +485,7 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 	return db.StoreV2(ctx, cloudAssetChanges)
 }
 
-// StoreV2 an implementation of the Storage interface that records to a database using new schema, to replace Store
+// StoreV2 Currently public to allow testing separately.Storage interface implementation that records to a database using new schema, to replace Store in the future.
 func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
 	if err != nil {
