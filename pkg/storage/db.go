@@ -475,40 +475,39 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 		}
 		return err
 	}
-	if err=tx.Commit(); err!=nil{
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 	ver, err := db.GetSchemaVersion(ctx)
-	if err!=nil || ver < DualWriteSchemaVersion {
+	if err != nil || ver < DualWriteSchemaVersion {
 		return nil
 	}
 	return db.storeV2(ctx, cloudAssetChanges)
 }
-func (db *DB) storeV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error{
+func (db *DB) storeV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
 	if err != nil {
 		return err
 	}
-
 	if err = db.ensureResourceExists(ctx, cloudAssetChanges, tx); err == nil {
-		arnID:=arnIDFromARN(cloudAssetChanges.ARN)
+		arnID := resIDFromARN(cloudAssetChanges.ARN)
 		for _, val := range cloudAssetChanges.Changes {
 			for _, ip := range val.PrivateIPAddresses {
 				if strings.EqualFold(added, val.ChangeType) {
-					err = db.assignPrivateIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
-				}else{
-					err = db.releasePrivateIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
+					err = db.assignPrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
+				} else {
+					err = db.releasePrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
 				}
-				if err!=nil {
+				if err != nil {
 					break
 				}
 			}
 			for ix, ip := range val.PublicIPAddresses {
+				hostname := val.Hostnames[ix]
 				if strings.EqualFold(added, val.ChangeType) {
-					hostname := val.Hostnames[ix]
-					err = db.assignPublicIP(ctx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
-				}else{
-					err = db.releasePublicIP(ctx, arnID, ip, cloudAssetChanges.ChangeTime)
+					err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+				} else {
+					err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
 				}
 			}
 			if err != nil {
@@ -522,14 +521,15 @@ func (db *DB) storeV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 		}
 		return err
 	}
-	if err=tx.Commit(); err!=nil{
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (db *DB) ensureResourceExists(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
-	const createResourceQuery string =`
+	// reading pre-requisite to understand this query - https://www.postgresql.org/docs/current/queries-with.html
+	const createResourceQuery string = `
 with sel as (
     select val.arn_id,
            val.region,
@@ -576,7 +576,7 @@ on conflict do nothing
 	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
 	if _, err := tx.ExecContext(ctx,
 		createResourceQuery,
-		arnIDFromARN(cloudAssetChanges.ARN),
+		resIDFromARN(cloudAssetChanges.ARN),
 		cloudAssetChanges.Region,
 		cloudAssetChanges.AccountID,
 		cloudAssetChanges.ResourceType,
@@ -586,11 +586,13 @@ on conflict do nothing
 	return nil
 }
 
-func arnIDFromARN(ARN string) string{
-	parts := strings.SplitAfterN(ARN,"/",-1)
+// extract unique resource ID from full ARN format
+// it is always the part after the last /
+// https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
+func resIDFromARN(ARN string) string {
+	parts := strings.SplitAfterN(ARN, "/", -1)
 	return parts[len(parts)-1]
 }
-
 
 func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
 	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
@@ -785,22 +787,99 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 }
 
-func (db *DB) assignPrivateIP(ctx context.Context, arnID string, ip string, when time.Time) error {
-	panic("implement me")
-	return nil
+func (db *DB) assignPrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, when time.Time) error {
+	const assignPrivateIPQuery = `
+do
+$$
+    begin
+        update aws_private_ip_assignment
+        set not_before = $1
+        where private_ip = $2
+          and not_before = to_timestamp(0)
+          and not_after > $1
+          and aws_resource_id = (select id from aws_resource where arn_id = $3);
+        if not found then
+            insert into aws_private_ip_assignment
+                (not_before, private_ip, aws_resource_id)
+            values ($1, $2, (select id from aws_resource where arn_id = $3));
+        end if;
+    end
+$$;
+`
+	_, err := tx.ExecContext(ctx, assignPrivateIPQuery, when, ip, arnID)
+	return err
 }
 
-func (db *DB) releasePrivateIP(ctx context.Context, arnID string, ip string, when time.Time) error {
-	panic("implement me")
-	return nil
+func (db *DB) releasePrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, when time.Time) error {
+	//we use to_timestamp(0) for release events w/o known assignment as the start of epoch - 1970-01-01 is known
+	//to not have AWS resources by definition
+	//this way we can find unbalanced events while avoiding nullable not_before
+	//which provides minimal support for out-of-order events
+	const releasePrivateIPQuery = `
+do
+$$
+    begin
+        update aws_private_ip_assignment
+        set not_after=$1
+        where private_ip = $2
+          and aws_resource_id = (select id from aws_resource where arn_id = $3);
+        if not found then
+            insert into aws_private_ip_assignment
+                (not_before, not_after, private_ip, aws_resource_id)
+            values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3));
+        end if;
+    end
+$$;
+`
+	_, err := tx.ExecContext(ctx, releasePrivateIPQuery, when, ip, arnID)
+	return err
 }
 
-func (db *DB) assignPublicIP(ctx context.Context, arnID string, ip string, hostname string, when time.Time) error {
-	panic("implement me")
-	return nil
+func (db *DB) assignPublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, hostname string, when time.Time) error {
+	const assignPublicIPQuery = `
+do
+$$
+    begin
+        update aws_public_ip_assignment
+        set not_before = $1
+        where public_ip = $2
+          and not_before = to_timestamp(0)
+          and not_after > $1
+          and aws_resource_id = (select id from aws_resource where arn_id = $3)
+          and aws_hostname = $4;
+        if not found then
+            insert into aws_public_ip_assignment
+                (not_before, public_ip, aws_resource_id, aws_hostname)
+            values ($1, $2, (select id from aws_resource where arn_id = $3), $4);
+        end if;
+    end
+$$;
+`
+	_, err := tx.ExecContext(ctx, assignPublicIPQuery, when, ip, arnID, hostname)
+	return err
 }
 
-func (db *DB) releasePublicIP(ctx context.Context, arnID string, ip string, when time.Time) error {
-	panic("implement me")
-	return nil
+func (db *DB) releasePublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, hostname string, when time.Time) error {
+	//we use to_timestamp(0) for release events w/o known assignment as the start of epoch - 1970-01-01 is known
+	//to NOT have AWS resources by definition
+	//this way we can find unbalanced events while avoiding nullable not_before
+	//which provides minimal support for out-of-order events
+	const releasePublicIPQuery = `
+do
+$$
+    begin
+        update aws_public_ip_assignment
+        set not_after=$1
+        where public_ip = $2
+          and aws_resource_id = (select id from aws_resource where arn_id = $3);
+        if not found then
+            insert into aws_public_ip_assignment
+                (not_before, not_after, public_ip, aws_resource_id, aws_hostname)
+            values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3), $4);
+        end if;
+    end
+$$;
+`
+	_, err := tx.ExecContext(ctx, releasePublicIPQuery, when, ip, arnID, hostname)
+	return err
 }
