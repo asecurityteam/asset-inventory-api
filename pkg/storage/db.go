@@ -873,7 +873,8 @@ $$
         update aws_public_ip_assignment
         set not_after=$1
         where public_ip = $2
-          and aws_resource_id = (select id from aws_resource where arn_id = $3);
+          and aws_resource_id = (select id from aws_resource where arn_id = $3)
+          and aws_hostname = $4;
         if not found then
             insert into aws_public_ip_assignment
                 (not_before, not_after, public_ip, aws_resource_id, aws_hostname)
