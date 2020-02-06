@@ -573,7 +573,7 @@ from sel
          left join ins_aws_region using (region)
          left join ins_aws_account using (account)
          left join ins_aws_resource_type using (resource_type)
-on conflict do nothing 
+on conflict do nothing
 `
 	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
 	if _, err := tx.ExecContext(ctx,
@@ -700,10 +700,21 @@ func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname stri
 
 // FetchByIP gets the assets who have IP address at the specified time
 func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, when)
+	ver, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var asset []domain.CloudAssetDetails
+	if ver < DualWriteSchemaVersion {
+		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
+		asset, err = db.runQuery(ctx, sqlstmt, ipAddress, when)
+	} else {
+		asset, err = db.runQuery(ctx, resourceByPublicIPQuery, ipAddress, when)
+	}
+	return asset, err
 }
 
+// runQuery helps to get cloud asset details by running database query with argument(s)
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
