@@ -49,6 +49,12 @@ type CloudAssetStorer interface {
 // CloudAssetByIPFetcher fetches details for a cloud asset with a given IP address at a point in time
 type CloudAssetByIPFetcher interface {
 	FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]CloudAssetDetails, error)
+	FetchByPublicIP(ctx context.Context, when time.Time, ipAddress string) ([]CloudAssetDetails, error)
+}
+
+// CloudAssetsByPublicIPFetcher fetches details for a cloud asset with a given public IP address at a point in time
+type CloudAssetsByPublicIPFetcher interface {
+	FetchByPublicIP(ctx context.Context, when time.Time, ipAddress string) ([]CloudAssetDetails, error)
 }
 
 // CloudAssetByHostnameFetcher fetches details for a cloud asset with a given hostname at a point in time

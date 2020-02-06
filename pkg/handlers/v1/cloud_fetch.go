@@ -117,7 +117,44 @@ func (h *CloudFetchByIPHandler) Handle(ctx context.Context, input CloudAssetFetc
 		return CloudAssets{}, InvalidInput{Field: "ipAddress", Cause: e}
 	}
 
-	assets, e := h.Fetcher.FetchByIP(ctx, ts, input.IPAddress)
+	oldAssets, e := h.Fetcher.FetchByIP(ctx, ts, input.IPAddress)
+	newAssets, err := h.Fetcher.FetchByPublicIP(ctx, ts, input.IPAddress)
+	if e == nil || err == nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+		logger.Error(logs.StorageError{Reason: err.Error()})
+		return CloudAssets{}, errors.New(("Old Schema: " + e.Error() + " New Schema: " + err.Error()))
+	}
+	if len(oldAssets) == 0 && len(newAssets) == 0 {
+		return CloudAssets{}, NotFound{ID: input.IPAddress}
+	}
+	assets := append(oldAssets, newAssets...)
+	return extractOutput(assets), nil
+}
+
+// CloudFetchByPublicIPHandler defines a lambda handler for fetching cloud assets with a given public IP address
+type CloudFetchByPublicIPHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAssetsByPublicIPFetcher
+}
+
+// Handle handles fetching cloud assets by public IP address
+func (h *CloudFetchByPublicIPHandler) Handle(ctx context.Context, input CloudAssetFetchByIPParameters) (CloudAssets, error) {
+	logger := h.LogFn(ctx)
+
+	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
+	}
+
+	if input.IPAddress == "" {
+		e = fmt.Errorf("ipAddress cannot be empty")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "ipAddress", Cause: e}
+	}
+
+	assets, e := h.Fetcher.FetchByPublicIP(ctx, ts, input.IPAddress)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
 		return CloudAssets{}, e
