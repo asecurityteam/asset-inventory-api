@@ -223,7 +223,7 @@ func TestGetIPsAtTimeSchema1(t *testing.T) {
 		sqldb:    mockdb,
 	}
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	ipAddress := "9.8.7.6"
+	ipAddress := "9.8.7.6" //nolint
 	rowts := "2019-01-15T08:19:22+00:00"
 	rowtsTime, _ := time.Parse(time.RFC3339, rowts)
 
