@@ -708,8 +708,7 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
 		asset, err = db.runQuery(ctx, ver, sqlstmt, ipAddress, when)
 	} else {
-		sqlstmt2 := fmt.Sprintf(resourceByPublicIPQuery + " ")
-		asset, err = db.runQuery(ctx, ver, sqlstmt2, ipAddress, when)
+		asset, err = db.runQuery(ctx, ver, resourceByPublicIPQuery, ipAddress, when)
 	}
 	return asset, err
 }
