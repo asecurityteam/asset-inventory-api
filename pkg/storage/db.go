@@ -81,57 +81,56 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 
 // Query to find resource by private IP using v2 schema
 // nolint
-const resourceByPrivateIPQuery = `select ia.private_ip,
-       res.arn_id,
-       res.meta,
-       ar.region,
-       rt.resource_type,
-       aa.account
-from aws_private_ip_assignment ia
-         left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
-         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
-         left join aws_account aa on res.aws_account_id = aa.id
-where ia.private_ip = $1
-  and ia.not_before < $2
-  and (ia.not_after is null or ia.not_after > $2)
-`
+const resourceByPrivateIPQuery = "SELECT ia.private_ip, " +
+	"			res.arn_id, " +
+	"			res.meta, " +
+	"			ar.region, " +
+	"			rt.resource_type, " +
+	"			aa.account " +
+	"	FROM aws_private_ip_assignment ia " +
+	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
+	"		LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
+	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
+	"	WHERE ia.private_ip = $1 " +
+	"		AND ia.not_before < $2 " +
+	"		AND (ia.not_after IS NULL OR ia.not_after > $2);"
 
 // Query to find resource by public IP using v2 schema
 // nolint
-const resourceByPublicIPQuery = `select ia.public_ip,
-       res.arn_id,
-       res.meta,
-       ar.region,
-       rt.resource_type,
-       aa.account
-from aws_public_ip_assignment ia
-         left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
-         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
-         left join aws_account aa on res.aws_account_id = aa.id
-where ia.public_ip = $1
-  and ia.not_before < $2
-  and (ia.not_after is null or ia.not_after > $2)
-`
+const resourceByPublicIPQuery = "SELECT " +
+	"			ia.public_ip, " +
+	"			ia.hostname, " +
+	"			res.arn_id, " +
+	"			res.meta, " +
+	"			ar.region, " +
+	"			rt.resource_type, " +
+	"			aa.account " +
+	"	FROM aws_public_ip_assignment ia " +
+	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
+	"		LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
+	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
+	"	WHERE ia.public_ip = $1 " +
+	"		AND ia.not_before < $2 " +
+	"		AND (ia.not_after is null or ia.not_after > $2);"
 
 // Query to find resource by hostname using v2 schema
 // nolint
-const resourceByHostnameQuery = `select ia.aws_hostname,
-       res.arn_id,
-       res.meta,
-       ar.region,
-       rt.resource_type,
-       aa.account
-from aws_public_ip_assignment ia
-         left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
-         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
-         left join aws_account aa on res.aws_account_id = aa.id
-where ia.aws_hostname = $1
-  and ia.not_before < $2
-  and (ia.not_after is null or ia.not_after > $2)
-`
+const resourceByHostnameQuery = "SELECT ia.aws_hostname, " +
+	"       res.arn_id, " +
+	"       res.meta, " +
+	"       ar.region, " +
+	"       rt.resource_type, " +
+	"       aa.account " +
+	"	FROM aws_public_ip_assignment ia " +
+	"         LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
+	"         LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"         LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
+	"         LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
+	"	WHERE ia.aws_hostname = $1 " +
+	"  		AND ia.not_before < $2 " +
+	"  		AND (ia.not_after is null OR ia.not_after > $2);"
 
 // This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
 const bulkResourcesQuery = `
@@ -689,13 +688,13 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 
 // FetchAll gets all the assets present at the specified time
 func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
-	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
+	return db.runQuery(ctx, 1, bulkResourcesQuery, when, typeFilter, count, offset)
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, when)
+	return db.runQuery(ctx, 1, sqlstmt, hostname, when)
 }
 
 // FetchByIP gets the assets who have IP address at the specified time
@@ -707,15 +706,16 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 	var asset []domain.CloudAssetDetails
 	if ver < DualWriteSchemaVersion {
 		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-		asset, err = db.runQuery(ctx, sqlstmt, ipAddress, when)
+		asset, err = db.runQuery(ctx, ver, sqlstmt, ipAddress, when)
 	} else {
-		asset, err = db.runQuery(ctx, resourceByPublicIPQuery, ipAddress, when)
+		sqlstmt2 := fmt.Sprintf(resourceByPublicIPQuery + " ")
+		asset, err = db.runQuery(ctx, ver, sqlstmt2, ipAddress, when)
 	}
 	return asset, err
 }
 
 // runQuery helps to get cloud asset details by running database query with argument(s)
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
+func (db *DB) runQuery(ctx context.Context, version uint, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -730,7 +730,6 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 
 	for rows.Next() {
 		var row domain.CloudAssetDetails
-
 		var metaBytes []byte
 		var hostname sql.NullString
 		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
@@ -738,7 +737,13 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
 		var timestamp time.Time
 
-		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		if version < DualWriteSchemaVersion {
+			err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		} else {
+			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+			isPublic = true
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -797,7 +802,6 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 	}
 
 	return cloudAssetDetails, nil
-
 }
 
 func (db *DB) assignPrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, when time.Time) error {

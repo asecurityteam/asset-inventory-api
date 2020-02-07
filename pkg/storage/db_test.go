@@ -207,17 +207,21 @@ func TestGoldenPath(t *testing.T) {
 	}
 }
 
-func TestGetIPsAtTime(t *testing.T) {
+func TestGetIPsAtTimeSchema1(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(1)
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-
-	thedb := DB{
-		sqldb: mockdb,
+	thedb := &DB{
+		migrator: migrator,
+		sqldb:    mockdb,
 	}
-
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "9.8.7.6"
 	rowts := "2019-01-15T08:19:22+00:00"
@@ -247,15 +251,74 @@ func TestGetIPsAtTime(t *testing.T) {
 	}
 }
 
-func TestGetIPsAtTimeMultiRows(t *testing.T) {
+func TestGetIPsAtTimeSchema2(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(2)
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
+	thedb := &DB{
+		migrator: migrator,
+		sqldb:    mockdb,
+	}
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	ipAddress := "9.8.7.6"
 
-	thedb := DB{
-		sqldb: mockdb,
+	rows := sqlmock.NewRows([]string{"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_hostname",
+		"aws_resource_arn_id",
+		"aws_resource_meta",
+		"aws_region_region",
+		"aws_resource_type_resource_type",
+		"aws_account_account"}).AddRow("44.33.22.11",
+		"yahoo.com",
+		"rid",
+		[]byte("{\"hi\":\"there1\"}"),
+		"region",
+		"type",
+		"aid")
+	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+
+	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
+	if err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, domain.CloudAssetDetails{
+		PublicIPAddresses: []string{"44.33.22.11"},
+		Hostnames:         []string{"yahoo.com"},
+		ResourceType:      "type",
+		AccountID:         "aid",
+		Region:            "region",
+		ARN:               "rid",
+		Tags:              map[string]string{"hi": "there1"},
+	}, results[0])
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetIPsAtTimeMultiRowsSchema1(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(1)
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	thedb := &DB{
+		migrator: migrator,
+		sqldb:    mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -282,6 +345,79 @@ func TestGetIPsAtTimeMultiRows(t *testing.T) {
 			Region:            "region",
 			ARN:               "rid",
 			Tags:              map[string]string{"hi": "there2"},
+		},
+		domain.CloudAssetDetails{
+			PublicIPAddresses: []string{"99.88.77.66"},
+			Hostnames:         []string{"google.com"},
+			ResourceType:      "type2",
+			AccountID:         "aid2",
+			Region:            "region2",
+			ARN:               "rid2",
+			Tags:              map[string]string{"bye": "now"},
+		},
+	}
+
+	assertArrayEqualIgnoreOrder(t, expected, results)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetIPsAtTimeMultiRowsSchema2(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(2)
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Version().Return(version, false, nil)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	thedb := &DB{
+		migrator: migrator,
+		sqldb:    mockdb,
+	}
+
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	ipAddress := "9.8.7.6"
+
+	rows := sqlmock.NewRows([]string{"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_hostname",
+		"aws_resource_arn_id",
+		"aws_resource_meta",
+		"aws_region_region",
+		"aws_resource_type_resource_type",
+		"aws_account_account"}).AddRow("44.33.22.11",
+		"yahoo.com",
+		"rid",
+		[]byte("{\"hi\":\"there\"}"),
+		"region",
+		"type",
+		"aid").AddRow("99.88.77.66",
+		"google.com",
+		"rid2",
+		[]byte("{\"bye\":\"now\"}"),
+		"region2",
+		"type2",
+		"aid2")
+	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+
+	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
+	if err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	expected := []domain.CloudAssetDetails{
+		domain.CloudAssetDetails{
+			PublicIPAddresses: []string{"44.33.22.11"},
+			Hostnames:         []string{"yahoo.com"},
+			ResourceType:      "type",
+			AccountID:         "aid",
+			Region:            "region",
+			ARN:               "rid",
+			Tags:              map[string]string{"hi": "there"},
 		},
 		domain.CloudAssetDetails{
 			PublicIPAddresses: []string{"99.88.77.66"},
