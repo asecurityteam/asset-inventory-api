@@ -385,6 +385,7 @@ func handleRollback(tx *sql.Tx, err error) error {
 func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
 	stmt := `SELECT name, created_at, partition_begin, partition_end
 				FROM partitions ORDER BY partition_end DESC`
+
 	rows, err := db.sqldb.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, err
@@ -798,10 +799,12 @@ where private_ip = $2
   and not_before = to_timestamp(0)
   and not_after > $1
   and aws_resource_id = (select id from aws_resource where arn_id = $3);`
+
 	const assignPrivateIPQueryInsert = `
 insert into aws_private_ip_assignment
     (not_before, private_ip, aws_resource_id)
 values ($1, $2, (select id from aws_resource where arn_id = $3)) on conflict do nothing ;`
+
 	res, err := tx.ExecContext(ctx, assignPrivateIPQueryUpdate, when, ip, arnID)
 	if err != nil {
 		return err
@@ -832,6 +835,7 @@ where private_ip = $2
 insert into aws_private_ip_assignment
     (not_before, not_after, private_ip, aws_resource_id)
 values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3)) on conflict do nothing ;`
+
 	res, err := tx.ExecContext(ctx, releasePrivateIPQueryUpdate, when, ip, arnID)
 	if err != nil {
 		return err
@@ -887,11 +891,14 @@ func (db *DB) releasePublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip 
         set not_after=$1
         where public_ip = $2
           and aws_resource_id = (select id from aws_resource where arn_id = $3)
-          and aws_hostname = $4`
+          and aws_hostname = $4
+          and not_after is null`
+
 	const releasePublicIPQueryInsert = `
             insert into aws_public_ip_assignment
                 (not_before, not_after, public_ip, aws_resource_id, aws_hostname)
             values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3), $4) on conflict do nothing `
+
 	res, err := tx.ExecContext(ctx, releasePublicIPQueryUpdate, when, ip, arnID, hostname)
 	if err != nil {
 		return err
