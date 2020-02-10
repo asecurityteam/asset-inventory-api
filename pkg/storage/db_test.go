@@ -1262,3 +1262,95 @@ func TestStoreV2FailTxOpen(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
+
+func TestBackFillEventsLocallySelectErr(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+	from := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery(`
+select ae.ts,
+       ae.aws_resources_id,
+       ar.type,
+       ar.region,
+       ar.account_id,
+       ar.meta,
+       ae.aws_ips_ip,
+       ae.aws_hostnames_hostname,
+       ae.is_join,
+       ae.is_public
+from aws_events_ips_hostnames as ae
+         left join aws_resources ar on ae.aws_resources_id = ar.id
+`).WillReturnError(errors.New("can not query"))
+	ctx := context.Background()
+	if err := theDB.BackFillEventsLocally(ctx, from, to); err == nil {
+		t.Errorf("error expected when running BackFillEventsLocally")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestBackFillEventsLocally(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+	from := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"ae.ts", "ae.aws_resources_id", "ar.type", "ar.region", "ar.account_id", "ar.meta", "ae.aws_ips_ip",
+		"ae.aws_hostnames_hostname", "ae.is_join", "ae.is_public",
+	}).AddRow(
+		from, "arnid", "type", "region", "account", "{key: value}", "8.8.8.8",
+		"hostname", true, true) // public assign
+	rows.AddRow(
+		to, "arnid", "type", "region", "account", "{key: value}", "8.8.8.8",
+		"hostname", false, true) // public release
+	rows.AddRow(
+		from, "arnid", "type", "region", "account", "{key: value}", "10.10.10.10",
+		sql.NullString{Valid: false}, true, false) //private assign
+	rows.AddRow(
+		to, "arnid", "type", "region", "account", "{key: value}", "10.10.10.10",
+		sql.NullString{Valid: false}, false, false) //private release
+	mock.ExpectQuery(`
+select ae.ts,
+       ae.aws_resources_id,
+       ar.type,
+       ar.region,
+       ar.account_id,
+       ar.meta,
+       ae.aws_ips_ip,
+       ae.aws_hostnames_hostname,
+       ae.is_join,
+       ae.is_public
+from aws_events_ips_hostnames as ae
+         left join aws_resources ar on ae.aws_resources_id = ar.id
+`).WillReturnRows(rows)
+	ctx := context.Background()
+	if err := theDB.BackFillEventsLocally(ctx, from, to); err == nil {
+		t.Errorf("error expected when running BackFillEventsLocally")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
