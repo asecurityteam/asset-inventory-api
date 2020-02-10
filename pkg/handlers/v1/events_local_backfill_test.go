@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
 func TestBackFillEventsFromTimeErr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -42,12 +41,11 @@ func TestBackFillEventsToTimeErr(t *testing.T) {
 
 	from := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC)
 	err := handler.Handle(context.Background(), BackFillEventsInput{
-		From:   from.Format(time.RFC3339Nano),
-		To: "not valid time",
+		From: from.Format(time.RFC3339Nano),
+		To:   "not valid time",
 	})
 	assert.Error(t, err)
 }
-
 
 func TestBackFillEventsErrDatesNotInSequence(t *testing.T) {
 	ctrl := gomock.NewController(t)
