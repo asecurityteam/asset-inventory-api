@@ -89,7 +89,7 @@ const resourceByPrivateIPQuery = "SELECT ia.private_ip, " +
 	"			aa.account " +
 	"	FROM aws_private_ip_assignment ia " +
 	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
-	"		LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"		LEFT JOIN aws_region ar ON res.aws_region_id = ar.id " +
 	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
 	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
 	"	WHERE ia.private_ip = $1 " +
@@ -108,7 +108,7 @@ const resourceByPublicIPQuery = "SELECT " +
 	"			aa.account " +
 	"	FROM aws_public_ip_assignment ia " +
 	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
-	"		LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"		LEFT JOIN aws_region ar ON res.aws_region_id = ar.id " +
 	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
 	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
 	"	WHERE ia.public_ip = $1 " +
@@ -125,7 +125,7 @@ const resourceByHostnameQuery = "SELECT ia.aws_hostname, " +
 	"       aa.account " +
 	"	FROM aws_public_ip_assignment ia " +
 	"         LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
-	"         LEFT JOIN aws_region ar ON res.aws_account_id = ar.id " +
+	"         LEFT JOIN aws_region ar ON res.aws_region_id = ar.id " +
 	"         LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
 	"         LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
 	"	WHERE ia.aws_hostname = $1 " +
