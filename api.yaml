@@ -500,7 +500,53 @@ paths:
                 #! end !#
                 "bodyPassthrough": true
             }
-
+  /ops/pgsql/v1/backfill:
+    get:
+      summary: "Initiate back-fill of existing events from old schema to new"
+      parameters:
+        - name: "from"
+          in: "query"
+          description: "The point in time to start back-fill from"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "to"
+          in: "query"
+          description: "The point in time to start back-fill from"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        201:
+          description: "Back-fill completed successfully"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "backFillLocally"
+          async: false
+          request: >
+            {
+              "from": "#!index .Request.Query.from 0!#",
+              "to": "#!index .Request.Query.to 0!#"
+            }
+          success: '{"status": 201, "bodyPassthrough": true}'
+          error: '{"status":
+            #! if eq .Response.Body.errorType "InvalidInput" !# 400
+            #! else !# 500
+            #! end !#, "bodyPassthrough": true}'
 components:
   schemas:
     CloudAssetChanges:

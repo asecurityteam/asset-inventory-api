@@ -24,7 +24,8 @@ const (
 	tableAWSHostnames          = "aws_hostnames"
 	tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
 
-	added = "ADDED" // one of the network event types we track
+	added   = "ADDED"   // one of the network event types we track
+	deleted = "DELETED" // deleted network event
 
 )
 
@@ -542,7 +543,7 @@ with sel as (
            aws_resource_type.id as aws_resource_type_id,
            val.meta
     from (
-             values (text $1, text $2, text $3, text $4, jsonb $5)
+             values ($1::text, $2::text, $3::text, $4::text, $5::jsonb)
          ) val (arn_id, region, account, resource_type, meta)
              left join aws_region using (region)
              left join aws_account using (account)
@@ -790,25 +791,28 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 }
 
 func (db *DB) assignPrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, when time.Time) error {
-	const assignPrivateIPQuery = `
-do
-$$
-    begin
-        update aws_private_ip_assignment
-        set not_before = $1
-        where private_ip = $2
-          and not_before = to_timestamp(0)
-          and not_after > $1
-          and aws_resource_id = (select id from aws_resource where arn_id = $3);
-        if not found then
-            insert into aws_private_ip_assignment
-                (not_before, private_ip, aws_resource_id)
-            values ($1, $2, (select id from aws_resource where arn_id = $3));
-        end if;
-    end
-$$;
-`
-	_, err := tx.ExecContext(ctx, assignPrivateIPQuery, when, ip, arnID)
+	const assignPrivateIPQueryUpdate = `
+update aws_private_ip_assignment
+set not_before = $1
+where private_ip = $2
+  and not_before = to_timestamp(0)
+  and not_after > $1
+  and aws_resource_id = (select id from aws_resource where arn_id = $3);`
+	const assignPrivateIPQueryInsert = `insert into aws_private_ip_assignment
+    (not_before, private_ip, aws_resource_id)
+values ($1, $2, (select id from aws_resource where arn_id = $3)) on conflict do nothing ;`
+	res, err := tx.ExecContext(ctx, assignPrivateIPQueryUpdate, when, ip, arnID)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, assignPrivateIPQueryInsert, when, ip, arnID)
 	return err
 }
 
@@ -817,47 +821,58 @@ func (db *DB) releasePrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip
 	//to not have AWS resources by definition
 	//this way we can find unbalanced events while avoiding nullable not_before
 	//which provides minimal support for out-of-order events
-	const releasePrivateIPQuery = `
-do
-$$
-    begin
-        update aws_private_ip_assignment
-        set not_after=$1
-        where private_ip = $2
-          and aws_resource_id = (select id from aws_resource where arn_id = $3);
-        if not found then
-            insert into aws_private_ip_assignment
-                (not_before, not_after, private_ip, aws_resource_id)
-            values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3));
-        end if;
-    end
-$$;
-`
-	_, err := tx.ExecContext(ctx, releasePrivateIPQuery, when, ip, arnID)
+	const releasePrivateIPQueryUpdate = `
+update aws_private_ip_assignment
+set not_after=$1
+where private_ip = $2
+  and aws_resource_id = (select id from aws_resource where arn_id = $3);`
+
+	const releasePrivateIPQueryInsert = `
+insert into aws_private_ip_assignment
+    (not_before, not_after, private_ip, aws_resource_id)
+values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3)) on conflict do nothing ;`
+	res, err := tx.ExecContext(ctx, releasePrivateIPQueryUpdate, when, ip, arnID)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, releasePrivateIPQueryInsert, when, ip, arnID)
 	return err
 }
 
 func (db *DB) assignPublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, hostname string, when time.Time) error {
-	const assignPublicIPQuery = `
-do
-$$
-    begin
-        update aws_public_ip_assignment
-        set not_before = $1
-        where public_ip = $2
-          and not_before = to_timestamp(0)
-          and not_after > $1
-          and aws_resource_id = (select id from aws_resource where arn_id = $3)
-          and aws_hostname = $4;
-        if not found then
-            insert into aws_public_ip_assignment
-                (not_before, public_ip, aws_resource_id, aws_hostname)
-            values ($1, $2, (select id from aws_resource where arn_id = $3), $4);
-        end if;
-    end
-$$;
-`
-	_, err := tx.ExecContext(ctx, assignPublicIPQuery, when, ip, arnID, hostname)
+	const assignPublicIPQueryUpdate = `
+update aws_public_ip_assignment
+set not_before = $1 
+where public_ip = $2
+  and not_before = to_timestamp(0)
+  and not_after > $1
+  and aws_resource_id = (select id from aws_resource where arn_id = $3)
+  and aws_hostname = $4`
+
+	const assignPublicIPQueryInsert = `
+insert into aws_public_ip_assignment
+    (not_before, public_ip, aws_resource_id, aws_hostname)
+values ($1, $2, (select id from aws_resource where arn_id = $3), $4) on conflict do nothing`
+
+	res, err := tx.ExecContext(ctx, assignPublicIPQueryUpdate, when, ip, arnID, hostname)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, assignPublicIPQueryInsert, when, ip, arnID, hostname)
 	return err
 }
 
@@ -866,23 +881,107 @@ func (db *DB) releasePublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip 
 	//to NOT have AWS resources by definition
 	//this way we can find unbalanced events while avoiding nullable not_before
 	//which provides minimal support for out-of-order events
-	const releasePublicIPQuery = `
-do
-$$
-    begin
+	const releasePublicIPQueryUpdate = `
         update aws_public_ip_assignment
         set not_after=$1
         where public_ip = $2
           and aws_resource_id = (select id from aws_resource where arn_id = $3)
-          and aws_hostname = $4;
-        if not found then
+          and aws_hostname = $4`
+	const releasePublicIPQueryInsert = `
             insert into aws_public_ip_assignment
                 (not_before, not_after, public_ip, aws_resource_id, aws_hostname)
-            values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3), $4);
-        end if;
-    end
-$$;
-`
-	_, err := tx.ExecContext(ctx, releasePublicIPQuery, when, ip, arnID, hostname)
+            values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3), $4) on conflict do nothing `
+	res, err := tx.ExecContext(ctx, releasePublicIPQueryUpdate, when, ip, arnID, hostname)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, releasePublicIPQueryInsert, when, ip, arnID, hostname)
 	return err
+}
+
+// BackFillEventsLocally launches the bulk back-fill process using local write handler
+func (db *DB) BackFillEventsLocally(ctx context.Context, from time.Time, to time.Time) error {
+	return db.exportEvents(ctx, from, to, NewLocalExportHandler(db))
+}
+
+func (db *DB) exportEvents(ctx context.Context, notBefore time.Time, notAfter time.Time, handler domain.EventExportHandler) error {
+	const exportEventsQuery = `
+select ae.ts,
+       ae.aws_resources_id,
+       ar.type,
+       ar.region,
+       ar.account_id,
+       ar.meta,
+       ae.aws_ips_ip,
+       ae.aws_hostnames_hostname,
+       ae.is_join,
+       ae.is_public
+from aws_events_ips_hostnames as ae
+         left join aws_resources ar on ae.aws_resources_id = ar.id
+where ae.ts >= $1
+  and ae.ts <= $2
+order by ae.ts asc
+`
+	rows, err := db.sqldb.QueryContext(ctx, exportEventsQuery, notBefore, notAfter)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var ts time.Time
+		var arn string
+		var resourceType string
+		var region string
+		var accountID string
+		var meta []byte
+		var ip string
+		var hostname sql.NullString
+		var isJoin bool   // no need for sql.NullBool as the DB column is guaranteed a value
+		var isPublic bool // no need for sql.NullBool as the DB column is guaranteed a value
+		err = rows.Scan(&ts, &arn, &resourceType, &region, &accountID, &meta, &ip, &hostname, &isJoin, &isPublic)
+		if err != nil {
+			return err
+		}
+		chg := domain.NetworkChanges{
+			ChangeType: deleted,
+		}
+		if isJoin {
+			chg.ChangeType = added
+		}
+
+		if isPublic {
+			chg.Hostnames = []string{hostname.String}
+			chg.PublicIPAddresses = []string{ip}
+		} else {
+			chg.PrivateIPAddresses = []string{ip}
+		}
+
+		changes := domain.CloudAssetChanges{
+			Changes:      []domain.NetworkChanges{chg},
+			ChangeTime:   ts,
+			ResourceType: resourceType,
+			AccountID:    accountID,
+			Region:       region,
+			ARN:          arn,
+		}
+		// copy/paste from existing runQuery, might need to move this out to a helper
+		if meta != nil {
+			var i map[string]string
+			_ = json.Unmarshal(meta, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			changes.Tags = i
+		}
+		err = handler.Handle(changes)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
