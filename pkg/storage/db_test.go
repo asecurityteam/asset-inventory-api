@@ -1346,9 +1346,33 @@ select ae.ts,
 from aws_events_ips_hostnames as ae
          left join aws_resources ar on ae.aws_resources_id = ar.id
 `).WillReturnRows(rows)
+	//public
+	//assign
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+	//release
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+	//private
+	//assign
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+	//release
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectCommit()
+
 	ctx := context.Background()
-	if err := theDB.BackFillEventsLocally(ctx, from, to); err == nil {
-		t.Errorf("error expected when running BackFillEventsLocally")
+
+	if err := theDB.BackFillEventsLocally(ctx, from, to); err != nil {
+		t.Errorf("no error expected when running BackFillEventsLocally")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

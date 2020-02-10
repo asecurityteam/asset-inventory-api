@@ -798,7 +798,8 @@ where private_ip = $2
   and not_before = to_timestamp(0)
   and not_after > $1
   and aws_resource_id = (select id from aws_resource where arn_id = $3);`
-	const assignPrivateIPQueryInsert = `insert into aws_private_ip_assignment
+	const assignPrivateIPQueryInsert = `
+insert into aws_private_ip_assignment
     (not_before, private_ip, aws_resource_id)
 values ($1, $2, (select id from aws_resource where arn_id = $3)) on conflict do nothing ;`
 	res, err := tx.ExecContext(ctx, assignPrivateIPQueryUpdate, when, ip, arnID)
