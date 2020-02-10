@@ -10,7 +10,46 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBackFillEventsErrDates(t *testing.T) {
+
+func TestBackFillEventsFromTimeErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRunner := NewMockBackFillSchemaRunner(ctrl)
+
+	handler := BackFillEventsLocalHandler{
+		LogFn:  testLogFn,
+		Runner: mockRunner,
+	}
+
+	to := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC)
+	err := handler.Handle(context.Background(), BackFillEventsInput{
+		From: "not valid time",
+		To:   to.Format(time.RFC3339Nano),
+	})
+	assert.Error(t, err)
+}
+func TestBackFillEventsToTimeErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRunner := NewMockBackFillSchemaRunner(ctrl)
+
+	handler := BackFillEventsLocalHandler{
+		LogFn:  testLogFn,
+		Runner: mockRunner,
+	}
+
+	from := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC)
+	err := handler.Handle(context.Background(), BackFillEventsInput{
+		From:   from.Format(time.RFC3339Nano),
+		To: "not valid time",
+	})
+	assert.Error(t, err)
+}
+
+
+func TestBackFillEventsErrDatesNotInSequence(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
