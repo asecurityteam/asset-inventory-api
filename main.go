@@ -100,6 +100,10 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		LogFn:    domain.LoggerFromContext,
 		Migrator: dbStorage,
 	}
+	backFillLocally := &v1.BackFillEventsLocalHandler{
+		LogFn:  domain.LoggerFromContext,
+		Runner: dbStorage,
+	}
 	handlers := map[string]serverfull.Function{
 		"insert":                     serverfull.NewFunction(insert.Handle),
 		"fetchByIP":                  serverfull.NewFunction(fetchByIP.Handle),
@@ -112,6 +116,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"getSchemaVersion":           serverfull.NewFunction(getSchemaVersion.Handle),
 		"schemaVersionStepUp":        serverfull.NewFunction(schemaVersionStepUp.Handle),
 		"schemaVersionStepDown":      serverfull.NewFunction(schemaVersionStepDown.Handle),
+		"backFillLocally":            serverfull.NewFunction(backFillLocally.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

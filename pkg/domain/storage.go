@@ -87,3 +87,13 @@ type NotFoundPartition struct {
 func (e NotFoundPartition) Error() string {
 	return fmt.Sprintf("A partition does not exist for the requested name, %s", e.Name)
 }
+
+// EventExportHandler handles exporting a single event during export
+type EventExportHandler interface {
+	Handle(changes CloudAssetChanges) error
+}
+
+// BackFillSchemaRunner handles performing back-fill via local calls to EventExportHandler
+type BackFillSchemaRunner interface {
+	BackFillEventsLocally(ctx context.Context, from time.Time, to time.Time) error
+}
