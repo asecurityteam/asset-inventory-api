@@ -515,12 +515,13 @@ func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 					break
 				}
 			}
-			for ix, ip := range val.PublicIPAddresses {
-				hostname := val.Hostnames[ix]
-				if strings.EqualFold(added, val.ChangeType) {
-					err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
-				} else {
-					err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+			for _, ip := range val.PublicIPAddresses {
+				for _, hostname := range val.Hostnames { //TODO look very closely into awsconfig-tranformerd logic for this
+					if strings.EqualFold(added, val.ChangeType) {
+						err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+					} else {
+						err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+					}
 				}
 			}
 			if err != nil {
