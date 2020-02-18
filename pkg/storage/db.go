@@ -42,8 +42,12 @@ const (
 	EmptySchemaVersion uint = 0
 	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
 	MinimumSchemaVersion uint = 1
-	// DualWriteSchemaVersion Lowest version of database schema that supports dual-writes
-	DualWriteSchemaVersion uint = 2
+	// M1SchemaVersion Version of database schema with performance optimizations (M1) that allows back-fill to work
+	M1SchemaVersion uint = 2
+	// DualWritesSchemaVersion Lowest version of database schema that supports dual-writes (legacy and M1)
+	DualWritesSchemaVersion uint = 3
+	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
+	ReadsFromNewSchemaVersion uint = 4
 )
 
 // can't use Sprintf in a const, so...
@@ -481,7 +485,7 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 		return err
 	}
 	ver, err := db.GetSchemaVersion(ctx)
-	if err != nil || ver < DualWriteSchemaVersion {
+	if err != nil || ver < DualWritesSchemaVersion {
 		return nil
 	}
 	return db.StoreV2(ctx, cloudAssetChanges)

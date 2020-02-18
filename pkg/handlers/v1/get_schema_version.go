@@ -18,7 +18,7 @@ type GetSchemaVersionHandler struct {
 	Getter domain.SchemaVersionGetter
 }
 
-// Handle handles the partition creation request
+// Handle handles the request for schema version
 func (h *GetSchemaVersionHandler) Handle(ctx context.Context) (SchemaVersion, error) {
 	currentVersion, err := h.Getter.GetSchemaVersion(ctx)
 	if err != nil {

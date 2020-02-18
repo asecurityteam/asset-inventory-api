@@ -5,19 +5,19 @@ create table aws_region
     region varchar not null unique
 );
 
-create table aws_account
+create table if not exists aws_account
 (
     id      serial primary key,
     account varchar not null unique
 );
 
-create table aws_resource_type
+create table if not exists aws_resource_type
 (
     id            serial primary key,
     resource_type varchar not null unique
 );
 
-create table aws_resource
+create table if not exists aws_resource
 (
     id                   bigserial primary key,
     arn_id               varchar not null unique, /* nb, this is NOT full arn, it is resource ID like i-5325235 as ARN is redundant and can be reconstructed */
@@ -31,7 +31,7 @@ create table aws_resource
 );
 
 
-create table aws_public_ip_assignment
+create table if not exists aws_public_ip_assignment
 (
     id              bigserial primary key,
     not_before      timestamp not null,
@@ -42,15 +42,15 @@ create table aws_public_ip_assignment
     foreign key (aws_resource_id) references aws_resource (id)
 );
 
-create unique index aws_public_ip_assignment_idx_no_after on aws_public_ip_assignment (not_before, public_ip, aws_resource_id) where not_after is null;
+create unique index if not exists aws_public_ip_assignment_idx_no_after on aws_public_ip_assignment (not_before, public_ip, aws_resource_id) where not_after is null;
 
-create unique index aws_public_ip_assignment_idx_no_before on aws_public_ip_assignment (not_after, public_ip, aws_resource_id) where not_before is null;
+create unique index if not exists aws_public_ip_assignment_idx_no_before on aws_public_ip_assignment (not_after, public_ip, aws_resource_id) where not_before is null;
 
-create index idx_public_ip on aws_public_ip_assignment (public_ip);
+create index if not exists idx_public_ip on aws_public_ip_assignment (public_ip);
 
-create index idx_aws_hostname on aws_public_ip_assignment (aws_hostname);
+create index if not exists idx_aws_hostname on aws_public_ip_assignment (aws_hostname);
 
-create table aws_private_ip_assignment
+create table if not exists aws_private_ip_assignment
 (
     id              bigserial primary key,
     not_before      timestamp not null,
@@ -60,9 +60,9 @@ create table aws_private_ip_assignment
     foreign key (aws_resource_id) references aws_resource (id)
 );
 
-create unique index aws_private_ip_assignment_idx_no_after on aws_private_ip_assignment (not_before, private_ip, aws_resource_id) where not_after is null;
+create unique index if not exists aws_private_ip_assignment_idx_no_after on aws_private_ip_assignment (not_before, private_ip, aws_resource_id) where not_after is null;
 
-create unique index aws_private_ip_assignment_idx_no_before on aws_private_ip_assignment (not_after, private_ip, aws_resource_id) where not_before is null;
+create unique index if not exists aws_private_ip_assignment_idx_no_before on aws_private_ip_assignment (not_after, private_ip, aws_resource_id) where not_before is null;
 
-create index idx_private_ip on aws_private_ip_assignment (private_ip);
+create index if not exists idx_private_ip on aws_private_ip_assignment (private_ip);
 COMMIT;
