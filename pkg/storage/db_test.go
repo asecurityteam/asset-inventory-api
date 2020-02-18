@@ -1010,6 +1010,28 @@ func TestGetSchemaVersionSuccess(t *testing.T) {
 	require.Nil(t, err)
 }
 
+func TestForceSchemaToVersionErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Force(int(version)).Return(errors.New("something happened"))
+	db := &DB{migrator: migrator}
+	err := db.ForceSchemaToVersion(context.Background(), version)
+	require.Error(t, err)
+}
+
+func TestForceSchemaToVersionSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	version := uint(rand.Uint64())
+	migrator := NewMockStorageMigrator(ctrl)
+	migrator.EXPECT().Force(int(version)).Return(nil)
+	db := &DB{migrator: migrator}
+	err := db.ForceSchemaToVersion(context.Background(), version)
+	require.Nil(t, err)
+}
+
 func TestMigrateSchemaToVersionErr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

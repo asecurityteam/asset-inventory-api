@@ -11,6 +11,11 @@ type SchemaVersionGetter interface {
 	GetSchemaVersion(ctx context.Context) (uint, error)
 }
 
+// SchemaVersionForcer is used to force set database schema to specific version after failed migration
+type SchemaVersionForcer interface {
+	ForceSchemaToVersion(ctx context.Context, version uint) error
+}
+
 // SchemaMigratorToVersion is used to migrate database schema to specific version
 type SchemaMigratorToVersion interface {
 	MigrateSchemaToVersion(ctx context.Context, version uint) error

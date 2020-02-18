@@ -104,6 +104,11 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		LogFn:  domain.LoggerFromContext,
 		Runner: dbStorage,
 	}
+	forceSchemaVersion := &v1.ForceSchemaHandler{
+		LogFn:               domain.LoggerFromContext,
+		SchemaVersionForcer: dbStorage,
+	}
+
 	handlers := map[string]serverfull.Function{
 		"insert":                     serverfull.NewFunction(insert.Handle),
 		"fetchByIP":                  serverfull.NewFunction(fetchByIP.Handle),
@@ -117,6 +122,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"schemaVersionStepUp":        serverfull.NewFunction(schemaVersionStepUp.Handle),
 		"schemaVersionStepDown":      serverfull.NewFunction(schemaVersionStepDown.Handle),
 		"backFillLocally":            serverfull.NewFunction(backFillLocally.Handle),
+		"forceSchemaVersion":         serverfull.NewFunction(forceSchemaVersion.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}

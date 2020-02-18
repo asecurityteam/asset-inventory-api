@@ -42,8 +42,12 @@ const (
 	EmptySchemaVersion uint = 0
 	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
 	MinimumSchemaVersion uint = 1
-	// DualWriteSchemaVersion Lowest version of database schema that supports dual-writes
-	DualWriteSchemaVersion uint = 2
+	// M1SchemaVersion Version of database schema with performance optimizations (M1) that allows back-fill to work
+	M1SchemaVersion uint = 2
+	// DualWritesSchemaVersion Lowest version of database schema that supports dual-writes (legacy and M1)
+	DualWritesSchemaVersion uint = 3
+	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
+	ReadsFromNewSchemaVersion uint = 4
 )
 
 // can't use Sprintf in a const, so...
@@ -170,6 +174,11 @@ type DB struct {
 	once                sync.Once
 	now                 func() time.Time // unit test seam
 	defaultPartitionTTL int
+}
+
+// ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
+func (db *DB) ForceSchemaToVersion(ctx context.Context, version uint) error {
+	return db.migrator.Force(int(version))
 }
 
 // MigrateSchemaUp performs a database schema migration one version up
@@ -481,7 +490,7 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 		return err
 	}
 	ver, err := db.GetSchemaVersion(ctx)
-	if err != nil || ver < DualWriteSchemaVersion {
+	if err != nil || ver < DualWritesSchemaVersion {
 		return nil
 	}
 	return db.StoreV2(ctx, cloudAssetChanges)
@@ -506,12 +515,13 @@ func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 					break
 				}
 			}
-			for ix, ip := range val.PublicIPAddresses {
-				hostname := val.Hostnames[ix]
-				if strings.EqualFold(added, val.ChangeType) {
-					err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
-				} else {
-					err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+			for _, ip := range val.PublicIPAddresses {
+				for _, hostname := range val.Hostnames { //TODO look very closely into awsconfig-tranformerd logic for this
+					if strings.EqualFold(added, val.ChangeType) {
+						err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+					} else {
+						err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+					}
 				}
 			}
 			if err != nil {
