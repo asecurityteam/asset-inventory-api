@@ -33,6 +33,20 @@ func (m *MockStorageMigrator) EXPECT() *MockStorageMigratorMockRecorder {
 	return m.recorder
 }
 
+// Force mocks base method
+func (m *MockStorageMigrator) Force(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Force", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Force indicates an expected call of Force
+func (mr *MockStorageMigratorMockRecorder) Force(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Force", reflect.TypeOf((*MockStorageMigrator)(nil).Force), arg0)
+}
+
 // Migrate mocks base method
 func (m *MockStorageMigrator) Migrate(arg0 uint) error {
 	m.ctrl.T.Helper()

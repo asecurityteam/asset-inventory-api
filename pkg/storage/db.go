@@ -176,6 +176,11 @@ type DB struct {
 	defaultPartitionTTL int
 }
 
+// ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
+func (db *DB) ForceSchemaToVersion(ctx context.Context, version uint) error {
+	return db.migrator.Force(int(version))
+}
+
 // MigrateSchemaUp performs a database schema migration one version up
 func (db *DB) MigrateSchemaUp(ctx context.Context) (uint, error) {
 	return db.migrateSchema(ctx, up)
