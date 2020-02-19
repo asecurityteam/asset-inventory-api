@@ -715,7 +715,7 @@ func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname stri
 		return nil, err
 	}
 	var assets []domain.CloudAssetDetails
-	if ver < DualWritesSchemaVersion {
+	if ver < ReadsFromNewSchemaVersion {
 		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
 		assets, err = db.runQuery(ctx, ver, sqlstmt, hostname, when)
 	} else {
