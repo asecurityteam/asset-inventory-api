@@ -15,7 +15,6 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/gobuffalo/genny v0.1.1 // indirect
 	github.com/gobuffalo/gogen v0.1.1 // indirect
-	github.com/gobuffalo/packr/v2 v2.2.0
 	github.com/golang-migrate/migrate/v4 v4.8.0
 	github.com/golang/mock v1.4.0
 	github.com/justinas/alice v0.0.0-20171023064455-03f45bd4b7da // indirect
