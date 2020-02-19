@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +50,8 @@ const (
 	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
 	ReadsFromNewSchemaVersion uint = 4
 )
+
+var privateIPs = []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
 
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
@@ -122,7 +125,8 @@ where ia.public_ip = $1
 
 // Query to find resource by hostname using v2 schema
 // nolint
-const resourceByHostnameQuery = `select ia.aws_hostname,
+const resourceByHostnameQuery = `select ia.public_ip,
+       ia.aws_hostname,
        res.arn_id,
        res.meta,
        ar.region,
@@ -130,7 +134,7 @@ const resourceByHostnameQuery = `select ia.aws_hostname,
        aa.account
 from aws_public_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_region ar on res.aws_region_id = ar.id
          left join aws_resource_type rt on res.aws_resource_type_id = rt.id
          left join aws_account aa on res.aws_account_id = aa.id
 where ia.aws_hostname = $1
@@ -585,7 +589,7 @@ from sel
          left join ins_aws_region using (region)
          left join ins_aws_account using (account)
          left join ins_aws_resource_type using (resource_type)
-on conflict do nothing 
+on conflict do nothing
 `
 	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
 	if _, err := tx.ExecContext(ctx,
@@ -701,22 +705,32 @@ func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time,
 
 // FetchAll gets all the assets present at the specified time
 func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
-	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
+	return db.runQuery(ctx, MinimumSchemaVersion, bulkResourcesQuery, when, typeFilter, count, offset)
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, when)
+	ver, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var assets []domain.CloudAssetDetails
+	if ver < DualWritesSchemaVersion {
+		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
+		assets, err = db.runQuery(ctx, ver, sqlstmt, hostname, when)
+	} else {
+		assets, err = db.runQuery(ctx, ver, resourceByHostnameQuery, hostname, when)
+	}
+	return assets, err
 }
 
 // FetchByIP gets the assets who have IP address at the specified time
 func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
 	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, when)
+	return db.runQuery(ctx, MinimumSchemaVersion, sqlstmt, ipAddress, when)
 }
 
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
+func (db *DB) runQuery(ctx context.Context, version uint, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -739,7 +753,14 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
 		var timestamp time.Time
 
-		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		if version < DualWritesSchemaVersion {
+			err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+		} else {
+			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+			ip, _, _ := net.ParseCIDR(ipAddress)
+			isPublic = isPublicIP(ip)
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -864,7 +885,7 @@ values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3)
 func (db *DB) assignPublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, hostname string, when time.Time) error {
 	const assignPublicIPQueryUpdate = `
 update aws_public_ip_assignment
-set not_before = $1 
+set not_before = $1
 where public_ip = $2
   and not_before = to_timestamp(0)
   and not_after > $1
@@ -1002,4 +1023,18 @@ order by ae.ts asc
 		}
 	}
 	return nil
+}
+
+func isPublicIP(ip net.IP) bool {
+	privateIPBlocks := make([]*net.IPNet, 0, len(privateIPs))
+	for _, privateIP := range privateIPs {
+		_, block, _ := net.ParseCIDR(privateIP)
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return false
+		}
+	}
+	return true
 }
