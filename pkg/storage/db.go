@@ -753,7 +753,7 @@ func (db *DB) runQuery(ctx context.Context, version uint, query string, args ...
 		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
 		var timestamp time.Time
 
-		if version < DualWritesSchemaVersion {
+		if version < ReadsFromNewSchemaVersion {
 			err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
 		} else {
 			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
