@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 	"sync"
 	"time"
@@ -50,8 +49,6 @@ const (
 	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
 	ReadsFromNewSchemaVersion uint = 4
 )
-
-var privateIPs = []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
 
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
@@ -757,8 +754,7 @@ func (db *DB) runQuery(ctx context.Context, version uint, query string, args ...
 			err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
 		} else {
 			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
-			ip, _, _ := net.ParseCIDR(ipAddress)
-			isPublic = isPublicIP(ip)
+			isPublic = true
 		}
 
 		if err != nil {
@@ -1023,18 +1019,4 @@ order by ae.ts asc
 		}
 	}
 	return nil
-}
-
-func isPublicIP(ip net.IP) bool {
-	privateIPBlocks := make([]*net.IPNet, 0, len(privateIPs))
-	for _, privateIP := range privateIPs {
-		_, block, _ := net.ParseCIDR(privateIP)
-		privateIPBlocks = append(privateIPBlocks, block)
-	}
-	for _, block := range privateIPBlocks {
-		if block.Contains(ip) {
-			return false
-		}
-	}
-	return true
 }
