@@ -87,39 +87,40 @@ const latestStatusQuery = "WITH latest_candidates AS ( " +
 
 // Query to find resource by private IP using v2 schema
 // nolint
-const resourceByPrivateIPQuery = "SELECT ia.private_ip, " +
-	"			res.arn_id, " +
-	"			res.meta, " +
-	"			ar.region, " +
-	"			rt.resource_type, " +
-	"			aa.account " +
-	"	FROM aws_private_ip_assignment ia " +
-	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
-	"		LEFT JOIN aws_region ar ON res.aws_region_id = ar.id " +
-	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
-	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
-	"	WHERE ia.private_ip = $1 " +
-	"		AND ia.not_before < $2 " +
-	"		AND (ia.not_after IS NULL OR ia.not_after > $2);"
+const resourceByPrivateIPQuery = `select ia.private_ip,
+       res.arn_id,
+       res.meta,
+       ar.region,
+       rt.resource_type,
+       aa.account
+from aws_private_ip_assignment ia
+         left join aws_resource res on ia.aws_resource_id = res.id
+         left join aws_region ar on res.aws_region_id = ar.id
+         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+         left join aws_account aa on res.aws_account_id = aa.id
+where ia.private_ip = $1
+  and ia.not_before < $2
+  and (ia.not_after is null or ia.not_after > $2)
+`
 
 // Query to find resource by public IP using v2 schema
 // nolint
-const resourceByPublicIPQuery = "SELECT " +
-	"			ia.public_ip, " +
-	"			ia.hostname, " +
-	"			res.arn_id, " +
-	"			res.meta, " +
-	"			ar.region, " +
-	"			rt.resource_type, " +
-	"			aa.account " +
-	"	FROM aws_public_ip_assignment ia " +
-	"		LEFT JOIN aws_resource res ON ia.aws_resource_id = res.id " +
-	"		LEFT JOIN aws_region ar ON res.aws_region_id = ar.id " +
-	"		LEFT JOIN aws_resource_type rt ON res.aws_resource_type_id = rt.id " +
-	"		LEFT JOIN aws_account aa ON res.aws_account_id = aa.id " +
-	"	WHERE ia.public_ip = $1 " +
-	"		AND ia.not_before < $2 " +
-	"		AND (ia.not_after is null or ia.not_after > $2);"
+const resourceByPublicIPQuery = `select ia.public_ip,
+	   ia.hostname,
+       res.arn_id,
+       res.meta,
+       ar.region,
+       rt.resource_type,
+       aa.account
+from aws_public_ip_assignment ia
+         left join aws_resource res on ia.aws_resource_id = res.id
+         left join aws_region ar on res.aws_region_id = ar.id
+         left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+         left join aws_account aa on res.aws_account_id = aa.id
+where ia.public_ip = $1
+  and ia.not_before < $2
+  and (ia.not_after is null or ia.not_after > $2)
+`
 
 // Query to find resource by hostname using v2 schema
 // nolint

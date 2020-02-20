@@ -343,7 +343,7 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 		"region",
 		"type",
 		"aid")
-	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
@@ -397,7 +397,7 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 		"region",
 		"type",
 		"aid")
-	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
@@ -454,7 +454,7 @@ func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 		"region2",
 		"type2",
 		"aid2")
-	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
@@ -525,7 +525,7 @@ func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 		"region2",
 		"type2",
 		"aid2")
-	mock.ExpectQuery("SELECT").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
