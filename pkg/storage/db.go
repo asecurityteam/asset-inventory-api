@@ -178,6 +178,21 @@ type DB struct {
 	defaultPartitionTTL int
 }
 
+var privateIPNetworks = []net.IPNet{
+	net.IPNet{
+		IP:   net.IPv4(192, 168, 1, 0),
+		Mask: net.IPv4Mask(255, 255, 0, 0),
+	},
+	net.IPNet{
+		IP:   net.IPv4(172, 16, 0, 0),
+		Mask: net.IPv4Mask(255, 240, 0, 0),
+	},
+	net.IPNet{
+		IP:   net.IPv4(10, 0, 0, 0),
+		Mask: net.IPv4Mask(255, 0, 0, 0),
+	},
+}
+
 // ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
 func (db *DB) ForceSchemaToVersion(ctx context.Context, version uint) error {
 	return db.migrator.Force(int(version))
@@ -734,18 +749,6 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 }
 
 func isPrivateIP(ip net.IP) bool {
-	privateIPNetworks := make([]*net.IPNet, 0, 3)
-	for _, cidr := range []string{
-		"10.0.0.0/8",
-		"172.16.0.0/12",
-		"192.168.0.0/16",
-	} {
-		_, network, err := net.ParseCIDR(cidr)
-		if err != nil {
-			panic(fmt.Errorf("fail to parse %q: %v", cidr, err))
-		}
-		privateIPNetworks = append(privateIPNetworks, network)
-	}
 	for _, net := range privateIPNetworks {
 		if net.Contains(ip) {
 			return true
