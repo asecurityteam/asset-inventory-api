@@ -739,6 +739,9 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 		asset, err = db.runQuery(ctx, sqlstmt, ipAddress, when)
 	} else {
 		ipaddr := net.ParseIP(ipAddress)
+		if ipaddr == nil {
+			return nil, errors.New("invalid IP address")
+		}
 		if isPrivateIP(ipaddr) {
 			asset, err = db.runFetchByIPQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
 		} else {
