@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -94,7 +95,7 @@ const resourceByPrivateIPQuery = `select ia.private_ip,
        aa.account
 from aws_private_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_region ar on res.aws_region_id = ar.id
          left join aws_resource_type rt on res.aws_resource_type_id = rt.id
          left join aws_account aa on res.aws_account_id = aa.id
 where ia.private_ip = $1
@@ -105,6 +106,7 @@ where ia.private_ip = $1
 // Query to find resource by public IP using v2 schema
 // nolint
 const resourceByPublicIPQuery = `select ia.public_ip,
+	   ia.hostname,
        res.arn_id,
        res.meta,
        ar.region,
@@ -112,7 +114,7 @@ const resourceByPublicIPQuery = `select ia.public_ip,
        aa.account
 from aws_public_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_region ar on res.aws_region_id = ar.id
          left join aws_resource_type rt on res.aws_resource_type_id = rt.id
          left join aws_account aa on res.aws_account_id = aa.id
 where ia.public_ip = $1
@@ -174,6 +176,21 @@ type DB struct {
 	once                sync.Once
 	now                 func() time.Time // unit test seam
 	defaultPartitionTTL int
+}
+
+var privateIPNetworks = []net.IPNet{
+	net.IPNet{
+		IP:   net.IPv4(192, 168, 1, 0),
+		Mask: net.IPv4Mask(255, 255, 0, 0),
+	},
+	net.IPNet{
+		IP:   net.IPv4(172, 16, 0, 0),
+		Mask: net.IPv4Mask(255, 240, 0, 0),
+	},
+	net.IPNet{
+		IP:   net.IPv4(10, 0, 0, 0),
+		Mask: net.IPv4Mask(255, 0, 0, 0),
+	},
 }
 
 // ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
@@ -585,7 +602,7 @@ from sel
          left join ins_aws_region using (region)
          left join ins_aws_account using (account)
          left join ins_aws_resource_type using (resource_type)
-on conflict do nothing 
+on conflict do nothing
 `
 	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
 	if _, err := tx.ExecContext(ctx,
@@ -712,8 +729,119 @@ func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname stri
 
 // FetchByIP gets the assets who have IP address at the specified time
 func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-	return db.runQuery(ctx, sqlstmt, ipAddress, when)
+	ver, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var asset []domain.CloudAssetDetails
+	if ver < ReadsFromNewSchemaVersion {
+		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
+		asset, err = db.runQuery(ctx, sqlstmt, ipAddress, when)
+	} else {
+		ipaddr := net.ParseIP(ipAddress)
+		if ipaddr == nil {
+			return nil, errors.New("invalid IP address")
+		}
+		if isPrivateIP(ipaddr) {
+			asset, err = db.runFetchByIPQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
+		} else {
+			asset, err = db.runFetchByIPQuery(ctx, false, resourceByPublicIPQuery, ipAddress, when)
+		}
+	}
+	return asset, err
+}
+
+func isPrivateIP(ip net.IP) bool {
+	for _, net := range privateIPNetworks {
+		if net.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
+	rows, err := db.sqldb.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
+
+	tempMap := make(map[string]*domain.CloudAssetDetails)
+
+	for rows.Next() {
+		var row domain.CloudAssetDetails
+
+		var metaBytes []byte
+		var hostname sql.NullString
+		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
+
+		if isPrivateIP {
+			err = rows.Scan(&ipAddress, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+		} else {
+			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		if metaBytes != nil {
+			var i map[string]string
+			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			row.Tags = i
+		}
+		if tempMap[row.ARN] == nil {
+			tempMap[row.ARN] = &row
+		}
+		found := false
+		if hostname.Valid {
+			for _, val := range tempMap[row.ARN].Hostnames {
+				if strings.EqualFold(val, hostname.String) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
+			}
+		}
+		found = false
+		var ipAddresses *[]string
+		if !isPrivateIP {
+			ipAddresses = &tempMap[row.ARN].PublicIPAddresses
+		} else {
+			ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
+		}
+		for _, val := range *ipAddresses {
+			if strings.EqualFold(val, ipAddress) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			newArray := append(*ipAddresses, ipAddress)
+			if !isPrivateIP {
+				tempMap[row.ARN].PublicIPAddresses = newArray
+			} else {
+				tempMap[row.ARN].PrivateIPAddresses = newArray
+			}
+		}
+	}
+
+	rows.Close() // no need to capture the returned error since we check rows.Err() immediately:
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, val := range tempMap {
+		cloudAssetDetails = append(cloudAssetDetails, *val)
+	}
+
+	return cloudAssetDetails, nil
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
@@ -864,7 +992,7 @@ values (to_timestamp(0), $1, $2, (select id from aws_resource where arn_id = $3)
 func (db *DB) assignPublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, hostname string, when time.Time) error {
 	const assignPublicIPQueryUpdate = `
 update aws_public_ip_assignment
-set not_before = $1 
+set not_before = $1
 where public_ip = $2
   and not_before = to_timestamp(0)
   and not_after > $1
