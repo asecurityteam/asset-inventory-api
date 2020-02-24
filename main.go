@@ -46,10 +46,10 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 	if err != nil {
 		return nil, err
 	}
-	readDbStorage, err := c.PostgresReadConfig.New(ctx, conf.PostgresReadConfig)
-	if err != nil {
-		return nil, err
-	}
+	//TODO - fix the migration/version logic and bring this backreadDbStorage, err := c.PostgresReadConfig.New(ctx, conf.PostgresReadConfig)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	insert := &v1.CloudInsertHandler{
 		LogFn:            domain.LoggerFromContext,
@@ -59,22 +59,22 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 	fetchByIP := &v1.CloudFetchByIPHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: readDbStorage,
+		Fetcher: dbStorage,
 	}
 	fetchByHostname := &v1.CloudFetchByHostnameHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: readDbStorage,
+		Fetcher: dbStorage,
 	}
 	fetchAllAssetsByTime := &v1.CloudFetchAllAssetsByTimeHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: readDbStorage,
+		Fetcher: dbStorage,
 	}
 	fetchAllAssetsByTimePage := &v1.CloudFetchAllAssetsByTimePageHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: readDbStorage,
+		Fetcher: dbStorage,
 	}
 	createPartition := &v1.CreatePartitionHandler{
 		LogFn:     domain.LoggerFromContext,
