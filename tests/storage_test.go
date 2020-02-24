@@ -24,7 +24,7 @@ var dbStorage *storage.DB
 var ctx context.Context
 
 // possibly not the best way to parametrise tests, but it works
-var testWithSchemaVersion  = storage.MinimumSchemaVersion
+var testWithSchemaVersion = storage.MinimumSchemaVersion
 
 func TestMain(m *testing.M) {
 	ctx = context.Background()
@@ -40,10 +40,10 @@ func TestMain(m *testing.M) {
 	}
 	suitResult := 0
 	// none of the known DB versions after initial should EVER result in any of the tests failing, so we test all of them
-	for ver:=storage.MinimumSchemaVersion; ver<=storage.ReadsFromNewSchemaVersion; ver++ {
+	for ver := storage.MinimumSchemaVersion; ver <= storage.ReadsFromNewSchemaVersion; ver++ {
 		testWithSchemaVersion = ver
 		res := m.Run()
-		if res!= 0 {
+		if res != 0 {
 			suitResult = res
 		}
 	}
@@ -546,7 +546,7 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 func before(t *testing.T, db *storage.DB) {
 	v, err := db.GetSchemaVersion(context.Background())
 	if err != nil { //the migrations mechanism was not initialized yet
-		require.NoError(t, db.MigrateSchemaToVersion(context.Background(),testWithSchemaVersion))
+		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
 		v = testWithSchemaVersion
 	}
 	// wipe the database
