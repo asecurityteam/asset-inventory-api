@@ -23,6 +23,9 @@ import (
 var dbStorage *storage.DB
 var ctx context.Context
 
+// possibly not the best way to parametrise tests, but it works
+var testWithSchemaVersion = storage.MinimumSchemaVersion
+
 func TestMain(m *testing.M) {
 	ctx = context.Background()
 	source, err := settings.NewEnvSource(os.Environ())
@@ -35,7 +38,16 @@ func TestMain(m *testing.M) {
 	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
 		panic(err.Error())
 	}
-	os.Exit(m.Run())
+	suitResult := 0
+	// none of the known DB versions after initial should EVER result in any of the tests failing, so we test all of them
+	for ver := storage.MinimumSchemaVersion; ver <= storage.ReadsFromNewSchemaVersion; ver++ {
+		testWithSchemaVersion = ver
+		res := m.Run()
+		if res != 0 {
+			suitResult = res
+		}
+	}
+	os.Exit(suitResult) //non-zero return value if any of the runs failed
 }
 
 func TestNoDBRows(t *testing.T) {
@@ -534,18 +546,16 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 func before(t *testing.T, db *storage.DB) {
 	v, err := db.GetSchemaVersion(context.Background())
 	if err != nil { //the migrations mechanism was not initialized yet
-		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), 1))
-		return
+		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
+		v = testWithSchemaVersion
 	}
-	// we are expected to always start with known working version if the schema was initialized, there's no sense in proceeding if the DB is broken
-	assert.Equal(t, storage.MinimumSchemaVersion, v)
 	// wipe the database
-	for version := storage.MinimumSchemaVersion; version > storage.EmptySchemaVersion; {
+	for version := v; version > storage.EmptySchemaVersion; {
 		version, err = db.MigrateSchemaDown(context.Background())
 		assert.NoError(t, err)
 	}
 	// re-create the tables with supported schema
-	assert.NoError(t, db.MigrateSchemaToVersion(context.Background(), storage.MinimumSchemaVersion))
+	assert.NoError(t, db.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
 	assert.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
 

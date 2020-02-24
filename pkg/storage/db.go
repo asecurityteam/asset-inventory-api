@@ -106,7 +106,7 @@ where ia.private_ip = $1
 // Query to find resource by public IP using v2 schema
 // nolint
 const resourceByPublicIPQuery = `select ia.public_ip,
-	   ia.hostname,
+	   ia.aws_hostname,
        res.arn_id,
        res.meta,
        ar.region,
