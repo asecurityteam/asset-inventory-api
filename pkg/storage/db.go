@@ -124,7 +124,8 @@ where ia.public_ip = $1
 
 // Query to find resource by hostname using v2 schema
 // nolint
-const resourceByHostnameQuery = `select ia.aws_hostname,
+const resourceByHostnameQuery = `select ia.public_ip,
+       ia.aws_hostname,
        res.arn_id,
        res.meta,
        ar.region,
@@ -132,7 +133,7 @@ const resourceByHostnameQuery = `select ia.aws_hostname,
        aa.account
 from aws_public_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
-         left join aws_region ar on res.aws_account_id = ar.id
+         left join aws_region ar on res.aws_region_id = ar.id
          left join aws_resource_type rt on res.aws_resource_type_id = rt.id
          left join aws_account aa on res.aws_account_id = aa.id
 where ia.aws_hostname = $1
@@ -723,8 +724,18 @@ func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset u
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
-	sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-	return db.runQuery(ctx, sqlstmt, hostname, when)
+	ver, err := db.GetSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var assets []domain.CloudAssetDetails
+	if ver < ReadsFromNewSchemaVersion {
+		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
+		assets, err = db.runQuery(ctx, sqlstmt, hostname, when)
+	} else {
+		assets, err = db.runFetchByIPQuery(ctx, false, resourceByHostnameQuery, hostname, when)
+	}
+	return assets, err
 }
 
 // FetchByIP gets the assets who have IP address at the specified time
@@ -868,6 +879,7 @@ func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) (
 		var timestamp time.Time
 
 		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
+
 		if err != nil {
 			return nil, err
 		}
