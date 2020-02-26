@@ -1384,8 +1384,14 @@ func TestGetSchemaVersionErr(t *testing.T) {
 	defer ctrl.Finish()
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
-	db := &DB{migrator: migrator}
-	_, err := db.GetSchemaVersion(context.Background())
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	_, err = db.GetSchemaVersion(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.NotNil(t, err)
 }
 
@@ -1394,8 +1400,14 @@ func TestGetSchemaVersionNil(t *testing.T) {
 	defer ctrl.Finish()
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
-	db := &DB{migrator: migrator}
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
 	v, err := db.GetSchemaVersion(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Equal(t, uint(0), v)
 	require.Nil(t, err)
 }
@@ -1406,8 +1418,14 @@ func TestGetSchemaVersionSuccess(t *testing.T) {
 	version := uint(rand.Uint64())
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Version().Return(version, false, nil)
-	db := &DB{migrator: migrator}
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
 	v, err := db.GetSchemaVersion(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Equal(t, version, v)
 	require.Nil(t, err)
 }
@@ -1418,8 +1436,14 @@ func TestForceSchemaToVersionErr(t *testing.T) {
 	version := uint(rand.Uint64())
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Force(int(version)).Return(errors.New("something happened"))
-	db := &DB{migrator: migrator}
-	err := db.ForceSchemaToVersion(context.Background(), version)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	err = db.ForceSchemaToVersion(context.Background(), version)
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
 }
 
@@ -1429,8 +1453,14 @@ func TestForceSchemaToVersionSuccess(t *testing.T) {
 	version := uint(rand.Uint64())
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Force(int(version)).Return(nil)
-	db := &DB{migrator: migrator}
-	err := db.ForceSchemaToVersion(context.Background(), version)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	err = db.ForceSchemaToVersion(context.Background(), version)
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Nil(t, err)
 }
 
@@ -1440,8 +1470,14 @@ func TestMigrateSchemaToVersionErr(t *testing.T) {
 	version := uint(rand.Uint64())
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Migrate(version).Return(errors.New("something happened"))
-	db := &DB{migrator: migrator}
-	err := db.MigrateSchemaToVersion(context.Background(), version)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	err = db.MigrateSchemaToVersion(context.Background(), version)
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
 }
 
@@ -1451,8 +1487,14 @@ func TestMigrateSchemaToVersionSuccess(t *testing.T) {
 	version := uint(rand.Uint64())
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Migrate(version).Return(nil)
-	db := &DB{migrator: migrator}
-	err := db.MigrateSchemaToVersion(context.Background(), version)
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	err = db.MigrateSchemaToVersion(context.Background(), version)
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Nil(t, err)
 }
 
@@ -1461,8 +1503,14 @@ func TestMigrateSchemaUpErr(t *testing.T) {
 	defer ctrl.Finish()
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
-	db := &DB{migrator: migrator}
-	_, err := db.MigrateSchemaUp(context.Background())
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	_, err = db.MigrateSchemaUp(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
 }
 
@@ -1473,8 +1521,14 @@ func TestMigrateSchemaUpSuccess(t *testing.T) {
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
 	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
-	db := &DB{migrator: migrator}
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
 	v, err := db.MigrateSchemaUp(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.NoError(t, err)
 	require.Equal(t, version, v)
 }
@@ -1484,8 +1538,14 @@ func TestMigrateSchemaDownErr(t *testing.T) {
 	defer ctrl.Finish()
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
-	db := &DB{migrator: migrator}
-	_, err := db.MigrateSchemaDown(context.Background())
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
+	_, err = db.MigrateSchemaDown(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
 }
 
@@ -1496,8 +1556,14 @@ func TestMigrateSchemaDownSuccess(t *testing.T) {
 	migrator := NewMockStorageMigrator(ctrl)
 	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
 	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
-	db := &DB{migrator: migrator}
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+	db := &DB{migrator: migrator, sqldb: mockdb }
 	v, err := db.MigrateSchemaDown(context.Background())
+	require.NoError(t, mock.ExpectationsWereMet())
 	require.NoError(t, err)
 	require.Equal(t, version, v)
 }

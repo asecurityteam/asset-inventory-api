@@ -196,6 +196,12 @@ var privateIPNetworks = []net.IPNet{
 
 // ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
 func (db *DB) ForceSchemaToVersion(ctx context.Context, version uint) error {
+	// migrator is using raw Postgres connection which lacks re-try logic
+	// ensure we have an established connection before running any migrate commands
+	err := db.sqldb.PingContext(ctx)
+	if err != nil {
+		return err
+	}
 	return db.migrator.Force(int(version))
 }
 
@@ -211,11 +217,19 @@ func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
 
 // MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
 func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
+	err := db.sqldb.PingContext(ctx)
+	if err != nil {
+		return err
+	}
 	return db.migrator.Migrate(version)
 }
 
 // GetSchemaVersion retrieves the current version of database schema
 func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
+	err := db.sqldb.PingContext(ctx)
+	if err != nil {
+		return 0, err
+	}
 	v, _, err := db.migrator.Version()
 	if err == migrate.ErrNilVersion {
 		// special handling for the version not being present
