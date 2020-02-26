@@ -1389,7 +1389,7 @@ func TestGetSchemaVersionErr(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	_, err = db.GetSchemaVersion(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.NotNil(t, err)
@@ -1405,7 +1405,7 @@ func TestGetSchemaVersionNil(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	v, err := db.GetSchemaVersion(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Equal(t, uint(0), v)
@@ -1423,7 +1423,7 @@ func TestGetSchemaVersionSuccess(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	v, err := db.GetSchemaVersion(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Equal(t, version, v)
@@ -1441,7 +1441,7 @@ func TestForceSchemaToVersionErr(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	err = db.ForceSchemaToVersion(context.Background(), version)
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
@@ -1458,7 +1458,7 @@ func TestForceSchemaToVersionSuccess(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	err = db.ForceSchemaToVersion(context.Background(), version)
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Nil(t, err)
@@ -1475,7 +1475,7 @@ func TestMigrateSchemaToVersionErr(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	err = db.MigrateSchemaToVersion(context.Background(), version)
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
@@ -1492,7 +1492,7 @@ func TestMigrateSchemaToVersionSuccess(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	err = db.MigrateSchemaToVersion(context.Background(), version)
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Nil(t, err)
@@ -1508,7 +1508,7 @@ func TestMigrateSchemaUpErr(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	_, err = db.MigrateSchemaUp(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
@@ -1526,7 +1526,7 @@ func TestMigrateSchemaUpSuccess(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	v, err := db.MigrateSchemaUp(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.NoError(t, err)
@@ -1543,7 +1543,7 @@ func TestMigrateSchemaDownErr(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	_, err = db.MigrateSchemaDown(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Error(t, err)
@@ -1561,7 +1561,7 @@ func TestMigrateSchemaDownSuccess(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb }
+	db := &DB{migrator: migrator, sqldb: mockdb}
 	v, err := db.MigrateSchemaDown(context.Background())
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.NoError(t, err)
