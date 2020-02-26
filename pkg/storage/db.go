@@ -242,7 +242,10 @@ func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
 }
 
 func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
-	var err error
+	err := db.sqldb.PingContext(ctx)
+	if err != nil {
+		return 0, err
+	}
 	switch d {
 	case up:
 		err = db.migrator.Steps(1)
