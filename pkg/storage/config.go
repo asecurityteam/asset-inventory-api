@@ -2,25 +2,26 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file" // used internally by migrate
 	_ "github.com/lib/pq"                                // must remain here for sql lib to find the postgres driver
+)
 
-	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
+type connectionType int
+
+// Database Connection types
+const (
+	Primary connectionType = iota
+	Replica
 )
 
 // PostgresConfig contains the Postgres database configuration arguments
 type PostgresConfig struct {
-	Hostname         string
-	Port             uint16
-	Username         string
-	Password         string
-	DatabaseName     string
+	URL              string
+	ReplicaURL       string
 	PartitionTTL     int
 	MinSchemaVersion uint
 	MigrationsPath   string
@@ -43,55 +44,41 @@ func NewPostgresComponent() *PostgresConfigComponent {
 // Settings populates a set of defaults if none are provided via config.
 func (*PostgresConfigComponent) Settings() *PostgresConfig {
 	return &PostgresConfig{
-		Hostname:         "localhost",
-		Port:             5432,
-		Username:         "aiapi",
-		DatabaseName:     "aiapi",
+		URL:              "postgres://aiapi:password@localhost/aiapi?sslmode=false",
 		PartitionTTL:     360,
 		MinSchemaVersion: MinimumSchemaVersion,
 		MigrationsPath:   "/db-migrations",
 	}
 }
 
-// NewStorageMigrator constructs an instance of StorageMigrator implemented by psql driver + file migration back-end
-func NewStorageMigrator(sourcePath string, db *sql.DB) (domain.StorageMigrator, error) {
+// NewSchemaManager generates a SchemaManager component based on settings
+func NewSchemaManager(sourcePath string, datasourceURL string) (*SchemaManager, error) {
 	if mp, err := os.Stat(sourcePath); err != nil || !mp.IsDir() {
 		return nil, errors.New("migrator path must exist and be a directory")
 	}
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	sm := SchemaManager{
+		DataSourceURL:    datasourceURL,
+		MigrationsSource: "file://" + sourcePath,
+	}
+	migrator, err := migrate.New(sm.MigrationsSource, sm.DataSourceURL)
 	if err != nil {
 		return nil, err
 	}
-	migrator, err := migrate.NewWithDatabaseInstance(
-		"file://"+sourcePath,
-		"postgres", driver)
-	if err != nil {
-		return nil, err
-	}
-	return migrator, nil
+	sm.migrator = migrator
+	return &sm, err
 }
 
 // New constructs a DB from a config.
-func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig) (*DB, error) {
+func (*PostgresConfigComponent) New(ctx context.Context, c *PostgresConfig, t connectionType) (*DB, error) {
 	db := &DB{}
 	var err error
-	if err = db.Init(ctx, c.Hostname, c.Port, c.Username, c.Password, c.DatabaseName, c.PartitionTTL); err != nil {
-		return nil, err
+	url := c.URL
+	if t == Replica {
+		url = c.ReplicaURL
 	}
-	db.migrator, err = NewStorageMigrator(c.MigrationsPath, db.sqldb)
-	if err != nil {
-		return nil, err
-	}
-	ver, err := db.GetSchemaVersion(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	if ver >= c.MinSchemaVersion {
-		return db, nil
-	}
-	// ErrNoChange means we are already on required version so we are good
-	if err := db.MigrateSchemaToVersion(context.Background(), c.MinSchemaVersion); err != nil && err != migrate.ErrNoChange {
+	if err = db.Init(ctx, url, c.PartitionTTL); err != nil {
 		return nil, err
 	}
 	return db, nil
+
 }

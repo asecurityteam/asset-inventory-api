@@ -376,19 +376,19 @@ func (m *MockSchemaVersionGetter) EXPECT() *MockSchemaVersionGetterMockRecorder 
 	return m.recorder
 }
 
-// GetSchemaVersion mocks base method
+// getSchemaVersion mocks base method
 func (m *MockSchemaVersionGetter) GetSchemaVersion(arg0 context.Context) (uint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSchemaVersion", arg0)
+	ret := m.ctrl.Call(m, "getSchemaVersion", arg0)
 	ret0, _ := ret[0].(uint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSchemaVersion indicates an expected call of GetSchemaVersion
+// getSchemaVersion indicates an expected call of getSchemaVersion
 func (mr *MockSchemaVersionGetterMockRecorder) GetSchemaVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchemaVersion", reflect.TypeOf((*MockSchemaVersionGetter)(nil).GetSchemaVersion), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getSchemaVersion", reflect.TypeOf((*MockSchemaVersionGetter)(nil).GetSchemaVersion), arg0)
 }
 
 // MockBackFillSchemaRunner is a mock of BackFillSchemaRunner interface

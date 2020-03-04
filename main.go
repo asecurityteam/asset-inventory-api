@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4"
+
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	v1 "github.com/asecurityteam/asset-inventory-api/pkg/handlers/v1"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
@@ -14,8 +16,7 @@ import (
 )
 
 type config struct {
-	PostgresConfig     *storage.PostgresConfig
-	PostgresReadConfig *storage.PostgresReadConfig
+	PostgresConfig *storage.PostgresConfig
 }
 
 func (*config) Name() string {
@@ -23,90 +24,103 @@ func (*config) Name() string {
 }
 
 type component struct {
-	PostgresConfig     *storage.PostgresConfigComponent
-	PostgresReadConfig *storage.PostgresReadConfigComponent
+	PostgresConfig *storage.PostgresConfigComponent
 }
 
 func newComponent() *component {
 	return &component{
-		PostgresConfig:     storage.NewPostgresComponent(),
-		PostgresReadConfig: storage.NewPostgresReadComponent(),
+		PostgresConfig: storage.NewPostgresComponent(),
 	}
 }
 
 func (c *component) Settings() *config {
 	return &config{
-		PostgresConfig:     c.PostgresConfig.Settings(),
-		PostgresReadConfig: c.PostgresReadConfig.Settings(),
+		PostgresConfig: c.PostgresConfig.Settings(),
 	}
 }
 
 func (c *component) New(ctx context.Context, conf *config) (func(context.Context, settings.Source) error, error) {
-	dbStorage, err := c.PostgresConfig.New(ctx, conf.PostgresConfig)
+	primaryStorage, err := c.PostgresConfig.New(ctx, conf.PostgresConfig, storage.Primary)
 	if err != nil {
 		return nil, err
 	}
-	//TODO - fix the migration/version logic and bring this backreadDbStorage, err := c.PostgresReadConfig.New(ctx, conf.PostgresReadConfig)
-	//if err != nil {
-	//	return nil, err
-	//}
+	replicaStorage, err := c.PostgresConfig.New(ctx, conf.PostgresConfig, storage.Replica)
+	if err != nil || replicaStorage == nil { //if the replica is not properly configured - fall back to primary
+		replicaStorage = primaryStorage
+	}
+
+	schemaManager, err := storage.NewSchemaManager(conf.PostgresConfig.MigrationsPath, conf.PostgresConfig.URL)
+	if err != nil {
+		return nil, err
+	}
+	ver, err := schemaManager.GetSchemaVersion(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	if ver < conf.PostgresConfig.MinSchemaVersion {
+		// ErrNoChange means we are already on required version so we are good
+		err := schemaManager.MigrateSchemaToVersion(context.Background(), conf.PostgresConfig.MinSchemaVersion)
+		if err != nil && err != migrate.ErrNoChange {
+			return nil, err
+		}
+	}
 
 	insert := &v1.CloudInsertHandler{
 		LogFn:            domain.LoggerFromContext,
 		StatFn:           domain.StatFromContext,
-		CloudAssetStorer: dbStorage,
+		CloudAssetStorer: primaryStorage,
 	}
 	fetchByIP := &v1.CloudFetchByIPHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: replicaStorage,
 	}
 	fetchByHostname := &v1.CloudFetchByHostnameHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: replicaStorage,
 	}
 	fetchAllAssetsByTime := &v1.CloudFetchAllAssetsByTimeHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: replicaStorage,
 	}
 	fetchAllAssetsByTimePage := &v1.CloudFetchAllAssetsByTimePageHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
-		Fetcher: dbStorage,
+		Fetcher: replicaStorage,
 	}
 	createPartition := &v1.CreatePartitionHandler{
 		LogFn:     domain.LoggerFromContext,
-		Generator: dbStorage,
+		Generator: primaryStorage,
 	}
 	getPartitions := &v1.GetPartitionsHandler{
 		LogFn:  domain.LoggerFromContext,
-		Getter: dbStorage,
+		Getter: primaryStorage,
 	}
 	deletePartitions := &v1.DeletePartitionsHandler{
 		LogFn:   domain.LoggerFromContext,
-		Deleter: dbStorage,
+		Deleter: primaryStorage,
 	}
 	getSchemaVersion := &v1.GetSchemaVersionHandler{
 		LogFn:  domain.LoggerFromContext,
-		Getter: dbStorage,
+		Getter: schemaManager,
 	}
 	schemaVersionStepUp := &v1.SchemaVersionStepUpHandler{
 		LogFn:    domain.LoggerFromContext,
-		Migrator: dbStorage,
+		Migrator: schemaManager,
 	}
 	schemaVersionStepDown := &v1.SchemaVersionStepDownHandler{
 		LogFn:    domain.LoggerFromContext,
-		Migrator: dbStorage,
+		Migrator: schemaManager,
 	}
 	backFillLocally := &v1.BackFillEventsLocalHandler{
 		LogFn:  domain.LoggerFromContext,
-		Runner: dbStorage,
+		Runner: primaryStorage,
 	}
 	forceSchemaVersion := &v1.ForceSchemaHandler{
 		LogFn:               domain.LoggerFromContext,
-		SchemaVersionForcer: dbStorage,
+		SchemaVersionForcer: schemaManager,
 	}
 
 	handlers := map[string]serverfull.Function{

@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
-
 	"github.com/pkg/errors"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -28,27 +26,6 @@ const (
 	added   = "ADDED"   // one of the network event types we track
 	deleted = "DELETED" // deleted network event
 
-)
-
-type migrationDirection int
-
-const (
-	// used internally to designate migration direction
-	up migrationDirection = iota
-	down
-)
-
-const (
-	// EmptySchemaVersion Version of database schema that cleans the database completely. Use cautiously!
-	EmptySchemaVersion uint = 0
-	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
-	MinimumSchemaVersion uint = 1
-	// M1SchemaVersion Version of database schema with performance optimizations (M1) that allows back-fill to work
-	M1SchemaVersion uint = 2
-	// DualWritesSchemaVersion Lowest version of database schema that supports dual-writes (legacy and M1)
-	DualWritesSchemaVersion uint = 3
-	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
-	ReadsFromNewSchemaVersion uint = 4
 )
 
 // can't use Sprintf in a const, so...
@@ -172,8 +149,7 @@ OFFSET $4
 
 // DB represents a convenient database abstraction layer
 type DB struct {
-	sqldb               *sql.DB                // this is a unit test seam
-	migrator            domain.StorageMigrator // another unit test seam
+	sqldb               *sql.DB // this is a unit test seam
 	once                sync.Once
 	now                 func() time.Time // unit test seam
 	defaultPartitionTTL int
@@ -194,78 +170,8 @@ var privateIPNetworks = []net.IPNet{
 	},
 }
 
-// ForceSchemaToVersion sets the database schema to specified version without running any migrations and clears dirty flag
-func (db *DB) ForceSchemaToVersion(ctx context.Context, version uint) error {
-	// migrator is using raw Postgres connection which lacks re-try logic
-	// ensure we have an established connection before running any migrate commands
-	err := db.sqldb.PingContext(ctx)
-	if err != nil {
-		return err
-	}
-	return db.migrator.Force(int(version))
-}
-
-// MigrateSchemaUp performs a database schema migration one version up
-func (db *DB) MigrateSchemaUp(ctx context.Context) (uint, error) {
-	return db.migrateSchema(ctx, up)
-}
-
-// MigrateSchemaDown performs a database schema rollback one version down
-func (db *DB) MigrateSchemaDown(ctx context.Context) (uint, error) {
-	return db.migrateSchema(ctx, down)
-}
-
-// MigrateSchemaToVersion performs one or more database migrations to bring schema to the specified version
-func (db *DB) MigrateSchemaToVersion(ctx context.Context, version uint) error {
-	err := db.sqldb.PingContext(ctx)
-	if err != nil {
-		return err
-	}
-	return db.migrator.Migrate(version)
-}
-
-// GetSchemaVersion retrieves the current version of database schema
-func (db *DB) GetSchemaVersion(ctx context.Context) (uint, error) {
-	err := db.sqldb.PingContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-	v, _, err := db.migrator.Version()
-	if err == migrate.ErrNilVersion {
-		// special handling for the version not being present
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	return v, nil
-}
-
-func (db *DB) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
-	err := db.sqldb.PingContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-	switch d {
-	case up:
-		err = db.migrator.Steps(1)
-	case down:
-		err = db.migrator.Steps(-1)
-	default:
-		return 0, errors.New("Unknown migration direction")
-	}
-	if err != nil {
-		return 0, err
-	}
-	version, err := db.GetSchemaVersion(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return version, nil
-}
-
 // Init initializes a connection to a Postgres database according to the environment variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE
-func (db *DB) Init(ctx context.Context, host string, port uint16, user string, password string, dbname string, partitionTTL int) error {
+func (db *DB) Init(ctx context.Context, url string, partitionTTL int) error {
 	var initErr error
 	db.once.Do(func() {
 
@@ -276,32 +182,13 @@ func (db *DB) Init(ctx context.Context, host string, port uint16, user string, p
 		}
 
 		if db.sqldb == nil {
-			sslmode := "disable"
-			if host != "localhost" && host != "postgres" {
-				sslmode = "require"
-			}
-			// we establish a connection against a known-to-exist dbname so we can check
-			// if we need to create our desired dbname
-			psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-				"password=%s dbname=%s sslmode=%s",
-				host, port, user, password, "postgres", sslmode)
-			pgdb, err := sql.Open("postgres", psqlInfo)
+			pgdb, err := sql.Open("postgres", url)
 			if err != nil {
 				initErr = err
 				return // from the unnamed once.Do function
 			}
 
 			db.sqldb = pgdb
-
-			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
-				"password=%s dbname=%s sslmode=%s",
-				host, port, user, password, dbname, sslmode)
-			err = db.use(psqlInfo)
-			if err != nil {
-				initErr = err
-				return // from the unnamed once.Do function
-			}
-
 			err = db.ping()
 			if err != nil {
 				initErr = err
@@ -311,6 +198,17 @@ func (db *DB) Init(ctx context.Context, host string, port uint16, user string, p
 		}
 	})
 	return initErr
+}
+
+// nb this is intentionally private for use by DB code to avoid confusion with fully-functioning SchemaVersionManager
+func (db *DB) getSchemaVersion(ctx context.Context) (uint, error) {
+	const versionQuery = `select version from schema_migrations`
+	ver := uint(0)
+	err := db.sqldb.QueryRowContext(ctx, versionQuery).Scan(&ver)
+	if err != nil && err != sql.ErrNoRows { //no rows as version 0
+		return 0, err
+	}
+	return ver, nil
 }
 
 // use function's intent is to close the existing connection (pgdb parameter) and open
@@ -524,7 +422,7 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	ver, err := db.GetSchemaVersion(ctx)
+	ver, err := db.getSchemaVersion(ctx)
 	if err != nil || ver < DualWritesSchemaVersion {
 		return nil
 	}
@@ -741,7 +639,7 @@ func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset u
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
-	ver, err := db.GetSchemaVersion(ctx)
+	ver, err := db.getSchemaVersion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +655,7 @@ func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname stri
 
 // FetchByIP gets the assets who have IP address at the specified time
 func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
-	ver, err := db.GetSchemaVersion(ctx)
+	ver, err := db.getSchemaVersion(ctx)
 	if err != nil {
 		return nil, err
 	}

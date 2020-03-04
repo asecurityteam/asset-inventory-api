@@ -3,16 +3,7 @@ services:
   test:
     image: asecurityteam/sdcli:v1
     environment:
-      - "POSTGRES_PASSWORD=password"
-      - "POSTGRES_USERNAME=user"
-      - "POSTGRES_DATABASENAME=assetmgmt"
-      - "POSTGRES_HOSTNAME=postgres"
-      - "POSTGRES_PORT=5432"
-      - "POSTGRESREAD_PASSWORD=password"
-      - "POSTGRESREAD_USERNAME=user"
-      - "POSTGRESREAD_DATABASENAME=assetmgmt"
-      - "POSTGRESREAD_HOSTNAME=postgres"
-      - "POSTGRESREAD_PORT=5432"
+      - "POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable"
     command: go integration
     working_dir: ${DIR}
     volumes:
@@ -23,7 +14,6 @@ services:
   postgres:
     image: postgres:11.2
     environment:
-      # while env var names are quite similar to `test` service above, it's just a coincidence
       - "POSTGRES_PASSWORD=password"
       - "POSTGRES_USER=user"
       - "POSTGRES_DB=assetmgmt"
