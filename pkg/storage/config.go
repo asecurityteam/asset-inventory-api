@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/source/file" // used internally by migrate
-	_ "github.com/lib/pq"                                // must remain here for sql lib to find the postgres driver
+	_ "github.com/golang-migrate/migrate/v4/database/postgres" // used internally by migrate
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq" // must remain here for sql lib to find the postgres driver
 )
 
 type connectionType int

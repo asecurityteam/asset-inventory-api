@@ -22,16 +22,7 @@ services:
       - SERVERFULL_RUNTIME_STATS_OUTPUT=NULL
       - SERVERFULL_RUNTIME_SIGNALS_INSTALLED=OS
       - SERVERFULL_RUNTIME_SIGNALS_OS_SIGNALS=15 2
-      - "AIAPI_POSTGRES_PASSWORD=password"
-      - "AIAPI_POSTGRES_USERNAME=user"
-      - "AIAPI_POSTGRES_DATABASENAME=assetmgmt"
-      - "AIAPI_POSTGRES_HOSTNAME=postgres"
-      - "AIAPI_POSTGRES_PORT=5432"
-      - "AIAPI_POSTGRESREAD_PASSWORD=password"
-      - "AIAPI_POSTGRESREAD_USERNAME=user"
-      - "AIAPI_POSTGRESREAD_DATABASENAME=assetmgmt"
-      - "AIAPI_POSTGRESREAD_HOSTNAME=postgres"
-      - "AIAPI_POSTGRESREAD_PORT=5432"
+      - AIAPI_POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable
   gateway:
     build:
       context: .
