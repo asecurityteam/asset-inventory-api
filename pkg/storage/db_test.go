@@ -6,14 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"regexp"
 	"testing"
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,14 +22,10 @@ import (
 func TestDBInitHandleOpenError(t *testing.T) {
 	thedb := DB{}
 
-	hostname := "this is not a hostname"
-	port := uint16(99)
-	username := "me!"
-	password := "mypassword!"
-	databasename := "name"
+	url := "this is not valid database url"
 	partitionTTL := 2
 
-	if err := thedb.Init(context.Background(), hostname, port, username, password, databasename, partitionTTL); err == nil {
+	if err := thedb.Init(context.Background(), url, partitionTTL); err == nil {
 		t.Errorf("DB.Init should have returned a non-nil error")
 	}
 }
@@ -176,14 +170,8 @@ func TestGoldenPath(t *testing.T) {
 	}
 	defer mockdb.Close()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockMigrator := NewMockStorageMigrator(ctrl)
-	mockMigrator.EXPECT().Version().Return(MinimumSchemaVersion, false, nil)
-
 	theDB := DB{
-		sqldb:    mockdb,
-		migrator: mockMigrator,
+		sqldb: mockdb,
 	}
 
 	mock.ExpectBegin()
@@ -207,12 +195,13 @@ func TestGoldenPath(t *testing.T) {
 	}
 }
 
+func withSchemaVersion(version uint, mock sqlmock.Sqlmock) {
+	rows := sqlmock.NewRows([]string{"version"}).AddRow(version)
+	mock.ExpectQuery("select version from schema_migrations").WillReturnRows(rows).RowsWillBeClosed()
+}
+
 func TestGetIPsAtTimeLegacySchema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(1)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
+	//version := uint(1)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -220,8 +209,7 @@ func TestGetIPsAtTimeLegacySchema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -229,6 +217,7 @@ func TestGetIPsAtTimeLegacySchema(t *testing.T) {
 	rowts := "2019-01-15T08:19:22+00:00"
 	rowtsTime, _ := time.Parse(time.RFC3339, rowts)
 
+	withSchemaVersion(1, mock)
 	rows := sqlmock.NewRows([]string{"aws_resources_id", "aws_ips_ip", "aws_hostnames_hostname", "is_public", "is_join", "ts", "aws_resources.account_id", "aws_resources.region", "aws_resources.type", "aws_resources.meta"}).AddRow("rid", "44.33.22.11", "yahoo.com", true, true, rowtsTime, "aid", "region", "type", []byte("{\"hi\":\"there1\"}"))
 	mock.ExpectQuery("WITH").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
 
@@ -254,11 +243,7 @@ func TestGetIPsAtTimeLegacySchema(t *testing.T) {
 }
 
 func TestGetIPsAtTimeMultiRowsLegacySchema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(1)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
+
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -266,8 +251,7 @@ func TestGetIPsAtTimeMultiRowsLegacySchema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
@@ -276,6 +260,8 @@ func TestGetIPsAtTimeMultiRowsLegacySchema(t *testing.T) {
 	rowts1Time, _ := time.Parse(time.RFC3339, rowts1)
 	rowts2 := "2019-01-15T08:55:41+00:00"
 	rowts2Time, _ := time.Parse(time.RFC3339, rowts2)
+
+	withSchemaVersion(1, mock)
 
 	rows := sqlmock.NewRows([]string{"aws_resources_id", "aws_ips_ip", "aws_hostnames_hostname", "is_public", "is_join", "ts", "aws_resources.account_id", "aws_resources.region", "aws_resources.type", "aws_resources.meta"}).AddRow("rid", "44.33.22.11", "yahoo.com", true, true, rowts1Time, "aid", "region", "type", []byte("{\"hi\":\"there2\"}")).AddRow("rid2", "99.88.77.66", "google.com", true, true, rowts2Time, "aid2", "region2", "type2", []byte("{\"bye\":\"now\"}"))
 	mock.ExpectQuery("WITH").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
@@ -314,11 +300,6 @@ func TestGetIPsAtTimeMultiRowsLegacySchema(t *testing.T) {
 }
 
 func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -326,9 +307,10 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
+
+	withSchemaVersion(4, mock)
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "10.2.2.6"
@@ -366,11 +348,6 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 }
 
 func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -378,9 +355,10 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
+
+	withSchemaVersion(4, mock)
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "9.8.7.6"
@@ -420,11 +398,6 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 	}
 }
 func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -432,10 +405,10 @@ func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "172.16.2.2"
 	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
@@ -488,11 +461,6 @@ func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 }
 
 func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -500,10 +468,10 @@ func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := &DB{
-		migrator: migrator,
-		sqldb:    mockdb,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	ipAddress := "9.8.7.6"
 	rows := sqlmock.NewRows([]string{"aws_public_ip_assignment_public_ip",
@@ -561,11 +529,6 @@ func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 }
 
 func TestGetHostnamesAtTimeSchema1(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(1)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -573,10 +536,10 @@ func TestGetHostnamesAtTimeSchema1(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:    mockdb,
-		migrator: migrator,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(1, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "google.com"
 	rowts1 := "2019-01-15T08:19:24+00:00"
@@ -607,11 +570,6 @@ func TestGetHostnamesAtTimeSchema1(t *testing.T) {
 }
 
 func TestGetHostnamesAtTimeSchema2(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -619,10 +577,10 @@ func TestGetHostnamesAtTimeSchema2(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:    mockdb,
-		migrator: migrator,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "yahoo.com"
 
@@ -663,11 +621,6 @@ func TestGetHostnamesAtTimeSchema2(t *testing.T) {
 }
 
 func TestGetHostnamesAtTimeMultiRowsSchema1(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(1)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -675,10 +628,10 @@ func TestGetHostnamesAtTimeMultiRowsSchema1(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:    mockdb,
-		migrator: migrator,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(1, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "google.com"
 	rowts1 := "2019-01-15T08:19:24+00:00"
@@ -710,11 +663,6 @@ func TestGetHostnamesAtTimeMultiRowsSchema1(t *testing.T) {
 }
 
 func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(4)
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -722,10 +670,10 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 	defer mockdb.Close()
 
 	thedb := DB{
-		sqldb:    mockdb,
-		migrator: migrator,
+		sqldb: mockdb,
 	}
 
+	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
 	hostname := "yahoo.com"
 
@@ -1377,195 +1325,6 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
-}
-
-func TestGetSchemaVersionErr(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	_, err = db.GetSchemaVersion(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.NotNil(t, err)
-}
-
-func TestGetSchemaVersionNil(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	v, err := db.GetSchemaVersion(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Equal(t, uint(0), v)
-	require.Nil(t, err)
-}
-
-func TestGetSchemaVersionSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Version().Return(version, false, nil)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	v, err := db.GetSchemaVersion(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Equal(t, version, v)
-	require.Nil(t, err)
-}
-
-func TestForceSchemaToVersionErr(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Force(int(version)).Return(errors.New("something happened"))
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	err = db.ForceSchemaToVersion(context.Background(), version)
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Error(t, err)
-}
-
-func TestForceSchemaToVersionSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Force(int(version)).Return(nil)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	err = db.ForceSchemaToVersion(context.Background(), version)
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Nil(t, err)
-}
-
-func TestMigrateSchemaToVersionErr(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Migrate(version).Return(errors.New("something happened"))
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	err = db.MigrateSchemaToVersion(context.Background(), version)
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Error(t, err)
-}
-
-func TestMigrateSchemaToVersionSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Migrate(version).Return(nil)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	err = db.MigrateSchemaToVersion(context.Background(), version)
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Nil(t, err)
-}
-
-func TestMigrateSchemaUpErr(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	_, err = db.MigrateSchemaUp(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Error(t, err)
-}
-
-func TestMigrateSchemaUpSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
-	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	v, err := db.MigrateSchemaUp(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.NoError(t, err)
-	require.Equal(t, version, v)
-}
-
-func TestMigrateSchemaDownErr(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Steps(gomock.Any()).Return(errors.New("something happened"))
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	_, err = db.MigrateSchemaDown(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Error(t, err)
-}
-
-func TestMigrateSchemaDownSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	version := uint(rand.Uint64())
-	migrator := NewMockStorageMigrator(ctrl)
-	migrator.EXPECT().Steps(gomock.Any()).Return(nil)
-	migrator.EXPECT().Version().Return(version, false, nil) //Version() (version uint, dirty bool, err error)
-	mockdb, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer mockdb.Close()
-	db := &DB{migrator: migrator, sqldb: mockdb}
-	v, err := db.MigrateSchemaDown(context.Background())
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.NoError(t, err)
-	require.Equal(t, version, v)
 }
 
 func TestStoreV2ErrorEnsureResource(t *testing.T) {

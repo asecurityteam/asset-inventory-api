@@ -14,13 +14,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
+
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
 	"github.com/asecurityteam/asset-inventory-api/pkg/storage"
-	"github.com/asecurityteam/settings"
 )
 
 // dbStorage is the struct with the functions being tested
 var dbStorage *storage.DB
+var dbSchema *storage.SchemaManager
 var ctx context.Context
 
 // possibly not the best way to parametrise tests, but it works
@@ -28,18 +32,20 @@ var testWithSchemaVersion = storage.MinimumSchemaVersion
 
 func TestMain(m *testing.M) {
 	ctx = context.Background()
-	source, err := settings.NewEnvSource(os.Environ())
+	pgComponent := storage.PostgresConfigComponent{}
+	pgSettings := pgComponent.Settings()
+	pgSettings.URL = os.Getenv("POSTGRES_URL")
+	var err error
+	dbStorage, err = pgComponent.New(ctx, pgSettings, storage.Primary)
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
-
-	postgresConfigComponent := &storage.PostgresConfigComponent{}
-	dbStorage = new(storage.DB)
-	if err = settings.NewComponent(ctx, source, postgresConfigComponent, dbStorage); err != nil {
-		panic(err.Error())
+	dbSchema, err = storage.NewSchemaManager(pgSettings.MigrationsPath, pgSettings.URL)
+	if err != nil {
+		panic(err)
 	}
-	suitResult := 0
 	// none of the known DB versions after initial should EVER result in any of the tests failing, so we test all of them
+	suitResult := 0
 	for ver := storage.MinimumSchemaVersion; ver <= storage.ReadsFromNewSchemaVersion; ver++ {
 		testWithSchemaVersion = ver
 		res := m.Run()
@@ -52,7 +58,7 @@ func TestMain(m *testing.M) {
 
 func TestNoDBRows(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	// code should tolerate no data in the tables
 
@@ -69,7 +75,7 @@ func TestNoDBRows(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp1 test that only one asset has the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -102,7 +108,7 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 // the same hostname _after_ the specified timestamp
 func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -142,7 +148,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp3 test that two assets have the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -183,7 +189,7 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp4 test that one asset has the Hostname at the specified timestamp
 func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -223,7 +229,7 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 // TestGetStatusByHostnameAtTimestamp1 test that only one asset has the Hostname at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"} // nolint
@@ -256,7 +262,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 // the same IP address _after_ the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -296,7 +302,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 // TestGetStatusByIPAddressAtTimestamp3 test that two assets have the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -336,7 +342,7 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 // TestGetStatusByIPAddressAtTimestamp4 test that one asset has the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -376,7 +382,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 // having then dropping the same IP address prior to that timestamp
 func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -427,7 +433,7 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 }
 
 func TestGeneratePartitions(t *testing.T) {
-	before(t, dbStorage) // start with a partition from 07/2019-09/2019
+	before(t, dbStorage, dbSchema) // start with a partition from 07/2019-09/2019
 	partitions, err := dbStorage.GetPartitions(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(partitions))
@@ -452,7 +458,7 @@ func TestGeneratePartitions(t *testing.T) {
 }
 
 func TestPartitionCounts(t *testing.T) {
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	privateIPs := []string{"44.33.22.11"}
 	publicIPs := []string{"88.77.66.55"}
@@ -471,7 +477,7 @@ func TestPartitionCounts(t *testing.T) {
 }
 
 func TestDeletePartitions(t *testing.T) {
-	before(t, dbStorage) // start with a partition from 07/2019-09/2019
+	before(t, dbStorage, dbSchema) // start with a partition from 07/2019-09/2019
 
 	ts := time.Now().Truncate(24 * time.Hour).UTC()
 	maxAge := 365
@@ -502,7 +508,7 @@ func TestDeletePartitions(t *testing.T) {
 }
 
 func TestDeleteNotFoundPartition(t *testing.T) {
-	before(t, dbStorage)
+	before(t, dbStorage, dbSchema)
 
 	ts := time.Now().Truncate(24 * time.Hour).UTC()
 	maxAge := 365
@@ -543,19 +549,19 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 
 // before is the function all tests should call to ensure no state is carried over
 // from prior tests
-func before(t *testing.T, db *storage.DB) {
-	v, err := db.GetSchemaVersion(context.Background())
+func before(t *testing.T, db *storage.DB, sm *storage.SchemaManager) {
+	v, err := sm.GetSchemaVersion(context.Background())
 	if err != nil { //the migrations mechanism was not initialized yet
-		require.NoError(t, db.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
+		require.NoError(t, sm.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
 		v = testWithSchemaVersion
 	}
 	// wipe the database
 	for version := v; version > storage.EmptySchemaVersion; {
-		version, err = db.MigrateSchemaDown(context.Background())
+		version, err = sm.MigrateSchemaDown(context.Background())
 		assert.NoError(t, err)
 	}
 	// re-create the tables with supported schema
-	assert.NoError(t, db.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
+	assert.NoError(t, sm.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
 	assert.NoError(t, db.GeneratePartition(context.Background(), time.Date(2019, time.August, 1, 0, 0, 0, 0, time.UTC), 0))
 }
 

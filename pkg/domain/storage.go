@@ -6,31 +6,6 @@ import (
 	"time"
 )
 
-// SchemaVersionGetter is used to retrieve the current version of DB schema
-type SchemaVersionGetter interface {
-	GetSchemaVersion(ctx context.Context) (uint, error)
-}
-
-// SchemaVersionForcer is used to force set database schema to specific version after failed migration
-type SchemaVersionForcer interface {
-	ForceSchemaToVersion(ctx context.Context, version uint) error
-}
-
-// SchemaMigratorToVersion is used to migrate database schema to specific version
-type SchemaMigratorToVersion interface {
-	MigrateSchemaToVersion(ctx context.Context, version uint) error
-}
-
-// SchemaMigratorUp is used to migrate database schema to newer version
-type SchemaMigratorUp interface {
-	MigrateSchemaUp(ctx context.Context) (uint, error)
-}
-
-// SchemaMigratorDown is used to migrate database schema to older version
-type SchemaMigratorDown interface {
-	MigrateSchemaDown(ctx context.Context) (uint, error)
-}
-
 // PartitionGenerator is used to generate the next time-based partition
 type PartitionGenerator interface {
 	GeneratePartition(context.Context, time.Time, int) error
