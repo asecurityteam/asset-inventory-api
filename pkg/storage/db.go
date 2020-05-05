@@ -30,37 +30,39 @@ const (
 
 // can't use Sprintf in a const, so...
 // %s should be `aws_hostnames_hostname` or `aws_ips_ip`
-const latestStatusQuery = "WITH latest_candidates AS ( " +
-	"    SELECT " +
-	"        *, " +
-	"        MAX(ts) OVER (PARTITION BY aws_events_ips_hostnames.aws_resources_id) as max_ts " +
-	"    FROM aws_events_ips_hostnames " +
-	"    WHERE " +
-	"        aws_events_ips_hostnames.%s = $1 AND " +
-	"        aws_events_ips_hostnames.ts <= $2 " +
-	"), " +
-	"latest AS ( " +
-	"    SELECT * " +
-	"    FROM latest_candidates " +
-	"    WHERE " +
-	"        latest_candidates.ts = latest_candidates.max_ts AND " +
-	"        latest_candidates.is_join = 'true' " +
-	") " +
-	"SELECT " +
-	"    latest.aws_resources_id, " +
-	"    latest.aws_ips_ip, " +
-	"    latest.aws_hostnames_hostname, " +
-	"    latest.is_public, " +
-	"    latest.is_join, " +
-	"    latest.ts, " +
-	"    aws_resources.account_id, " +
-	"    aws_resources.region, " +
-	"    aws_resources.type, " +
-	"    aws_resources.meta " +
-	"FROM latest " +
-	"    LEFT OUTER JOIN " +
-	"    aws_resources ON " +
-	"        latest.aws_resources_id = aws_resources.id;"
+// nolint
+const latestStatusQuery = `WITH latest_candidates AS (
+	    SELECT
+	        *,
+	        MAX(ts) OVER (PARTITION BY aws_events_ips_hostnames.aws_resources_id) as max_ts
+	    FROM aws_events_ips_hostnames
+	    WHERE
+	        aws_events_ips_hostnames.%s = $1 AND
+	        aws_events_ips_hostnames.ts <= $2
+	),
+	latest AS (
+	    SELECT *
+	    FROM latest_candidates
+	    WHERE
+	        latest_candidates.ts = latest_candidates.max_ts AND
+	        latest_candidates.is_join = 'true'
+	)
+	SELECT
+	    latest.aws_resources_id,
+	    latest.aws_ips_ip,
+	    latest.aws_hostnames_hostname,
+	    latest.is_public,
+	    latest.is_join,
+	    latest.ts,
+	    aws_resources.account_id,
+	    aws_resources.region,
+	    aws_resources.type,
+	    aws_resources.meta
+	FROM latest
+	    LEFT OUTER JOIN
+	    aws_resources ON
+	        latest.aws_resources_id = aws_resources.id;
+`
 
 // Query to find resource by private IP using v2 schema
 // nolint
