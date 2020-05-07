@@ -7,6 +7,6 @@ create table champions(
 
 alter table aws_account
 -- accounts may or may not have champions associated with them, so we may not need to enforce a foreign key restraint
-add column champion_id null unique
+add column champion_id serial null unique
 
 COMMIT;
