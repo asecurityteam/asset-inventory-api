@@ -11,7 +11,8 @@ create table person(
 
 create table champions(
     foreign key(people_id) references person (id),
-    foreign key(aws_account_id) references aws_account (id)
+    foreign key(aws_account_id) references aws_account (id),
+    constraint champ_unique unique(people_id, aws_account_id)
 )
 
 create table aws_accounts_owners(
