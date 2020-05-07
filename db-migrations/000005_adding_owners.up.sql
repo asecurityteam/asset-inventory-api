@@ -1,18 +1,22 @@
 -- schema changes for account owners and champions
 BEGIN;
-create table champions(
+
+create table person(
     id serial primary key,
-    champion varchar not null
+    login varchar not null,
+    email varchar not null,
+    name varchar not null,
+    valid boolean
 )
 
-create table owners(
-    id serial primary key,
-    owner varchar not null,
+create table champions(
+    foreign key(people_id) references person (id),
     foreign key(aws_account_id) references aws_account (id)
 )
 
-alter table aws_account
--- accounts may or may not have champions associated with them, so we may not need to enforce a foreign key restraint
-add column champion_id serial null unique
+create table owner(
+    foreign key(people_id) references person (id),
+    foreign key(aws_account_id) references aws_account (id)
+)
 
 COMMIT;
