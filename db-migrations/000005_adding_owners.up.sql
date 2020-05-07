@@ -3,10 +3,10 @@ BEGIN;
 
 create table person(
     id serial primary key,
-    login varchar not null,
-    email varchar not null,
+    login varchar unique not null,
+    email varchar unique not null,
     name varchar not null,
-    valid boolean
+    valid boolean not null
 )
 
 create table champions(
@@ -14,9 +14,9 @@ create table champions(
     foreign key(aws_account_id) references aws_account (id)
 )
 
-create table owner(
+create table aws_accounts_owners(
     foreign key(people_id) references person (id),
-    foreign key(aws_account_id) references aws_account (id)
+    foreign key(aws_account_id) references aws_account (id) unique
 )
 
 COMMIT;
