@@ -2,7 +2,7 @@
 BEGIN;
 create table champions(
     id serial primary key,
-    champion varchar not null,
+    champion varchar not null
 )
 
 alter table aws_account
