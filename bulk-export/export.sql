@@ -1,3 +1,16 @@
+/*
+JSON spec:
+type CloudAssetDetails struct {
+	PrivateIPAddresses []string          `json:"privateIpAddresses"`
+	PublicIPAddresses  []string          `json:"publicIpAddresses"`
+	Hostnames          []string          `json:"hostnames"`
+	ResourceType       string            `json:"resourceType"`
+	AccountID          string            `json:"accountId"`
+	Region             string            `json:"region"`
+	ARN                string            `json:"arn"`
+	Tags               map[string]string `json:"tags"`
+}
+*/
 select array_to_json(
                array_agg(
                        row_to_json(res_assigned_joined)
@@ -6,12 +19,12 @@ select array_to_json(
 from (
          select res_assigned.id,
                 res_assigned.arn,
-                res_assigned.private_ips,
-                res_assigned.public_ips,
+                res_assigned.private_ips as privateIpAddresses,
+                res_assigned.public_ips as publicIpAddresses,
                 res_assigned.hostnames,
-                aws_account.account,
+                aws_account.account as accountId,
                 aws_region.region,
-                aws_resource_type.resource_type,
+                aws_resource_type.resource_type as resourceType,
                 res_assigned.metadata
          from (select ar.id                            as id,
                       ar.arn_id                        as arn,
