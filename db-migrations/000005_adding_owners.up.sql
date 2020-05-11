@@ -10,15 +10,19 @@ create table person(
 );
 
 create table account_champion(
+    person_id serial,
+    aws_account_id integer,
     foreign key(person_id) references person (id),
     foreign key(aws_account_id) references aws_account (id),
-    constraint account_champ_unique unique(person_id, aws_account_id)
+    unique(person_id, aws_account_id)
 );
 
 create table account_owner(
+    person_id serial,
+    aws_account_id integer,
     foreign key(person_id) references person (id),
     foreign key(aws_account_id) references aws_account (id),
-    constraint account_unique unique (aws_account_id)
+    unique (aws_account_id)
 );
 
 COMMIT;
