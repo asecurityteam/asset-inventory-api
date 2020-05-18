@@ -77,3 +77,8 @@ type EventExportHandler interface {
 type BackFillSchemaRunner interface {
 	BackFillEventsLocally(ctx context.Context, from time.Time, to time.Time) error
 }
+
+// AccountOwnerStorer interface provides functions for updating account owner and champions
+type AccountOwnerStorer interface {
+	Store(context.Context, AccountOwner) error
+}

@@ -1060,3 +1060,84 @@ order by ae.ts asc
 	}
 	return nil
 }
+
+// AccountOwnerStorer is an implementation of AccountOwnerStorer interface that saves account ID, its owner and champions of the account to a database
+func (db *DB) AccountOwnerStorer(ctx context.Context, accountOwner domain.AccountOwner) error {
+
+	tx, err := db.sqldb.Begin()
+	if err != nil {
+		return err
+	}
+
+	err = db.storeAccountOwner(ctx, accountOwner, tx)
+
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
+		}
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.AccountOwner, tx *sql.Tx) error {
+
+	sqlStatement := fmt.Sprintf(`REPLACE INTO aws_account (account) VALUES($1)`) // nolint
+	if _, error := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error != nil {
+		return error
+	}
+
+	sqlStatement = fmt.Sprintf(`IF EXISTS(SELECT * from person WHERE login=$1)
+									 UPDATE person SET email=$2, name=$3, valid=$4
+								ELSE
+									INSERT INTO person(login, email, name, valid) VALUES($1, $2, $3, $4)`) // nolint
+	if _, error1 := tx.ExecContext(ctx, sqlStatement, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); error1 != nil {
+		return error1
+	}
+
+	sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
+	row, err := tx.QueryContext(ctx, sqlStatement, accountOwner.Owner.Login)
+	if err != nil {
+		return err
+	}
+	var id int
+	if err := row.Scan(&id); err != nil {
+		return err
+	}
+
+	sqlStatement = fmt.Sprintf(`IF EXISTS(SELECT * from account_owner WHERE aws_account_id=$1)
+										 UPDATE account_owner SET person_id=$1
+								ELSE
+									INSERT INTO account_owner(person_id, aws_account_id) VALUES(%d, $1)`, id)
+	if _, error2 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error2 != nil {
+		return error2
+	}
+
+	sqlStatement = fmt.Sprintf(`DELETE FROM account_champion WHERE aws_account_id=$1`) // nolint
+	if _, error3 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error3 != nil {
+		return error3
+	}
+	if len(accountOwner.Champions) > 0 {
+		for _, person := range accountOwner.Champions {
+			var id int
+			sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
+			row, err := tx.QueryContext(ctx, sqlStatement, person.Login)
+			if err != nil {
+				return err
+			}
+			if err := row.Scan(&id); err != nil {
+				return err
+			}
+			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES(%d, $1)`, id) // nolint
+			if _, error4 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error4 != nil {
+				return error4
+			}
+		}
+	}
+
+	return nil
+}
