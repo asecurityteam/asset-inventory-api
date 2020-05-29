@@ -158,15 +158,15 @@ type DB struct {
 }
 
 var privateIPNetworks = []net.IPNet{
-	net.IPNet{
+	{
 		IP:   net.IPv4(192, 168, 1, 0),
 		Mask: net.IPv4Mask(255, 255, 0, 0),
 	},
-	net.IPNet{
+	{
 		IP:   net.IPv4(172, 16, 0, 0),
 		Mask: net.IPv4Mask(255, 240, 0, 0),
 	},
-	net.IPNet{
+	{
 		IP:   net.IPv4(10, 0, 0, 0),
 		Mask: net.IPv4Mask(255, 0, 0, 0),
 	},
@@ -400,12 +400,29 @@ func (db *DB) DeletePartitions(ctx context.Context, name string) error {
 
 // Store an implementation of the Storage interface that records to a database
 func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
+	ver, err := db.getSchemaVersion(ctx)
+	if err != nil || ver < DualWritesSchemaVersion { // the deployment pre-dates schema management or has old schema
+		return db.StoreV1(ctx, cloudAssetChanges)
+	}
+	v2err := db.StoreV2(ctx, cloudAssetChanges)
+	if ver < NewSchemaOnlyVersion { // need dual-write
+		err = db.StoreV1(ctx, cloudAssetChanges)
+		if err != nil {
+			if v2err != nil { //both v1 and v2 failed, need to combine
+				return fmt.Errorf("error storing in legacy schema (%v); error storing in new schema (%v)", err, v2err)
+			}
+			return err
+		}
+	}
+	return v2err
+}
 
+// StoreV1 Storage interface implementation that records to database using legacy schema
+func (db *DB) StoreV1(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
 	if err != nil {
 		return err
 	}
-
 	if err = db.saveResource(ctx, cloudAssetChanges, tx); err == nil {
 		for _, val := range cloudAssetChanges.Changes {
 			err = db.recordNetworkChanges(ctx, cloudAssetChanges.ARN, cloudAssetChanges.ChangeTime, val, tx)
@@ -414,7 +431,6 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 			}
 		}
 	}
-
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
@@ -424,11 +440,7 @@ func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChan
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	ver, err := db.getSchemaVersion(ctx)
-	if err != nil || ver < DualWritesSchemaVersion {
-		return nil
-	}
-	return db.StoreV2(ctx, cloudAssetChanges)
+	return nil
 }
 
 // StoreV2 Currently public to allow testing separately.Storage interface implementation that records to a database using new schema, to replace Store in the future.

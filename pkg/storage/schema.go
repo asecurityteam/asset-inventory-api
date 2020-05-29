@@ -28,6 +28,8 @@ const (
 	DualWritesSchemaVersion uint = 3
 	// ReadsFromNewSchemaVersion Lowest version of database schema that supports reads from M1 schema
 	ReadsFromNewSchemaVersion uint = 4
+	// NewSchemaOnlyVersion Lowest version that stops dual-writes in preparation to drop old schema
+	NewSchemaOnlyVersion uint = 6
 )
 
 // SchemaManager is an abstraction layer for manipulating database schema backed by golang/migrate
