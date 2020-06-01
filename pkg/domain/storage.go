@@ -80,5 +80,5 @@ type BackFillSchemaRunner interface {
 
 // AccountOwnerStorer interface provides functions for updating account owner and champions
 type AccountOwnerStorer interface {
-	Store(context.Context, AccountOwner) error
+	StoreAccountOwner(context.Context, AccountOwner) error
 }

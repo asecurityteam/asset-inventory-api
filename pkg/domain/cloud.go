@@ -42,7 +42,7 @@ type AccountOwner struct {
 	Champions []Person
 }
 
-// Person represents details about an Atlassian member
+// Person represents details about a person in Atlassian
 type Person struct {
 	Name  string
 	Login string

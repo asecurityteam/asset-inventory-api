@@ -147,6 +147,29 @@ LIMIT $3
 OFFSET $4
 `
 
+const insertPersonQuery = `
+IF EXISTS(
+	SELECT
+		* from person
+		WHERE login=$1
+	)
+	UPDATE person SET email=$2, name=$3, valid=$4
+	WHERE login=$1
+ ELSE
+	INSERT INTO person(login, email, name, valid) VALUES($1, $2, $3, $4)
+`
+const insertAccountOwnerQuery = `
+IF EXISTS(
+	SELECT
+		* from account_owner
+		WHERE aws_account_id=$1
+	)
+	UPDATE account_owner SET person_id=$1
+	WHERE aws_account_id=$1
+ELSE
+	INSERT INTO account_owner(person_id, aws_account_id) VALUES(%d, $1)
+`
+
 //TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
@@ -1061,8 +1084,8 @@ order by ae.ts asc
 	return nil
 }
 
-// AccountOwnerStorer is an implementation of AccountOwnerStorer interface that saves account ID, its owner and champions of the account to a database
-func (db *DB) AccountOwnerStorer(ctx context.Context, accountOwner domain.AccountOwner) error {
+// StoreAccountOwner is an implementation of AccountOwnerStorer interface that saves account ID, its owner and champions of the account to a database
+func (db *DB) StoreAccountOwner(ctx context.Context, accountOwner domain.AccountOwner) error {
 
 	tx, err := db.sqldb.Begin()
 	if err != nil {
@@ -1091,11 +1114,7 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 		return error
 	}
 
-	sqlStatement = fmt.Sprintf(`IF EXISTS(SELECT * from person WHERE login=$1)
-									 UPDATE person SET email=$2, name=$3, valid=$4
-								ELSE
-									INSERT INTO person(login, email, name, valid) VALUES($1, $2, $3, $4)`) // nolint
-	if _, error1 := tx.ExecContext(ctx, sqlStatement, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); error1 != nil {
+	if _, error1 := tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); error1 != nil {
 		return error1
 	}
 
@@ -1105,14 +1124,12 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 		return err
 	}
 	var id int
+	row.Next()
 	if err := row.Scan(&id); err != nil {
 		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`IF EXISTS(SELECT * from account_owner WHERE aws_account_id=$1)
-										 UPDATE account_owner SET person_id=$1
-								ELSE
-									INSERT INTO account_owner(person_id, aws_account_id) VALUES(%d, $1)`, id)
+	sqlStatement = fmt.Sprintf(insertAccountOwnerQuery, id)
 	if _, error2 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error2 != nil {
 		return error2
 	}
@@ -1123,12 +1140,16 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 	}
 	if len(accountOwner.Champions) > 0 {
 		for _, person := range accountOwner.Champions {
-			var id int
+			if _, error1 := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); error1 != nil {
+				return error1
+			}
 			sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
 			row, err := tx.QueryContext(ctx, sqlStatement, person.Login)
 			if err != nil {
 				return err
 			}
+			var id int
+			row.Next()
 			if err := row.Scan(&id); err != nil {
 				return err
 			}

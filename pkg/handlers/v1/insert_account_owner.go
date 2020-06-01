@@ -52,7 +52,7 @@ func (h *AccountOwnerInsertHandler) Handle(ctx context.Context, input AccountOwn
 		})
 	}
 
-	if e := h.AccountOwnerStorer.Store(ctx, accountOwner); e != nil {
+	if e := h.AccountOwnerStorer.StoreAccountOwner(ctx, accountOwner); e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
 		return e
 	}

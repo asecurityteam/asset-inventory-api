@@ -16,7 +16,7 @@ require (
 	github.com/gobuffalo/genny v0.1.1 // indirect
 	github.com/gobuffalo/gogen v0.1.1 // indirect
 	github.com/golang-migrate/migrate/v4 v4.8.0
-	github.com/golang/mock v1.4.0
+	github.com/golang/mock v1.4.3
 	github.com/justinas/alice v0.0.0-20171023064455-03f45bd4b7da // indirect
 	github.com/karrick/godirwalk v1.10.0 // indirect
 	github.com/lib/pq v1.1.1

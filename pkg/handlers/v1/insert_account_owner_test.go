@@ -43,7 +43,7 @@ func TestInsertAccountOwnerError(t *testing.T) {
 	defer ctrl.Finish()
 
 	storage := NewMockAccountOwnerStorer(ctrl)
-	storage.EXPECT().Store(gomock.Any(), gomock.Any()).Return(errors.New("error"))
+	storage.EXPECT().StoreAccountOwner(gomock.Any(), gomock.Any()).Return(errors.New("error"))
 
 	e := newInsertAccountOwnerHandler(storage).Handle(context.Background(), validInput())
 	assert.NotNil(t, e)
