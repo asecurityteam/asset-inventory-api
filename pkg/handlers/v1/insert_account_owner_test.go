@@ -18,7 +18,7 @@ func newInsertAccountOwnerHandler(storer domain.AccountOwnerStorer) *AccountOwne
 	}
 }
 
-func validInput() AccountOwner {
+func testInsertInput() AccountOwner {
 	return AccountOwner{
 		AccountID: "awsaccountid123",
 		Owner: Person{
@@ -45,6 +45,6 @@ func TestInsertAccountOwnerError(t *testing.T) {
 	storage := NewMockAccountOwnerStorer(ctrl)
 	storage.EXPECT().StoreAccountOwner(gomock.Any(), gomock.Any()).Return(errors.New("error"))
 
-	e := newInsertAccountOwnerHandler(storage).Handle(context.Background(), validInput())
+	e := newInsertAccountOwnerHandler(storage).Handle(context.Background(), testInsertInput())
 	assert.NotNil(t, e)
 }
