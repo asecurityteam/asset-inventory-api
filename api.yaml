@@ -41,7 +41,7 @@ info:
     email: secdev-external@atlassian.com
   license:
     name: Apache 2.0
-    url: 'https://www.apache.org/licenses/LICENSE-2.0.html'
+    url: "https://www.apache.org/licenses/LICENSE-2.0.html"
 paths:
   /healthcheck:
     get:
@@ -59,7 +59,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CloudAssetChanges'
+              $ref: "#/components/schemas/CloudAssetChanges"
       responses:
         201:
           description: "A new entry was created"
@@ -68,7 +68,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
       x-transportd:
         backend: app
         enabled:
@@ -79,7 +79,7 @@ paths:
         lambda:
           arn: "insert"
           async: false
-          request: '#! json .Request.Body !#'
+          request: "#! json .Request.Body !#"
           success: '{"status": 201, "bodyPassthrough": true}'
           error: '{"status":
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
@@ -122,7 +122,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         404:
           description: "The asset is not found"
       x-transportd:
@@ -175,7 +175,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         404:
           description: "The asset is not found"
       x-transportd:
@@ -233,7 +233,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         404:
           description: "The asset is not found"
       x-transportd:
@@ -292,7 +292,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         404:
           description: "The asset is not found"
       x-transportd:
@@ -333,7 +333,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchemaVersion'
+                $ref: "#/components/schemas/SchemaVersion"
       x-transportd:
         backend: app
         enabled:
@@ -356,7 +356,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchemaVersion'
+                $ref: "#/components/schemas/SchemaVersion"
       x-transportd:
         backend: app
         enabled:
@@ -378,7 +378,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SchemaVersion'
+              $ref: "#/components/schemas/SchemaVersion"
       responses:
         201:
           description: "Completed successfully"
@@ -387,7 +387,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
       x-transportd:
         backend: app
         enabled:
@@ -398,7 +398,7 @@ paths:
         lambda:
           arn: "forceSchemaVersion"
           async: false
-          request: '#! json .Request.Body !#'
+          request: "#! json .Request.Body !#"
           success: '{"status": 201, "bodyPassthrough": true}'
           error: '{"status":
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
@@ -414,7 +414,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchemaVersion'
+                $ref: "#/components/schemas/SchemaVersion"
       x-transportd:
         backend: app
         enabled:
@@ -436,7 +436,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreatePartitionInput'
+              $ref: "#/components/schemas/CreatePartitionInput"
       responses:
         204:
           description: "Partition created"
@@ -445,13 +445,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         409:
           description: "Requested partition overlaps with an existing partition"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
       x-transportd:
         backend: app
         enabled:
@@ -462,7 +462,7 @@ paths:
         lambda:
           arn: "createPartition"
           async: false
-          request: '#! json .Request.Body !#'
+          request: "#! json .Request.Body !#"
           success: '{"status": 204}'
           error: >
             {
@@ -484,7 +484,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Partitions'
+                $ref: "#/components/schemas/Partitions"
       x-transportd:
         backend: app
         enabled:
@@ -561,7 +561,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
       x-transportd:
         backend: app
         enabled:
@@ -577,6 +577,40 @@ paths:
               "from": "#!index .Request.Query.from 0!#",
               "to": "#!index .Request.Query.to 0!#"
             }
+          success: '{"status": 201, "bodyPassthrough": true}'
+          error: '{"status":
+            #! if eq .Response.Body.errorType "InvalidInput" !# 400
+            #! else !# 500
+            #! end !#, "bodyPassthrough": true}'
+  /v1/account/owner:
+    post:
+      summary: "Update or insert an AWS account with its owner and account champions"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountOwner"
+      responses:
+        201:
+          description: "An AWS account with its owner and champions are inserted or updated"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "updateAccountOwner"
+          async: false
+          request: "#! json .Request.Body !#"
           success: '{"status": 201, "bodyPassthrough": true}'
           error: '{"status":
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
@@ -717,6 +751,28 @@ components:
       properties:
         version:
           type: integer
+    AccountOwner:
+      type: object
+      properties:
+        acountId:
+          type: string
+        owner:
+          $ref: "#/components/schemas/Person"
+        champions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Person"
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+        login:
+          type: string
+        email:
+          type: string
+        valid:
+          type: boolean
     Error:
       type: object
       properties:

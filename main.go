@@ -122,6 +122,11 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		LogFn:               domain.LoggerFromContext,
 		SchemaVersionForcer: schemaManager,
 	}
+	insertAccountOwner := &v1.AccountOwnerInsertHandler{
+		LogFn:              domain.LoggerFromContext,
+		StatFn:             domain.StatFromContext,
+		AccountOwnerStorer: primaryStorage,
+	}
 
 	handlers := map[string]serverfull.Function{
 		"insert":                     serverfull.NewFunction(insert.Handle),
@@ -137,6 +142,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"schemaVersionStepDown":      serverfull.NewFunction(schemaVersionStepDown.Handle),
 		"backFillLocally":            serverfull.NewFunction(backFillLocally.Handle),
 		"forceSchemaVersion":         serverfull.NewFunction(forceSchemaVersion.Handle),
+		"insertAccountOwner":         serverfull.NewFunction(insertAccountOwner.Handle),
 	}
 
 	fetcher := &serverfull.StaticFetcher{Functions: handlers}
