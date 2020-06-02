@@ -608,7 +608,7 @@ paths:
           - "responsevalidation"
           - "lambda"
         lambda:
-          arn: "updateAccountOwner"
+          arn: "insertAccountOwner"
           async: false
           request: "#! json .Request.Body !#"
           success: '{"status": 201, "bodyPassthrough": true}'
