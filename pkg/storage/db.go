@@ -1109,13 +1109,14 @@ func (db *DB) StoreAccountOwner(ctx context.Context, accountOwner domain.Account
 
 func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.AccountOwner, tx *sql.Tx) error {
 
-	sqlStatement := fmt.Sprintf(`REPLACE INTO aws_account (account) VALUES($1)`) // nolint
-	if _, error := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error != nil {
-		return error
+	sqlStatement := fmt.Sprintf(`REPLACE INTO aws_account (account) VALUES($1)`)
+	var err error
+	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
+		return err
 	}
-
-	if _, error1 := tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); error1 != nil {
-		return error1
+	// Insert or update details of account owner in "person" table
+	if _, err = tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); err != nil {
+		return err
 	}
 
 	sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
@@ -1130,18 +1131,19 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 	}
 
 	sqlStatement = fmt.Sprintf(insertAccountOwnerQuery, id)
-	if _, error2 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error2 != nil {
-		return error2
+	if _, err := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
+		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`DELETE FROM account_champion WHERE aws_account_id=$1`) // nolint
-	if _, error3 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error3 != nil {
-		return error3
+	sqlStatement = fmt.Sprintf(`DELETE FROM account_champion WHERE aws_account_id=$1`)
+	if _, err := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
+		return err
 	}
 	if len(accountOwner.Champions) > 0 {
 		for _, person := range accountOwner.Champions {
-			if _, error1 := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); error1 != nil {
-				return error1
+			// Add champion into "person" table if champion does not exists in "person" table
+			if _, err := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); err != nil {
+				return err
 			}
 			sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
 			row, err := tx.QueryContext(ctx, sqlStatement, person.Login)
@@ -1153,12 +1155,11 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 			if err := row.Scan(&id); err != nil {
 				return err
 			}
-			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES(%d, $1)`, id) // nolint
-			if _, error4 := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); error4 != nil {
-				return error4
+			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES(%d, $1)`, id)
+			if _, err := tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
+				return err
 			}
 		}
 	}
-
 	return nil
 }
