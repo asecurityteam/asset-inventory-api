@@ -1686,7 +1686,7 @@ func TestShouldRollbackOnFailureToINSERTAccountOwner(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectExec("REPLACE INTO").WithArgs("awsaccountid123").WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
 	ctx := context.Background()
@@ -1712,21 +1712,24 @@ func TestShouldINSERTAccountOwner(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectExec("REPLACE INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("IF EXISTS").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
-	rows := sqlmock.NewRows([]string{
-		"id",
-	}).AddRow("001")
-	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(rows)
-	mock.ExpectExec("IF EXISTS").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE FROM").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("IF EXISTS").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
 	row := sqlmock.NewRows([]string{
 		"id",
-	}).AddRow("001")
-
+	}).AddRow('1')
 	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row)
-	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	row2 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("awsaccountid123").WillReturnRows(row2)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE FROM").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row3 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row3)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
 	ctx := context.Background()
@@ -1752,21 +1755,24 @@ func TestGoldenPathINSERTAccountOwner(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectExec("REPLACE INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("IF EXISTS").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
-	rows := sqlmock.NewRows([]string{
-		"id",
-	}).AddRow("001")
-	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(rows)
-	mock.ExpectExec("IF EXISTS").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE FROM").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("IF EXISTS").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
 	row := sqlmock.NewRows([]string{
 		"id",
-	}).AddRow("001")
-
+	}).AddRow('1')
 	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row)
-	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	row2 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("awsaccountid123").WillReturnRows(row2)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE FROM").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row3 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row3)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
 	fakeContext, _ := mockdb.BeginTx(context.Background(), nil)
