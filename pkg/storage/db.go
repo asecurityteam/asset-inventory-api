@@ -1121,11 +1121,10 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`INSERT INTO account_owner VALUES %[1]v, %[2]v
-								ON CONFLICT (aws_account_id) DO
-								UPDATE SET person_id=%[1]v, aws_account_id=%[2]v`,
-		personID, accountID)
-	if _, err := tx.ExecContext(ctx, sqlStatement); err != nil {
+	sqlStatement = `INSERT INTO account_owner
+		VALUES ($1, $2)
+   		ON CONFLICT (aws_account_id) DO UPDATE SET person_id = $1, aws_account_id = $2`
+	if _, err := tx.ExecContext(ctx, sqlStatement, personID, accountID); err != nil {
 		return err
 	}
 
@@ -1145,7 +1144,7 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 			if err := row.Scan(&champID); err != nil {
 				return err
 			}
-			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES(%d, %d) ON CONFLICT DO NOTHING`, champID, accountID)
+			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES (%d, %d) ON CONFLICT DO NOTHING`, champID, accountID)
 			if _, err := tx.ExecContext(ctx, sqlStatement); err != nil {
 				return err
 			}
