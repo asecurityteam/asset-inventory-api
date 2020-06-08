@@ -149,7 +149,7 @@ OFFSET $4
 
 const insertPersonQuery = `
 INSERT INTO person(login, email, name, valid)
-VALUES($1, $2, $3, $4)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT(login) DO UPDATE
 SET email=$2, name=$3, valid=$4;
 `
