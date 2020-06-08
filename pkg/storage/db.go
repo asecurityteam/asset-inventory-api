@@ -147,13 +147,6 @@ LIMIT $3
 OFFSET $4
 `
 
-const insertPersonQuery = `
-INSERT INTO person(login, email, name, valid)
-VALUES($1, $2, $3, $4)
-ON CONFLICT(login) DO UPDATE
-SET email=$2, name=$3, valid=$4;
-`
-
 //TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
@@ -1102,8 +1095,15 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
 		return err
 	}
+
+	sqlStatement = `
+				INSERT INTO person(login, email, name, valid)
+				VALUES($1, $2, $3, $4)
+				ON CONFLICT(login) DO UPDATE
+				SET login=$1, email=$2, name=$3, valid=$4
+				`
 	// Insert or update details of account owner
-	if _, err = tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); err != nil {
+	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); err != nil {
 		return err
 	}
 
@@ -1135,7 +1135,13 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 	if len(accountOwner.Champions) > 0 {
 		for _, person := range accountOwner.Champions {
 			// Add champion into "person" table if champion does not exists in "person" table
-			if _, err := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); err != nil {
+			sqlStatement = `
+				INSERT INTO person(login, email, name, valid)
+				VALUES($1, $2, $3, $4)
+				ON CONFLICT(login) DO UPDATE
+				SET login=$1, email=$2, name=$3, valid=$4
+				`
+			if _, err := tx.ExecContext(ctx, sqlStatement, person.Login, person.Email, person.Name, person.Valid); err != nil {
 				return err
 			}
 
