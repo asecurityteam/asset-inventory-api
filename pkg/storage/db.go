@@ -1093,11 +1093,11 @@ func (db *DB) StoreAccountOwner(ctx context.Context, accountOwner domain.Account
 
 func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.AccountOwner, tx *sql.Tx) error {
 
-	sqlStatement := fmt.Sprintf(`
+	sqlStatement := `
 				INSERT INTO aws_account (account)
 				VALUES ($1)
 				ON CONFLICT DO NOTHING
-				`)
+				`
 	var err error
 	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
 		return err
@@ -1108,34 +1108,37 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`SELECT id FROM person WHERE login=$1`)
+	sqlStatement = `SELECT id FROM person WHERE login=$1`
 	row := tx.QueryRowContext(ctx, sqlStatement, accountOwner.Owner.Login)
 	var personID int
 	if err := row.Scan(&personID); err != nil {
 		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`SELECT id FROM aws_account WHERE account=$1`)
+	sqlStatement = `SELECT id FROM aws_account WHERE account=$1`
 	row = tx.QueryRowContext(ctx, sqlStatement, accountOwner.AccountID)
 	var accountID int
 	if err := row.Scan(&accountID); err != nil {
 		return err
 	}
 
-	sqlStatement = `INSERT INTO account_owner
-		VALUES ($1, $2)
-   		ON CONFLICT (aws_account_id) DO UPDATE SET person_id = $1, aws_account_id = $2`
+	sqlStatement = `
+			INSERT INTO account_owner
+			VALUES ($1, $2)
+			ON CONFLICT (aws_account_id)
+			DO UPDATE SET person_id = $1, aws_account_id = $2
+			`
 	if _, err := tx.ExecContext(ctx, sqlStatement, personID, accountID); err != nil {
 		return err
 	}
 
-	sqlStatement = fmt.Sprintf(`DELETE FROM account_champion WHERE aws_account_id=%d`, accountID)
-	if _, err := tx.ExecContext(ctx, sqlStatement); err != nil {
+	sqlStatement = `DELETE FROM account_champion WHERE aws_account_id=$1`
+	if _, err := tx.ExecContext(ctx, sqlStatement, accountID); err != nil {
 		return err
 	}
 	if len(accountOwner.Champions) > 0 {
 		for _, person := range accountOwner.Champions {
-			// Add champion into "person" table if champion does not exists in "person" table
+			// Add champion to "person" table if champion does not exists in "person" table
 			if _, err := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); err != nil {
 				return err
 			}
@@ -1145,8 +1148,12 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 			if err := row.Scan(&champID); err != nil {
 				return err
 			}
-			sqlStatement = fmt.Sprintf(`INSERT INTO account_champion(person_id, aws_account_id) VALUES (%d, %d) ON CONFLICT DO NOTHING`, champID, accountID)
-			if _, err := tx.ExecContext(ctx, sqlStatement); err != nil {
+			sqlStatement = `
+					INSERT INTO account_champion(person_id, aws_account_id)
+					VALUES ($1, $2)
+					ON CONFLICT DO NOTHING
+					`
+			if _, err := tx.ExecContext(ctx, sqlStatement, champID, accountID); err != nil {
 				return err
 			}
 		}
