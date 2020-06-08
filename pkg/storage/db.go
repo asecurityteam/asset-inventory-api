@@ -1102,6 +1102,13 @@ func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.Account
 	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
 		return err
 	}
+
+	sqlStatement = `
+				INSERT INTO person(login, email, name, valid)
+				VALUES($1, $2, $3, $4)
+				ON CONFLICT(login) DO UPDATE
+				SET login=$1, email=$2, name=$3, valid=$4
+				`
 	// Insert or update details of account owner
 	if _, err = tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); err != nil {
 		return err
