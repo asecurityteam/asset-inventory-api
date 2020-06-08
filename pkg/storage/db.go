@@ -1094,10 +1094,10 @@ func (db *DB) StoreAccountOwner(ctx context.Context, accountOwner domain.Account
 func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.AccountOwner, tx *sql.Tx) error {
 
 	sqlStatement := `
-				INSERT INTO aws_account (account)
-				VALUES ($1)
-				ON CONFLICT DO NOTHING
-				`
+			INSERT INTO aws_account (account)
+			VALUES ($1)
+			ON CONFLICT DO NOTHING
+			`
 	var err error
 	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
 		return err
