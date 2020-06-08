@@ -1627,3 +1627,162 @@ from aws_events_ips_hostnames as ae
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
+
+func fakeAccountOwnerInput() domain.AccountOwner {
+	return domain.AccountOwner{
+		AccountID: "awsaccountid123",
+		Owner: domain.Person{
+			Name:  "john dane",
+			Login: "jdane",
+			Email: "jdane@atlassian.com",
+			Valid: true,
+		},
+		Champions: []domain.Person{
+			{
+				Name:  "john dane",
+				Login: "jdane",
+				Email: "jdane@atlassian.com",
+				Valid: true,
+			},
+		},
+	}
+}
+
+func TestAccountOwnerTxBeginFailure(t *testing.T) {
+	// no panics, in other words
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("could not start transaction"))
+
+	ctx := context.Background()
+
+	if err = thedb.StoreAccountOwner(ctx, fakeAccountOwnerInput()); err == nil {
+		t.Errorf("was expecting an error, but there was none")
+	}
+	assert.Equal(t, "could not start transaction", err.Error())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestShouldRollbackOnFailureToINSERTAccountOwner(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = thedb.StoreAccountOwner(ctx, fakeAccountOwnerInput()); err == nil {
+		t.Errorf("was expecting an error, but there was none")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestShouldINSERTAccountOwner(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row)
+	row2 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("awsaccountid123").WillReturnRows(row2)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE FROM").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row3 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row3)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+
+	if err = thedb.StoreAccountOwner(ctx, fakeAccountOwnerInput()); err != nil {
+		t.Errorf("did not expect error while inserting resources")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGoldenPathINSERTAccountOwner(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO").WithArgs("awsaccountid123").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row)
+	row2 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("awsaccountid123").WillReturnRows(row2)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE FROM").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO").WithArgs("jdane", "jdane@atlassian.com", "john dane", true).WillReturnResult(sqlmock.NewResult(1, 1))
+	row3 := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow('1')
+	mock.ExpectQuery("SELECT").WithArgs("jdane").WillReturnRows(row3)
+	mock.ExpectExec("INSERT INTO").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	ctx := context.Background()
+	fakeContext, _ := mockdb.BeginTx(context.Background(), nil)
+
+	if err = thedb.storeAccountOwner(ctx, fakeAccountOwnerInput(), fakeContext); err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+}

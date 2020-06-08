@@ -147,6 +147,13 @@ LIMIT $3
 OFFSET $4
 `
 
+const insertPersonQuery = `
+INSERT INTO person(login, email, name, valid)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT(login) DO UPDATE
+SET email=$2, name=$3, valid=$4;
+`
+
 //TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
@@ -1056,6 +1063,99 @@ order by ae.ts asc
 		err = handler.Handle(changes)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// StoreAccountOwner is an implementation of AccountOwnerStorer interface that saves account ID, its owner and champions of the account to a database
+func (db *DB) StoreAccountOwner(ctx context.Context, accountOwner domain.AccountOwner) error {
+
+	tx, err := db.sqldb.Begin()
+	if err != nil {
+		return err
+	}
+
+	err = db.storeAccountOwner(ctx, accountOwner, tx)
+
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
+		}
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) storeAccountOwner(ctx context.Context, accountOwner domain.AccountOwner, tx *sql.Tx) error {
+
+	sqlStatement := `
+			INSERT INTO aws_account (account)
+			VALUES ($1)
+			ON CONFLICT DO NOTHING
+			`
+	var err error
+	if _, err = tx.ExecContext(ctx, sqlStatement, accountOwner.AccountID); err != nil {
+		return err
+	}
+
+	// Insert or update details of account owner
+	if _, err = tx.ExecContext(ctx, insertPersonQuery, accountOwner.Owner.Login, accountOwner.Owner.Email, accountOwner.Owner.Name, accountOwner.Owner.Valid); err != nil {
+		return err
+	}
+
+	sqlStatement = `SELECT id FROM person WHERE login=$1`
+	row := tx.QueryRowContext(ctx, sqlStatement, accountOwner.Owner.Login)
+	var personID int
+	if err := row.Scan(&personID); err != nil {
+		return err
+	}
+
+	sqlStatement = `SELECT id FROM aws_account WHERE account=$1`
+	row = tx.QueryRowContext(ctx, sqlStatement, accountOwner.AccountID)
+	var accountID int
+	if err := row.Scan(&accountID); err != nil {
+		return err
+	}
+
+	sqlStatement = `
+			INSERT INTO account_owner
+			VALUES ($1, $2)
+			ON CONFLICT (aws_account_id)
+			DO UPDATE SET person_id = $1, aws_account_id = $2
+			`
+	if _, err := tx.ExecContext(ctx, sqlStatement, personID, accountID); err != nil {
+		return err
+	}
+
+	sqlStatement = `DELETE FROM account_champion WHERE aws_account_id=$1`
+	if _, err := tx.ExecContext(ctx, sqlStatement, accountID); err != nil {
+		return err
+	}
+	if len(accountOwner.Champions) > 0 {
+		for _, person := range accountOwner.Champions {
+			// Add champion to "person" table if champion does not exists in "person" table
+			if _, err := tx.ExecContext(ctx, insertPersonQuery, person.Login, person.Email, person.Name, person.Valid); err != nil {
+				return err
+			}
+
+			row := tx.QueryRowContext(ctx, `SELECT id FROM person WHERE login=$1`, person.Login)
+			var champID int
+			if err := row.Scan(&champID); err != nil {
+				return err
+			}
+			sqlStatement = `
+					INSERT INTO account_champion(person_id, aws_account_id)
+					VALUES ($1, $2)
+					ON CONFLICT DO NOTHING
+					`
+			if _, err := tx.ExecContext(ctx, sqlStatement, champID, accountID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
