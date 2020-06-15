@@ -19,12 +19,12 @@ RUN zip -r -0 /zoneinfo.zip .
 ###################################
 
 FROM scratch
-COPY --from=BUILDER /opt/app .
+COPY --chown=0:0 --from=BUILDER /opt/app .
 # the timezone data:
-COPY --from=CERTS /zoneinfo.zip /
+COPY --chown=0:0 --from=CERTS /zoneinfo.zip /
 # the tls certificates:
-COPY --from=CERTS /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY db-migrations /db-migrations
+COPY --chown=0:0 --from=CERTS /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --chown=0:0 db-migrations /db-migrations
 
 ENV ZONEINFO /zoneinfo.zip
 ENTRYPOINT ["/app"]
