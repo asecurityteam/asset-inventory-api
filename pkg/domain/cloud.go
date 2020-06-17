@@ -33,6 +33,7 @@ type CloudAssetDetails struct {
 	Region             string
 	ARN                string
 	Tags               map[string]string
+	AccountOwner       AccountOwner
 }
 
 // AccountOwner represents an AWS account with its owner and account champions

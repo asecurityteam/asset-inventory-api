@@ -322,7 +322,65 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-
+  /v1/cloud/arnid/{arnid}:
+    get:
+      summary: "Retrieve a cloud asset at a point in time by ARN ID"
+      parameters:
+        - name: "arnid"
+          in: "path"
+          description: "The arn id of the asset"
+          required: true
+          schema:
+            type: "string"
+        - name: "time"
+          in: "query"
+          description: "The point in time details for a given asset"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+      responses:
+        200:
+          description: "List of all assets found with the ARN ID at the given time"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudAssets"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "lambda"
+        lambda:
+          arn: "fetchByArnID"
+          async: false
+          request: >
+            {
+              "arnid": "#!.Request.URL.arnid!#",
+              "time": "#!index .Request.Query.time 0!#"
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
   /ops/pgsql/v1/schema/version/stepUp:
     get:
       summary: "Migrate database schema one version up"
@@ -710,6 +768,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        accountOwner:
+          $ref: "#/components/schemas/AccountOwner"
     Partitions:
       type: object
       properties:
@@ -754,7 +814,7 @@ components:
     AccountOwner:
       type: object
       properties:
-        acountId:
+        accountId:
           type: string
         owner:
           $ref: "#/components/schemas/Person"
