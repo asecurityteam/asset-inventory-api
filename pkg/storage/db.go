@@ -156,13 +156,14 @@ with temp as (
 			left join aws_account aa on ao.aws_account_id = aa.id
 			left join person ow on ao.person_id = ow.id
 			left join account_champion ac on ao.aws_account_id = ac.aws_account_id
-),
+	where ao.aws_account_id = $1
+)
 select t.account,
 		t.login,
 		t.email,
 		t.name,
 		t.valid,
-		p.login.
+		p.login,
 		p.email,
 		p.name,
 		p.valid
@@ -907,8 +908,12 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	for hostname := range tempHostnameMap {
 		asset.Hostnames = append(asset.Hostnames, hostname)
 	}
+	asset.ARN = arnID
 
 	accountOwner, err := db.FetchAccountOwnerByID(ctx, ownerByAccountIDQuery, accountID)
+	if err != nil {
+		return nil, err
+	}
 	asset.AccountOwner = accountOwner
 	cloudAssetDetails = append(cloudAssetDetails, asset)
 

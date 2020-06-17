@@ -367,6 +367,9 @@ func TestExtractOutput(t *testing.T) {
 						Region:             "Region",
 						ARN:                "arn",
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							Champions: make([]domain.Person, 0),
+						},
 					},
 				},
 			},
@@ -392,12 +395,18 @@ func TestExtractOutput(t *testing.T) {
 						PublicIPAddresses:  []string{"1.1.1.1"},
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							Champions: make([]domain.Person, 0),
+						},
 					},
 					{
 						PrivateIPAddresses: []string{"10.2.2.2"},
 						PublicIPAddresses:  []string{"2.2.2.2"},
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							Champions: make([]domain.Person, 0),
+						},
 					},
 				},
 			},
