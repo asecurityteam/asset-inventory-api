@@ -874,7 +874,7 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 		var publicIPAddress sql.NullString
 		var hostname sql.NullString
 		var metaBytes []byte
-		if err := rows.Scan(&privateIPAddress, &publicIPAddress, &hostname, &asset.ResourceType, &asset.AccountID, &asset.Region, &metaBytes, &accountID); err != nil {
+		if err = rows.Scan(&privateIPAddress, &publicIPAddress, &hostname, &asset.ResourceType, &asset.AccountID, &asset.Region, &metaBytes, &accountID); err != nil {
 			return nil, err
 		}
 
@@ -888,7 +888,7 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 			}
 		}
 
-		if metaBytes != nil && hasTag == false {
+		if metaBytes != nil && !hasTag {
 			var i map[string]string
 			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
 			asset.Tags = i

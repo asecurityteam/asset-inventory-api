@@ -745,7 +745,7 @@ func TestGetARNIDAtTime(t *testing.T) {
 
 	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	arnID := "arnid"
+	const arnID = "arnid"
 
 	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
 		"aws_public_ip_assignment_public_ip",

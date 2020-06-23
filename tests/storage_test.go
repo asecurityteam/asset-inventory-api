@@ -96,7 +96,19 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 
 	assert.Equal(t, 1, len(networkChangeEvents))
 
-	expected := []domain.CloudAssetDetails{{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}} // nolint
+	expected := []domain.CloudAssetDetails{
+		domain.CloudAssetDetails{ //nolint
+			nil,
+			[]string{"88.77.66.55"},
+			[]string{"yahoo.com"},
+			"rtype",
+			"aid",
+			"region",
+			"arn",
+			nil,
+			domain.AccountOwner{},
+		},
+	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
 

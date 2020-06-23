@@ -13,7 +13,6 @@ type CloudAssetChanges struct {
 	Region       string
 	ARN          string
 	Tags         map[string]string
-	AccountOwner AccountOwner
 }
 
 // NetworkChanges represent changes to an asset's IP addresses or associated host names
