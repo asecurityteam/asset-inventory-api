@@ -144,6 +144,7 @@ where res.arn_id = $1
 		and (pria.not_after is null or pria.not_after > $2)
 `
 
+// Query to find owner and champions by account ID, which is auto-increment primary key
 const ownerByAccountIDQuery = `
 with temp as (
 	select aa.account,
@@ -914,7 +915,27 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	if err != nil {
 		return nil, err
 	}
-	asset.AccountOwner = accountOwner
+	asset.AccountOwner = domain.AccountOwner{
+		AccountID: accountOwner.AccountID,
+		Owner: domain.Person{
+			Name:  accountOwner.Owner.Name,
+			Login: accountOwner.Owner.Login,
+			Email: accountOwner.Owner.Email,
+			Valid: accountOwner.Owner.Valid,
+		},
+		Champions: make([]domain.Person, 0),
+	}
+
+	for _, p := range accountOwner.Champions {
+		champion := domain.Person{
+			Name:  p.Name,
+			Login: p.Login,
+			Email: p.Email,
+			Valid: p.Valid,
+		}
+		asset.AccountOwner.Champions = append(asset.AccountOwner.Champions, champion)
+	}
+
 	cloudAssetDetails = append(cloudAssetDetails, asset)
 
 	return cloudAssetDetails, err
@@ -954,7 +975,7 @@ func (db *DB) FetchAccountOwnerByID(ctx context.Context, query string, accountID
 	if err = rows.Err(); err != nil {
 		return domain.AccountOwner{}, err
 	}
-
+	account.Champions = champions
 	return account, nil
 }
 

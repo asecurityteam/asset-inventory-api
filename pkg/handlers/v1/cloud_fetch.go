@@ -336,11 +336,19 @@ func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {
 		if len(tags) == 0 {
 			tags = make(map[string]string)
 		}
-		owner := asset.AccountOwner
+		owner := domain.AccountOwner{
+			AccountID: asset.AccountOwner.AccountID,
+			Owner: domain.Person{
+				Name:  asset.AccountOwner.Owner.Name,
+				Login: asset.AccountOwner.Owner.Login,
+				Email: asset.AccountOwner.Owner.Email,
+				Valid: asset.AccountOwner.Owner.Valid,
+			},
+			Champions: asset.AccountOwner.Champions,
+		}
 		if len(owner.Champions) == 0 {
 			owner.Champions = make([]domain.Person, 0)
 		}
-
 		cloudAssets.Assets[i] = CloudAssetDetails{
 			PrivateIPAddresses: privateIPAddresses,
 			PublicIPAddresses:  publicIPAddresses,
