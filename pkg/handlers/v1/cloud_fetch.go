@@ -226,14 +226,14 @@ type CloudAssetFetchByARNIDParameters struct {
 	Timestamp string `json:"time"`
 }
 
-// CloudFetchByARNIDHandler defines a lambda handler for fetching cloud assets with a given ARN ID
+// CloudFetchByARNIDHandler defines a lambda handler for fetching cloud assets, account owner and champions with a given ARN ID
 type CloudFetchByARNIDHandler struct {
 	LogFn   domain.LogFn
 	StatFn  domain.StatFn
 	Fetcher domain.CloudAssetByARNIDFetcher
 }
 
-// Handle handles fetching cloud assets by ARN ID
+// Handle handles fetching cloud assets, account owner and champions by ARN ID
 func (h *CloudFetchByARNIDHandler) Handle(ctx context.Context, input CloudAssetFetchByARNIDParameters) (CloudAssets, error) {
 	logger := h.LogFn(ctx)
 
