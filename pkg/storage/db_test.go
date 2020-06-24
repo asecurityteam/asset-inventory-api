@@ -888,34 +888,35 @@ func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
-	assert.Equal(t, 1, len(results))
-	assert.Equal(t, domain.CloudAssetDetails{
-		PrivateIPAddresses: []string{"172.16.3.3"},
-		PublicIPAddresses:  []string{"44.33.22.11", "9.8.7.6"},
-		Hostnames:          []string{"yahoo.com"},
-		ResourceType:       "type",
-		AccountID:          "aid",
-		Region:             "region",
-		ARN:                "arnid",
-		Tags:               map[string]string{"hi": "there3"},
-		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
-			Owner: domain.Person{
-				Name:  "name",
-				Login: "login",
-				Email: "email@atlassian.com",
-				Valid: true,
-			},
-			Champions: []domain.Person{
-				{
-					Name:  "name2",
-					Login: "login2",
-					Email: "email2@atlassian.com",
+	assertArrayEqualIgnoreOrder(t, []domain.CloudAssetDetails{
+		{
+			PrivateIPAddresses: []string{"172.16.3.3"},
+			PublicIPAddresses:  []string{"44.33.22.11", "9.8.7.6"},
+			Hostnames:          []string{"yahoo.com"},
+			ResourceType:       "type",
+			AccountID:          "aid",
+			Region:             "region",
+			ARN:                "arnid",
+			Tags:               map[string]string{"hi": "there3"},
+			AccountOwner: domain.AccountOwner{
+				AccountID: "aid",
+				Owner: domain.Person{
+					Name:  "name",
+					Login: "login",
+					Email: "email@atlassian.com",
 					Valid: true,
+				},
+				Champions: []domain.Person{
+					{
+						Name:  "name2",
+						Login: "login2",
+						Email: "email2@atlassian.com",
+						Valid: true,
+					},
 				},
 			},
 		},
-	}, results[0])
+	}, results)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
