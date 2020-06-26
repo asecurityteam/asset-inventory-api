@@ -25,10 +25,10 @@ from (
                 aws_account.account as accountId,
                 aws_region.region,
                 aws_resource_type.resource_type as resourceType,
-                res_assigned.metadata
+                res_assigned.tags
          from (select ar.id                            as id,
                       ar.arn_id                        as arn,
-                      ar.meta                          as metadata,
+                      ar.meta                          as tags,
                       ar.aws_account_id                as account_id,
                       ar.aws_region_id                 as region_id,
                       ar.aws_resource_type_id          as type_id,
