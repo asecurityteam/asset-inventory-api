@@ -1608,11 +1608,22 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	equalityCount := 0
 	for _, expectedVal := range expected {
 		for _, actualVal := range actual {
+			expectedValCopy := expectedVal
+			actualValCopy := actualVal
+			if compareArray(expectedVal.PublicIPAddresses, actualVal.PublicIPAddresses) &&
+				compareArray(expectedVal.PrivateIPAddresses, actualVal.PrivateIPAddresses) &&
+				compareArray(expectedVal.Hostnames, actualVal.Hostnames) {
+				expectedValCopy.PublicIPAddresses = []string{}
+				expectedValCopy.PrivateIPAddresses = []string{}
+				expectedValCopy.PrivateIPAddresses = []string{}
+				actualValCopy.PublicIPAddresses = []string{}
+				actualValCopy.PrivateIPAddresses = []string{}
+				actualValCopy.PrivateIPAddresses = []string{}
+			}
+			e, _ := json.Marshal(expectedValCopy)
+			a, _ := json.Marshal(actualValCopy)
 
-			e, _ := json.Marshal(expectedVal)
-			a, _ := json.Marshal(actualVal)
-
-			// likely due to timestamp, DeepEqual(expectedVal, actualVal) would not work, so checking the Marshaled JSON:
+			// likely due to timestamp, DeepEqual(expectedValCopy, actualValCopy) would not work, so checking the Marshaled JSON:
 			if reflect.DeepEqual(e, a) {
 				equalityCount++
 				break
@@ -1622,6 +1633,23 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
+}
+
+func compareArray(expected, actual []string) bool {
+	// brute force
+	if len(expected) != len(actual) {
+		return false
+	}
+	equalityCount := 0
+	for _, expectedVal := range expected {
+		for _, actualVal := range actual {
+			if expectedVal == actualVal {
+				equalityCount++
+				break
+			}
+		}
+	}
+	return len(expected) == equalityCount
 }
 
 func TestStoreV2ErrorEnsureResource(t *testing.T) {

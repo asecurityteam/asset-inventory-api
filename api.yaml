@@ -95,7 +95,7 @@ paths:
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
         - name: "count"
           in: "query"
           description: "Maximum number of matching cloud assets to return per page. 100 by default"
@@ -220,7 +220,7 @@ paths:
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
       responses:
         200:
           description: "List of all assets found with the IP address at the given time"
@@ -279,7 +279,7 @@ paths:
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
       responses:
         200:
           description: "List of all assets found with the hostname at the given time"
@@ -338,7 +338,7 @@ paths:
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
       responses:
         200:
           description: "List of all assets found with the ARN ID at the given time"
@@ -603,14 +603,14 @@ paths:
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
         - name: "to"
           in: "query"
           description: "The point in time to start back-fill from"
           required: true
           schema:
             type: "string"
-            format: "date-time"
+            format: "date-time" # RFC3339Nano format
       responses:
         201:
           description: "Back-fill completed successfully"
