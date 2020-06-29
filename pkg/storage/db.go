@@ -103,7 +103,8 @@ where ia.public_ip = $1
 
 // Query to find resource by hostname using v2 schema
 // nolint
-const resourceByHostnameQuery = `select ia.public_ip,
+const resourceByHostnameQuery = `
+select ia.public_ip,
        ia.aws_hostname,
        res.arn_id,
        res.meta,
@@ -118,6 +119,57 @@ from aws_public_ip_assignment ia
 where ia.aws_hostname = $1
   and ia.not_before < $2
   and (ia.not_after is null or ia.not_after > $2)
+`
+
+// Query to find resource by ARN ID
+const resourceByARNIDQuery = `
+select pria.private_ip,
+		puia.public_ip,
+		puia.aws_hostname,
+	    rt.resource_type,
+	    aa.account,
+	    ar.region,
+		res.meta,
+		res.aws_account_id
+from aws_resource res
+		left join aws_region ar on res.aws_region_id = ar.id
+		left join aws_account aa on res.aws_account_id = aa.id
+		left join aws_resource_type rt on res.aws_resource_type_id = rt.id
+		left join aws_public_ip_assignment puia on res.id = puia.aws_resource_id
+		left join aws_private_ip_assignment pria on res.id = pria.aws_resource_id
+where res.arn_id = $1
+		and puia.not_before < $2
+		and (puia.not_after is null or puia.not_after > $2)
+		and pria.not_before < $2
+		and (pria.not_after is null or pria.not_after > $2)
+`
+
+// Query to find owner and champions by account ID, which is auto-increment primary key
+const ownerByAccountIDQuery = `
+with temp as (
+	select aa.account,
+			ow.login,
+			ow.email,
+			ow.name,
+			ow.valid,
+			ac.person_id
+	from account_owner ao
+			left join aws_account aa on ao.aws_account_id = aa.id
+			left join person ow on ao.person_id = ow.id
+			left join account_champion ac on ao.aws_account_id = ac.aws_account_id
+	where ao.aws_account_id = $1
+)
+select t.account,
+		t.login,
+		t.email,
+		t.name,
+		t.valid,
+		p.login,
+		p.email,
+		p.name,
+		p.valid
+from temp t
+		left join person p on t.person_id = p.id
 `
 
 // This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
@@ -789,6 +841,142 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 	}
 
 	return cloudAssetDetails, nil
+}
+
+// FetchByARNID gets the assets who have ARN ID at the specified time
+func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([]domain.CloudAssetDetails, error) {
+	ver, err := db.getSchemaVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ver < ReadsFromNewSchemaVersion {
+		return nil, nil
+	}
+
+	rows, err := db.sqldb.QueryContext(ctx, resourceByARNIDQuery, arnID, when)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
+
+	tempPublicIPMap := make(map[string]struct{})
+	tempPrivateIPMap := make(map[string]struct{})
+	tempHostnameMap := make(map[string]struct{})
+
+	var asset domain.CloudAssetDetails
+	var accountID int
+	hasTag := false
+	for rows.Next() {
+
+		var privateIPAddress sql.NullString
+		var publicIPAddress sql.NullString
+		var hostname sql.NullString
+		var metaBytes []byte
+		if err = rows.Scan(&privateIPAddress, &publicIPAddress, &hostname, &asset.ResourceType, &asset.AccountID, &asset.Region, &metaBytes, &accountID); err != nil {
+			return nil, err
+		}
+
+		if privateIPAddress.Valid {
+			tempPrivateIPMap[privateIPAddress.String] = struct{}{}
+		}
+		if publicIPAddress.Valid {
+			tempPublicIPMap[publicIPAddress.String] = struct{}{}
+			if hostname.Valid {
+				tempHostnameMap[hostname.String] = struct{}{}
+			}
+		}
+
+		if metaBytes != nil && !hasTag {
+			var i map[string]string
+			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
+			asset.Tags = i
+			hasTag = true
+		}
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for ip := range tempPrivateIPMap {
+		asset.PrivateIPAddresses = append(asset.PrivateIPAddresses, ip)
+	}
+	for ip := range tempPublicIPMap {
+		asset.PublicIPAddresses = append(asset.PublicIPAddresses, ip)
+	}
+	for hostname := range tempHostnameMap {
+		asset.Hostnames = append(asset.Hostnames, hostname)
+	}
+	asset.ARN = arnID
+
+	accountOwner, err := db.FetchAccountOwnerByID(ctx, ownerByAccountIDQuery, accountID)
+	if err != nil {
+		return nil, err
+	}
+	asset.AccountOwner = domain.AccountOwner{
+		AccountID: accountOwner.AccountID,
+		Owner: domain.Person{
+			Name:  accountOwner.Owner.Name,
+			Login: accountOwner.Owner.Login,
+			Email: accountOwner.Owner.Email,
+			Valid: accountOwner.Owner.Valid,
+		},
+		Champions: make([]domain.Person, 0),
+	}
+
+	for _, p := range accountOwner.Champions {
+		champion := domain.Person{
+			Name:  p.Name,
+			Login: p.Login,
+			Email: p.Email,
+			Valid: p.Valid,
+		}
+		asset.AccountOwner.Champions = append(asset.AccountOwner.Champions, champion)
+	}
+
+	cloudAssetDetails = append(cloudAssetDetails, asset)
+
+	return cloudAssetDetails, err
+}
+
+// FetchAccountOwnerByID fetches account owner and champions with account ID
+func (db *DB) FetchAccountOwnerByID(ctx context.Context, query string, accountID int) (domain.AccountOwner, error) {
+
+	rows, err := db.sqldb.QueryContext(ctx, query, accountID)
+
+	if err != nil {
+		return domain.AccountOwner{}, err
+	}
+
+	defer rows.Close()
+
+	champions := make([]domain.Person, 0)
+	var account domain.AccountOwner
+	for rows.Next() {
+		var chLogin string
+		var chEmail string
+		var chName string
+		var chValid bool
+		err = rows.Scan(&account.AccountID, &account.Owner.Login, &account.Owner.Email, &account.Owner.Name, &account.Owner.Valid, &chLogin, &chEmail, &chName, &chValid)
+		if err != nil {
+			return domain.AccountOwner{}, err
+		}
+
+		champions = append(champions, domain.Person{
+			Login: chLogin,
+			Email: chEmail,
+			Name:  chName,
+			Valid: chValid,
+		})
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return domain.AccountOwner{}, err
+	}
+	account.Champions = champions
+	return account, nil
 }
 
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {

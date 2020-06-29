@@ -31,14 +31,15 @@ type PagedCloudAssets struct {
 
 // CloudAssetDetails represent an asset and associated attributes
 type CloudAssetDetails struct {
-	PrivateIPAddresses []string          `json:"privateIpAddresses"`
-	PublicIPAddresses  []string          `json:"publicIpAddresses"`
-	Hostnames          []string          `json:"hostnames"`
-	ResourceType       string            `json:"resourceType"`
-	AccountID          string            `json:"accountId"`
-	Region             string            `json:"region"`
-	ARN                string            `json:"arn"`
-	Tags               map[string]string `json:"tags"`
+	PrivateIPAddresses []string            `json:"privateIpAddresses"`
+	PublicIPAddresses  []string            `json:"publicIpAddresses"`
+	Hostnames          []string            `json:"hostnames"`
+	ResourceType       string              `json:"resourceType"`
+	AccountID          string              `json:"accountId"`
+	Region             string              `json:"region"`
+	ARN                string              `json:"arn"`
+	Tags               map[string]string   `json:"tags"`
+	AccountOwner       domain.AccountOwner `json:"accountOwner"`
 }
 
 // CloudAssetFetchByIPParameters represents the incoming payload for fetching cloud assets by IP address
@@ -219,6 +220,47 @@ func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input Clo
 	return PagedCloudAssets{extractOutput(assets), nextPageToken}, nil
 }
 
+// CloudAssetFetchByARNIDParameters represents the incoming payload for fetching cloud assets by ARN ID
+type CloudAssetFetchByARNIDParameters struct {
+	ARN       string `json:"arnid"`
+	Timestamp string `json:"time"`
+}
+
+// CloudFetchByARNIDHandler defines a lambda handler for fetching cloud assets, account owner and champions with a given ARN ID
+type CloudFetchByARNIDHandler struct {
+	LogFn   domain.LogFn
+	StatFn  domain.StatFn
+	Fetcher domain.CloudAssetByARNIDFetcher
+}
+
+// Handle handles fetching cloud assets, account owner and champions by ARN ID
+func (h *CloudFetchByARNIDHandler) Handle(ctx context.Context, input CloudAssetFetchByARNIDParameters) (CloudAssets, error) {
+	logger := h.LogFn(ctx)
+
+	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
+	if e != nil {
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
+	}
+
+	if input.ARN == "" {
+		e = fmt.Errorf("ARN ID cannot be empty")
+		logger.Info(logs.InvalidInput{Reason: e.Error()})
+		return CloudAssets{}, InvalidInput{Field: "ARN ID", Cause: e}
+	}
+
+	assets, e := h.Fetcher.FetchByARNID(ctx, ts, input.ARN)
+	if e != nil {
+		logger.Error(logs.StorageError{Reason: e.Error()})
+		return CloudAssets{}, e
+	}
+	if len(assets) == 0 {
+		return CloudAssets{}, NotFound{ID: input.ARN}
+	}
+
+	return extractOutput(assets), nil
+}
+
 // CloudFetchAllAssetsByTimePageHandler defines a lambda handler for bulk fetching subsequent pages of cloud assets known at specific point in time
 type CloudFetchAllAssetsByTimePageHandler struct {
 	LogFn   domain.LogFn
@@ -294,7 +336,19 @@ func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {
 		if len(tags) == 0 {
 			tags = make(map[string]string)
 		}
-
+		owner := domain.AccountOwner{
+			AccountID: asset.AccountOwner.AccountID,
+			Owner: domain.Person{
+				Name:  asset.AccountOwner.Owner.Name,
+				Login: asset.AccountOwner.Owner.Login,
+				Email: asset.AccountOwner.Owner.Email,
+				Valid: asset.AccountOwner.Owner.Valid,
+			},
+			Champions: asset.AccountOwner.Champions,
+		}
+		if len(owner.Champions) == 0 {
+			owner.Champions = make([]domain.Person, 0)
+		}
 		cloudAssets.Assets[i] = CloudAssetDetails{
 			PrivateIPAddresses: privateIPAddresses,
 			PublicIPAddresses:  publicIPAddresses,
@@ -304,6 +358,7 @@ func extractOutput(assets []domain.CloudAssetDetails) CloudAssets {
 			Region:             asset.Region,
 			ARN:                asset.ARN,
 			Tags:               tags,
+			AccountOwner:       owner,
 		}
 	}
 	return cloudAssets

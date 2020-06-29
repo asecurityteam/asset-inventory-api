@@ -732,6 +732,303 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 	}
 }
 
+func TestGetARNIDAtTime(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	withSchemaVersion(4, mock)
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	const arnID = "arnid"
+
+	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
+		"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_aws_hostname",
+		"aws_resource_type_resource_type",
+		"aws_account_account",
+		"aws_region_region",
+		"aws_resource_meta",
+		"aws_resource_aws_account_id",
+	}).AddRow("172.16.3.3",
+		"44.33.22.11",
+		"yahoo.com",
+		"type",
+		"aid",
+		"region",
+		[]byte("{\"hi\":\"there3\"}"),
+		1)
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true,
+	)
+	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
+	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	if err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, domain.CloudAssetDetails{
+		PrivateIPAddresses: []string{"172.16.3.3"},
+		PublicIPAddresses:  []string{"44.33.22.11"},
+		Hostnames:          []string{"yahoo.com"},
+		ResourceType:       "type",
+		AccountID:          "aid",
+		Region:             "region",
+		ARN:                "arnid",
+		Tags:               map[string]string{"hi": "there3"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Login: "login",
+				Email: "email@atlassian.com",
+				Name:  "name",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Name:  "name2",
+					Valid: true,
+				},
+			},
+		},
+	}, results[0])
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	withSchemaVersion(4, mock)
+
+	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
+		"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_aws_hostname",
+		"aws_resource_type_resource_type",
+		"aws_account_account",
+		"aws_region_region",
+		"aws_resource_meta",
+		"aws_resource_aws_account_id",
+	}).AddRow("172.16.3.3",
+		"44.33.22.11",
+		"yahoo.com",
+		"type",
+		"aid",
+		"region",
+		[]byte("{\"hi\":\"there3\"}"),
+		1).AddRow("172.16.3.3",
+		"9.8.7.6",
+		"yahoo.com",
+		"type",
+		"aid",
+		"region",
+		[]byte("{\"hi\":\"there3\"}"),
+		1)
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true)
+
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	arnID := "arnid"
+	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
+
+	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	if err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	assertArrayEqualIgnoreOrder(t, []domain.CloudAssetDetails{
+		{
+			PrivateIPAddresses: []string{"172.16.3.3"},
+			PublicIPAddresses:  []string{"44.33.22.11", "9.8.7.6"},
+			Hostnames:          []string{"yahoo.com"},
+			ResourceType:       "type",
+			AccountID:          "aid",
+			Region:             "region",
+			ARN:                "arnid",
+			Tags:               map[string]string{"hi": "there3"},
+			AccountOwner: domain.AccountOwner{
+				AccountID: "aid",
+				Owner: domain.Person{
+					Name:  "name",
+					Login: "login",
+					Email: "email@atlassian.com",
+					Valid: true,
+				},
+				Champions: []domain.Person{
+					{
+						Name:  "name2",
+						Login: "login2",
+						Email: "email2@atlassian.com",
+						Valid: true,
+					},
+				},
+			},
+		},
+	}, results)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	withSchemaVersion(4, mock)
+
+	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
+		"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_aws_hostname",
+		"aws_resource_type_resource_type",
+		"aws_account_account",
+		"aws_region_region",
+		"aws_resource_meta",
+		"aws_resource_aws_account_id",
+	}).AddRow("172.16.3.3",
+		"44.33.22.11",
+		"yahoo.com",
+		"type",
+		"aid",
+		"region",
+		[]byte("{\"hi\":\"there3\"}"),
+		1)
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login3",
+		"email3@atlassian.com",
+		"name3",
+		true)
+
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	arnID := "arnid"
+	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
+
+	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	if err != nil {
+		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, domain.CloudAssetDetails{
+		PrivateIPAddresses: []string{"172.16.3.3"},
+		PublicIPAddresses:  []string{"44.33.22.11"},
+		Hostnames:          []string{"yahoo.com"},
+		ResourceType:       "type",
+		AccountID:          "aid",
+		Region:             "region",
+		ARN:                "arnid",
+		Tags:               map[string]string{"hi": "there3"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Name:  "name",
+				Login: "login",
+				Email: "email@atlassian.com",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Name:  "name2",
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Valid: true,
+				},
+				{
+					Name:  "name3",
+					Login: "login3",
+					Email: "email3@atlassian.com",
+					Valid: true,
+				},
+			},
+		},
+	}, results[0])
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestGeneratePartitionNeedOne(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
@@ -1311,11 +1608,22 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	equalityCount := 0
 	for _, expectedVal := range expected {
 		for _, actualVal := range actual {
+			expectedValCopy := expectedVal
+			actualValCopy := actualVal
+			if compareArray(expectedVal.PublicIPAddresses, actualVal.PublicIPAddresses) &&
+				compareArray(expectedVal.PrivateIPAddresses, actualVal.PrivateIPAddresses) &&
+				compareArray(expectedVal.Hostnames, actualVal.Hostnames) {
+				expectedValCopy.PublicIPAddresses = []string{}
+				expectedValCopy.PrivateIPAddresses = []string{}
+				expectedValCopy.PrivateIPAddresses = []string{}
+				actualValCopy.PublicIPAddresses = []string{}
+				actualValCopy.PrivateIPAddresses = []string{}
+				actualValCopy.PrivateIPAddresses = []string{}
+			}
+			e, _ := json.Marshal(expectedValCopy)
+			a, _ := json.Marshal(actualValCopy)
 
-			e, _ := json.Marshal(expectedVal)
-			a, _ := json.Marshal(actualVal)
-
-			// likely due to timestamp, DeepEqual(expectedVal, actualVal) would not work, so checking the Marshaled JSON:
+			// likely due to timestamp, DeepEqual(expectedValCopy, actualValCopy) would not work, so checking the Marshaled JSON:
 			if reflect.DeepEqual(e, a) {
 				equalityCount++
 				break
@@ -1325,6 +1633,23 @@ func assertArrayEqualIgnoreOrder(t *testing.T, expected, actual []domain.CloudAs
 	expectedJSON, _ := json.Marshal(expected)
 	actualJSON, _ := json.Marshal(actual)
 	assert.Equalf(t, len(expected), equalityCount, "Expected results differ from actual.  Expected: %s  Actual: %s", string(expectedJSON), string(actualJSON))
+}
+
+func compareArray(expected, actual []string) bool {
+	// brute force
+	if len(expected) != len(actual) {
+		return false
+	}
+	equalityCount := 0
+	for _, expectedVal := range expected {
+		for _, actualVal := range actual {
+			if expectedVal == actualVal {
+				equalityCount++
+				break
+			}
+		}
+	}
+	return len(expected) == equalityCount
 }
 
 func TestStoreV2ErrorEnsureResource(t *testing.T) {

@@ -97,7 +97,17 @@ func TestGetStatusByHostnameAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+		domain.CloudAssetDetails{ //nolint
+			nil,
+			[]string{"88.77.66.55"},
+			[]string{"yahoo.com"},
+			"rtype",
+			"aid",
+			"region",
+			"arn",
+			nil,
+			domain.AccountOwner{},
+		},
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -137,9 +147,7 @@ func TestGetStatusByHostnameAtTimestamp2(t *testing.T) {
 
 	assert.Equal(t, 1, len(networkChangeEvents))
 
-	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
-	}
+	expected := []domain.CloudAssetDetails{{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}} // nolint
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
 
@@ -178,8 +186,8 @@ func TestGetStatusByHostnameAtTimestamp3(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
-		{nil, []string{"8.7.6.5"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn2", nil},    // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}, // nolint
+		domain.CloudAssetDetails{nil, []string{"8.7.6.5"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn2", nil, domain.AccountOwner{}},    // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -219,14 +227,14 @@ func TestGetStatusByHostnameAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
 
 }
 
-// TestGetStatusByHostnameAtTimestamp1 test that only one asset has the Hostname at the specified timestamp
+// TestGetStatusByIPAddressAtTimestamp1 test that only one asset has the IP address at the specified timestamp
 func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 
 	before(t, dbStorage, dbSchema)
@@ -251,7 +259,7 @@ func TestGetStatusByIPAddressAtTimestamp1(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -292,7 +300,7 @@ func TestGetStatusByIPAddressAtTimestamp2(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -331,8 +339,8 @@ func TestGetStatusByIPAddressAtTimestamp3(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil},  // nolint
-		{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}},  // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil, domain.AccountOwner{}}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -371,7 +379,7 @@ func TestGetStatusByIPAddressAtTimestamp4(t *testing.T) {
 	assert.Equal(t, 1, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}}, // nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)
@@ -424,8 +432,8 @@ func TestGetStatusByIPAddressAtTimestamp5(t *testing.T) {
 	assert.Equal(t, 2, len(networkChangeEvents))
 
 	expected := []domain.CloudAssetDetails{
-		{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil},  // nolint
-		{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil}, // nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"yahoo.com"}, "rtype", "aid", "region", "arn", nil, domain.AccountOwner{}},  //nolint
+		domain.CloudAssetDetails{nil, []string{"88.77.66.55"}, []string{"blarg.com"}, "rtype", "aid", "region", "arn2", nil, domain.AccountOwner{}}, //nolint
 	}
 
 	assertArrayEqualIgnoreOrder(t, expected, networkChangeEvents)

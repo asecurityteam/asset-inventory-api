@@ -23,7 +23,7 @@ type NetworkChanges struct {
 	ChangeType         string
 }
 
-// CloudAssetDetails represent an asset and associated metadata
+// CloudAssetDetails represent an asset, associated metadata, account owner and champions.
 type CloudAssetDetails struct {
 	PrivateIPAddresses []string
 	PublicIPAddresses  []string
@@ -33,6 +33,7 @@ type CloudAssetDetails struct {
 	Region             string
 	ARN                string
 	Tags               map[string]string
+	AccountOwner       AccountOwner // AccountOwner has account owner and champion(s)
 }
 
 // AccountOwner represents an AWS account with its owner and account champions

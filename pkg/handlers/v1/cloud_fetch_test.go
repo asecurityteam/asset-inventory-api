@@ -32,6 +32,14 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 	}
 }
 
+func newFetchByARNIDHandler(fetcher domain.CloudAssetByARNIDFetcher) *CloudFetchByARNIDHandler {
+	return &CloudFetchByARNIDHandler{
+		LogFn:   testLogFn,
+		StatFn:  testStatFn,
+		Fetcher: fetcher,
+	}
+}
+
 func newCloudFetchAllAssetsByTimeHandler(fetcher domain.CloudAllAssetsByTimeFetcher) *CloudFetchAllAssetsByTimeHandler {
 	return &CloudFetchAllAssetsByTimeHandler{
 		LogFn:   testLogFn,
@@ -58,6 +66,13 @@ func validFetchByIPInput() CloudAssetFetchByIPParameters {
 func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 	return CloudAssetFetchByHostnameParameters{
 		Hostname:  "hostname",
+		Timestamp: time.Now().Format(time.RFC3339Nano),
+	}
+}
+
+func validFetchByARNIDInput() CloudAssetFetchByARNIDParameters {
+	return CloudAssetFetchByARNIDParameters{
+		ARN:       "arnid",
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 	}
 }
@@ -335,6 +350,94 @@ func TestFetchByHostnameSuccess(t *testing.T) {
 	assert.NotNil(t, asset)
 }
 
+func TestFetchByARNIDInvalidInput(t *testing.T) {
+	tc := []struct {
+		name  string
+		input CloudAssetFetchByARNIDParameters
+	}{
+		{
+			name:  "empty timestamp",
+			input: CloudAssetFetchByARNIDParameters{Timestamp: ""},
+		},
+		{
+			name:  "invalid timestamp",
+			input: CloudAssetFetchByARNIDParameters{Timestamp: "foo"},
+		},
+		{
+			name:  "no ARN ID",
+			input: CloudAssetFetchByARNIDParameters{Timestamp: time.Now().Format(time.RFC3339Nano)},
+		},
+	}
+
+	for _, tt := range tc {
+		tt := tt
+		t.Run(tt.name, func(*testing.T) {
+			_, e := newFetchByARNIDHandler(nil).Handle(context.Background(), tt.input)
+			assert.NotNil(t, e)
+
+			_, ok := e.(InvalidInput)
+			assert.True(t, ok)
+		})
+	}
+}
+
+func TestFetchByARNIDNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
+	input := validFetchByARNIDInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return([]domain.CloudAssetDetails{}, nil)
+
+	_, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+}
+
+func TestFetchByARNIDStorageError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
+	input := validFetchByARNIDInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return([]domain.CloudAssetDetails{}, errors.New(""))
+
+	_, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+}
+
+func TestFetchByARNIDSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
+	input := validFetchByARNIDInput()
+	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
+	output := []domain.CloudAssetDetails{
+		{
+			PrivateIPAddresses: []string{"10.2.3.4"},
+			PublicIPAddresses:  []string{"1.2.3.4"},
+			Hostnames:          []string{"foo"},
+			ARN:                "arnid",
+			AccountOwner: domain.AccountOwner{
+				AccountID: "abc123",
+				Owner: domain.Person{
+					Name:  "fake name",
+					Login: "fake",
+					Email: "fake@atlassian.com",
+					Valid: true,
+				},
+			},
+		},
+	}
+	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return(output, nil)
+
+	asset, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	assert.Nil(t, e)
+	assert.NotNil(t, asset)
+}
+
 func TestExtractOutput(t *testing.T) {
 	tc := []struct {
 		name     string
@@ -354,6 +457,15 @@ func TestExtractOutput(t *testing.T) {
 					AccountID:    "accountId",
 					Region:       "Region",
 					ARN:          "arn",
+					AccountOwner: domain.AccountOwner{
+						AccountID: "accountID",
+						Owner: domain.Person{
+							Name:  "name",
+							Login: "login",
+							Email: "email@atlassian.com",
+							Valid: false,
+						},
+					},
 				},
 			},
 			expected: CloudAssets{
@@ -367,6 +479,16 @@ func TestExtractOutput(t *testing.T) {
 						Region:             "Region",
 						ARN:                "arn",
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							AccountID: "accountID",
+							Owner: domain.Person{
+								Name:  "name",
+								Login: "login",
+								Email: "email@atlassian.com",
+								Valid: false,
+							},
+							Champions: make([]domain.Person, 0),
+						},
 					},
 				},
 			},
@@ -378,11 +500,57 @@ func TestExtractOutput(t *testing.T) {
 					Hostnames:          []string{"hostname"},
 					PublicIPAddresses:  []string{"1.1.1.1"},
 					PrivateIPAddresses: []string{"10.1.1.1"},
+					AccountOwner: domain.AccountOwner{
+						AccountID: "accountID",
+						Owner: domain.Person{
+							Name:  "name",
+							Login: "login",
+							Email: "email@atlassian.com",
+							Valid: true,
+						},
+						Champions: []domain.Person{
+							{
+								Name:  "name",
+								Login: "login",
+								Email: "email@atlassian.com",
+								Valid: true,
+							},
+							{
+								Name:  "name2",
+								Login: "login2",
+								Email: "email2@atlassian.com",
+								Valid: true,
+							},
+						},
+					},
 				},
 				{
 					Hostnames:          []string{"hostname"},
 					PublicIPAddresses:  []string{"2.2.2.2"},
 					PrivateIPAddresses: []string{"10.2.2.2"},
+					AccountOwner: domain.AccountOwner{
+						AccountID: "accountID2",
+						Owner: domain.Person{
+							Name:  "name",
+							Login: "login",
+							Email: "email@atlassian.com",
+							Valid: true,
+						},
+						Champions: []domain.Person{
+							{
+								Name:  "name",
+								Login: "login",
+								Email: "email@atlassian.com",
+								Valid: true,
+							},
+							{
+								Name:  "name2",
+								Login: "login2",
+								Email: "email2@atlassian.com",
+								Valid: true,
+							},
+						},
+					},
 				},
 			},
 			expected: CloudAssets{
@@ -392,12 +560,58 @@ func TestExtractOutput(t *testing.T) {
 						PublicIPAddresses:  []string{"1.1.1.1"},
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							AccountID: "accountID",
+							Owner: domain.Person{
+								Name:  "name",
+								Login: "login",
+								Email: "email@atlassian.com",
+								Valid: true,
+							},
+							Champions: []domain.Person{
+								{
+									Name:  "name",
+									Login: "login",
+									Email: "email@atlassian.com",
+									Valid: true,
+								},
+								{
+									Name:  "name2",
+									Login: "login2",
+									Email: "email2@atlassian.com",
+									Valid: true,
+								},
+							},
+						},
 					},
 					{
 						PrivateIPAddresses: []string{"10.2.2.2"},
 						PublicIPAddresses:  []string{"2.2.2.2"},
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
+						AccountOwner: domain.AccountOwner{
+							AccountID: "accountID2",
+							Owner: domain.Person{
+								Name:  "name",
+								Login: "login",
+								Email: "email@atlassian.com",
+								Valid: true,
+							},
+							Champions: []domain.Person{
+								{
+									Name:  "name",
+									Login: "login",
+									Email: "email@atlassian.com",
+									Valid: true,
+								},
+								{
+									Name:  "name2",
+									Login: "login2",
+									Email: "email2@atlassian.com",
+									Valid: true,
+								},
+							},
+						},
 					},
 				},
 			},
