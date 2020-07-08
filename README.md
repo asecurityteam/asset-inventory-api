@@ -67,6 +67,11 @@ building and testing a bit easier. The following actions are available through t
 
     Run unit tests and generate a coverage artifact
 
+-   make update-test-data
+    
+    Generate data.sql and schema.sql under `tests/test-data` with most recent schema and data
+    from postgres image running locally. Use this option when there is schema changes. 
+
 -   make integration
 
     Run integration tests and generate a coverage artifact

@@ -40,6 +40,9 @@ services:
       - "POSTGRES_DB=assetmgmt"
       - "PGDATA=/var/lib/postgresql/data/pgdata11"
       - "POSTGRES_PORT=5432"
+    volumes:
+      - ./tests/test-data/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./tests/test-data/data.sql:/docker-entrypoint-initdb.d/2-data.sql
     command:
       - "postgres"
       - "-c"
