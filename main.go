@@ -15,6 +15,8 @@ import (
 	"github.com/asecurityteam/settings"
 )
 
+// testing
+
 type config struct {
 	PostgresConfig *storage.PostgresConfig
 }
