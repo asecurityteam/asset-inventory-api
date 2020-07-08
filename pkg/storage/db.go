@@ -770,13 +770,13 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 	defer rows.Close()
 	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
 	tempMap := make(map[string]*domain.CloudAssetDetails)
-	var accountID int
 	for rows.Next() {
 		var row domain.CloudAssetDetails
 
 		var metaBytes []byte
 		var hostname sql.NullString
 		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
+		var accountID int
 
 		if isPrivateIP {
 			err = rows.Scan(&ipAddress, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID, &accountID)
@@ -795,6 +795,32 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 		if tempMap[row.ARN] == nil {
 			tempMap[row.ARN] = &row
 		}
+
+		accountOwner, err := db.FetchAccountOwnerByID(ctx, ownerByAccountIDQuery, accountID)
+		if err != nil {
+			return nil, err
+		}
+		tempMap[row.ARN].AccountOwner = domain.AccountOwner{
+			AccountID: accountOwner.AccountID,
+			Owner: domain.Person{
+				Name:  accountOwner.Owner.Name,
+				Login: accountOwner.Owner.Login,
+				Email: accountOwner.Owner.Email,
+				Valid: accountOwner.Owner.Valid,
+			},
+			Champions: make([]domain.Person, 0),
+		}
+
+		for _, p := range accountOwner.Champions {
+			champion := domain.Person{
+				Name:  p.Name,
+				Login: p.Login,
+				Email: p.Email,
+				Valid: p.Valid,
+			}
+			tempMap[row.ARN].AccountOwner.Champions = append(tempMap[row.ARN].AccountOwner.Champions, champion)
+		}
+
 		found := false
 		if hostname.Valid {
 			for _, val := range tempMap[row.ARN].Hostnames {
@@ -836,32 +862,7 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 		return nil, err
 	}
 
-	accountOwner, err := db.FetchAccountOwnerByID(ctx, ownerByAccountIDQuery, accountID)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, val := range tempMap {
-		val.AccountOwner = domain.AccountOwner{
-			AccountID: accountOwner.AccountID,
-			Owner: domain.Person{
-				Name:  accountOwner.Owner.Name,
-				Login: accountOwner.Owner.Login,
-				Email: accountOwner.Owner.Email,
-				Valid: accountOwner.Owner.Valid,
-			},
-			Champions: make([]domain.Person, 0),
-		}
-
-		for _, p := range accountOwner.Champions {
-			champion := domain.Person{
-				Name:  p.Name,
-				Login: p.Login,
-				Email: p.Email,
-				Valid: p.Valid,
-			}
-			val.AccountOwner.Champions = append(val.AccountOwner.Champions, champion)
-		}
 		cloudAssetDetails = append(cloudAssetDetails, *val)
 	}
 
