@@ -319,13 +319,35 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 		"aws_resource_meta",
 		"aws_region_region",
 		"aws_resource_type_resource_type",
-		"aws_account_account"}).AddRow("10.2.2.6",
+		"aws_account_account",
+		"aws_account_id"}).AddRow("10.2.2.6",
 		"rid",
 		[]byte("{\"hi\":\"there1\"}"),
 		"region",
 		"type",
-		"aid")
+		"aid",
+		"1")
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true,
+	)
 	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
@@ -340,6 +362,23 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 		Region:             "region",
 		ARN:                "rid",
 		Tags:               map[string]string{"hi": "there1"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Login: "login",
+				Email: "email@atlassian.com",
+				Name:  "name",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Name:  "name2",
+					Valid: true,
+				},
+			},
+		},
 	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -368,14 +407,36 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 		"aws_resource_meta",
 		"aws_region_region",
 		"aws_resource_type_resource_type",
-		"aws_account_account"}).AddRow("44.33.22.11",
+		"aws_account_account",
+		"aws_account_id"}).AddRow("9.8.7.6",
 		"yahoo.com",
 		"rid",
 		[]byte("{\"hi\":\"there1\"}"),
 		"region",
 		"type",
-		"aid")
+		"aid",
+		"1")
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true,
+	)
 	mock.ExpectQuery("select").WithArgs(ipAddress, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
 
 	results, err := thedb.FetchByIP(context.Background(), at, ipAddress)
 	if err != nil {
@@ -391,6 +452,23 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 		Region:            "region",
 		ARN:               "rid",
 		Tags:              map[string]string{"hi": "there1"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Login: "login",
+				Email: "email@atlassian.com",
+				Name:  "name",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Name:  "name2",
+					Valid: true,
+				},
+			},
+		},
 	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -590,14 +668,36 @@ func TestGetHostnamesAtTimeSchema2(t *testing.T) {
 		"aws_resource_meta",
 		"aws_region_region",
 		"aws_resource_type_resource_type",
-		"aws_account_account"}).AddRow("44.33.22.11",
+		"aws_account_account",
+		"aws_account_id"}).AddRow("44.33.22.11",
 		"yahoo.com",
 		"rid",
 		[]byte("{\"hi\":\"there3\"}"),
 		"region",
 		"type",
-		"aid")
+		"aid",
+		"1")
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true,
+	)
 	mock.ExpectQuery("select").WithArgs(hostname, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
 
 	results, err := thedb.FetchByHostname(context.Background(), at, hostname)
 	if err != nil {
@@ -613,6 +713,23 @@ func TestGetHostnamesAtTimeSchema2(t *testing.T) {
 		Region:            "region",
 		ARN:               "rid",
 		Tags:              map[string]string{"hi": "there3"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Login: "login",
+				Email: "email@atlassian.com",
+				Name:  "name",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Name:  "name2",
+					Valid: true,
+				},
+			},
+		},
 	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -683,32 +800,57 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 		"aws_resource_meta",
 		"aws_region_region",
 		"aws_resource_type_resource_type",
-		"aws_account_account"}).AddRow("44.33.22.11",
+		"aws_account_account",
+		"aws_account_id"}).AddRow("44.33.22.11",
 		"yahoo.com",
 		"rid",
 		[]byte("{\"hi\":\"there3\"}"),
 		"region",
 		"type",
-		"aid").AddRow("9.8.7.6",
+		"aid",
+		"1").AddRow("9.8.7.6",
 		"yahoo.com",
 		"rid",
 		[]byte("{\"hi\":\"there4\"}"),
 		"region",
 		"type",
-		"aid").AddRow("9.8.7.6",
+		"aid",
+		"1").AddRow("9.8.7.6",
 		"yahoo.com",
 		"rid",
 		[]byte("{\"hi\":\"there5\"}"),
 		"region",
 		"type",
-		"aid").AddRow("9.8.7.6",
+		"aid",
+		"1").AddRow("9.8.7.6",
 		nil,
 		"rid",
 		[]byte("{\"hi\":\"there5\"}"),
 		"region",
 		"type",
-		"aid")
+		"aid",
+		"1")
+	rows2 := sqlmock.NewRows([]string{"aws_account_account",
+		"owner_login",
+		"oener_email",
+		"owner_name",
+		"owner_valid",
+		"champion_login",
+		"champion_email",
+		"champion_name",
+		"champion_valid",
+	}).AddRow("aid",
+		"login",
+		"email@atlassian.com",
+		"name",
+		true,
+		"login2",
+		"email2@atlassian.com",
+		"name2",
+		true,
+	)
 	mock.ExpectQuery("select").WithArgs(hostname, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("with").WithArgs(1).WillReturnRows(rows2).RowsWillBeClosed()
 
 	results, err := thedb.FetchByHostname(context.Background(), at, hostname)
 	if err != nil {
@@ -725,6 +867,23 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 		Region:             "region",
 		ARN:                "rid",
 		Tags:               map[string]string{"hi": "there3"},
+		AccountOwner: domain.AccountOwner{
+			AccountID: "aid",
+			Owner: domain.Person{
+				Login: "login",
+				Email: "email@atlassian.com",
+				Name:  "name",
+				Valid: true,
+			},
+			Champions: []domain.Person{
+				{
+					Login: "login2",
+					Email: "email2@atlassian.com",
+					Name:  "name2",
+					Valid: true,
+				},
+			},
+		},
 	}, results[0])
 
 	if err := mock.ExpectationsWereMet(); err != nil {
