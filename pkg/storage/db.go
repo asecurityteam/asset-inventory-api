@@ -71,7 +71,8 @@ const resourceByPrivateIPQuery = `select ia.private_ip,
        res.meta,
        ar.region,
        rt.resource_type,
-       aa.account
+       aa.account,
+	   aa.id
 from aws_private_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
          left join aws_region ar on res.aws_region_id = ar.id
@@ -90,7 +91,8 @@ const resourceByPublicIPQuery = `select ia.public_ip,
        res.meta,
        ar.region,
        rt.resource_type,
-       aa.account
+       aa.account,
+	   aa.id
 from aws_public_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
          left join aws_region ar on res.aws_region_id = ar.id
@@ -110,7 +112,8 @@ select ia.public_ip,
        res.meta,
        ar.region,
        rt.resource_type,
-       aa.account
+       aa.account,
+	   aa.id
 from aws_public_ip_assignment ia
          left join aws_resource res on ia.aws_resource_id = res.id
          left join aws_region ar on res.aws_region_id = ar.id
@@ -764,24 +767,21 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
-
 	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
-
 	tempMap := make(map[string]*domain.CloudAssetDetails)
-
 	for rows.Next() {
 		var row domain.CloudAssetDetails
 
 		var metaBytes []byte
 		var hostname sql.NullString
 		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
+		var accountID int
 
 		if isPrivateIP {
-			err = rows.Scan(&ipAddress, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+			err = rows.Scan(&ipAddress, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID, &accountID)
 		} else {
-			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID)
+			err = rows.Scan(&ipAddress, &hostname, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID, &accountID)
 		}
 		if err != nil {
 			return nil, err
@@ -795,6 +795,32 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 		if tempMap[row.ARN] == nil {
 			tempMap[row.ARN] = &row
 		}
+
+		accountOwner, err := db.FetchAccountOwnerByID(ctx, ownerByAccountIDQuery, accountID)
+		if err != nil {
+			return nil, err
+		}
+		tempMap[row.ARN].AccountOwner = domain.AccountOwner{
+			AccountID: accountOwner.AccountID,
+			Owner: domain.Person{
+				Name:  accountOwner.Owner.Name,
+				Login: accountOwner.Owner.Login,
+				Email: accountOwner.Owner.Email,
+				Valid: accountOwner.Owner.Valid,
+			},
+			Champions: make([]domain.Person, 0),
+		}
+
+		for _, p := range accountOwner.Champions {
+			champion := domain.Person{
+				Name:  p.Name,
+				Login: p.Login,
+				Email: p.Email,
+				Valid: p.Valid,
+			}
+			tempMap[row.ARN].AccountOwner.Champions = append(tempMap[row.ARN].AccountOwner.Champions, champion)
+		}
+
 		found := false
 		if hostname.Valid {
 			for _, val := range tempMap[row.ARN].Hostnames {
