@@ -14,6 +14,11 @@ func TestName(t *testing.T) {
 	assert.Equal(t, "Postgres", postgresConfig.Name())
 }
 
+func TestNewPostgresComponent(t *testing.T) {
+	postgres := NewPostgresComponent()
+	assert.NotNil(t, postgres)
+}
+
 func TestShouldReturnSame(t *testing.T) {
 	postgresConfigComponent := PostgresConfigComponent{}
 	postgresConfig := postgresConfigComponent.Settings()
