@@ -145,6 +145,7 @@ INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_
 INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_resource_type_id, meta) VALUES (1542446, 'i-00000000000000001', 16, 7, 1, NULL);
 INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_resource_type_id, meta) VALUES (1542457, 'i-00000000000000004', 2, 1, 1, NULL);
 INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_resource_type_id, meta) VALUES (1542453, 'i-00000000000000003', 1, 1, 1, NULL);
+INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_resource_type_id, meta) VALUES (1542464, 'i-00000000000000006', 1, 3, 1, NULL);
 
 
 --
@@ -170,6 +171,7 @@ INSERT INTO public.aws_public_ip_assignment (id, not_before, not_after, public_i
 INSERT INTO public.aws_public_ip_assignment (id, not_before, not_after, public_ip, aws_hostname, aws_resource_id) VALUES (213403, '2019-07-25 07:50:27.356', '2019-07-25 08:55:02.726', '3.0.0.4', 'ec2-3-0-0-4.ap-southeast-1.compute.amazonaws.com', 1542446);
 INSERT INTO public.aws_public_ip_assignment (id, not_before, not_after, public_ip, aws_hostname, aws_resource_id) VALUES (213404, '2019-07-25 07:50:27.538', '2019-07-25 08:54:41.318', '3.0.0.3', 'ec2-3-0-0-3.ap-southeast-2.compute.amazonaws.com', 1542449);
 INSERT INTO public.aws_public_ip_assignment (id, not_before, not_after, public_ip, aws_hostname, aws_resource_id) VALUES (213406, '2019-07-25 07:50:30.174', NULL, '3.0.0.2', 'ec2-3-0-0-2.compute-1.amazonaws.com', 1542460);
+INSERT INTO public.aws_public_ip_assignment (id, not_before, not_after, public_ip, aws_hostname, aws_resource_id) VALUES (213407, '2020-07-20 07:50:30.174', NULL, '127.0.0.1', 'ec2-3-0-0-5.compute-1.amazonaws.com', 1542464);
 
 
 --
