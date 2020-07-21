@@ -896,7 +896,7 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	hasTag := false
 	empty := true
 	for rows.Next() {
-		empty = false // there is no way to check for size of SQL resul tset in golang
+		empty = false // there is no way to check for size of SQL result set in golang
 		var privateIPAddress sql.NullString
 		var publicIPAddress sql.NullString
 		var hostname sql.NullString
