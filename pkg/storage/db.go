@@ -888,44 +888,6 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	return cloudAssetDetails, err
 }
 
-// FetchAccountOwnerByID fetches account owner and champions with account ID
-func (db *DB) FetchAccountOwnerByID(ctx context.Context, query string, accountID int) (domain.AccountOwner, error) {
-
-	rows, err := db.sqldb.QueryContext(ctx, query, accountID)
-
-	if err != nil {
-		return domain.AccountOwner{}, err
-	}
-
-	defer rows.Close()
-
-	champions := make([]domain.Person, 0)
-	var account domain.AccountOwner
-	for rows.Next() {
-		var chLogin string
-		var chEmail string
-		var chName string
-		var chValid bool
-		err = rows.Scan(&account.AccountID, &account.Owner.Login, &account.Owner.Email, &account.Owner.Name, &account.Owner.Valid, &chLogin, &chEmail, &chName, &chValid)
-		if err != nil {
-			return domain.AccountOwner{}, err
-		}
-
-		champions = append(champions, domain.Person{
-			Login: chLogin,
-			Email: chEmail,
-			Name:  chName,
-			Valid: chValid,
-		})
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return domain.AccountOwner{}, err
-	}
-	account.Champions = champions
-	return account, nil
-}
-
 func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
