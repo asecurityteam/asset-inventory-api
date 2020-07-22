@@ -1079,6 +1079,38 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 	}
 }
 
+func TestGetByARNIDEmpty(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	thedb := DB{
+		sqldb: mockdb,
+	}
+
+	withSchemaVersion(4, mock)
+	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
+	const arnID = "arnid"
+	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
+		"aws_public_ip_assignment_public_ip",
+		"aws_public_ip_assignment_aws_hostname",
+		"aws_resource_type_resource_type",
+		"aws_account_account",
+		"aws_region_region",
+		"aws_resource_meta",
+		"aws_resource_aws_account_id",
+	})
+
+	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	if err != nil {
+		t.Errorf("error was not expected during lookup: %s", err)
+	}
+	assert.Equal(t, 0, len(results))
+}
+
 func TestGetARNIDAtTime(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {

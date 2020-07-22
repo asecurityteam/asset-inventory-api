@@ -894,8 +894,9 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	var asset domain.CloudAssetDetails
 	var accountID int
 	hasTag := false
+	empty := true
 	for rows.Next() {
-
+		empty = false // there is no way to check for size of SQL result set in golang
 		var privateIPAddress sql.NullString
 		var publicIPAddress sql.NullString
 		var hostname sql.NullString
@@ -924,6 +925,10 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	rows.Close()
 	if err = rows.Err(); err != nil {
 		return nil, err
+	}
+
+	if empty { // we got 0 rows, nothing to process
+		return cloudAssetDetails, nil
 	}
 
 	for ip := range tempPrivateIPMap {
