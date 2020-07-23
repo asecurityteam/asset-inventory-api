@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"testing"
 	"time"
 
@@ -1301,6 +1302,12 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
 
+	actual := results[0]
+
+	sort.SliceStable(actual.AccountOwner.Champions, func(i, j int) bool {
+		return actual.AccountOwner.Champions[i].Name < actual.AccountOwner.Champions[j].Name
+	})
+
 	assert.Equal(t, 1, len(results))
 	assert.Equal(t, domain.CloudAssetDetails{
 		PrivateIPAddresses: []string{"172.16.3.3"},
@@ -1334,7 +1341,7 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 				},
 			},
 		},
-	}, results[0])
+	}, actual)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
