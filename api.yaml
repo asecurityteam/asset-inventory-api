@@ -85,6 +85,8 @@ paths:
             #! if eq .Response.Body.errorType "InvalidInput" !# 400
             #! else !# 500
             #! end !#, "bodyPassthrough": true}'
+        timeout:
+          after: "2000ms"
   /v1/cloud/asset:
     get:
       summary: "Retrieve a list of known cloud assets at point in time in reverse order by time (newest to oldest) split into pages of 'count' items."
