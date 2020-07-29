@@ -12,7 +12,7 @@ type StorageSchemaMigrator interface {
 
 // SchemaVersionGetter is used to retrieve the current version of DB schema
 type SchemaVersionGetter interface {
-	GetSchemaVersion(ctx context.Context) (uint, error)
+	GetSchemaVersion(ctx context.Context) (uint, bool, error)
 }
 
 // SchemaVersionForcer is used to force set database schema to specific version after failed migration

@@ -468,11 +468,11 @@ paths:
       description: "Allows to discover the current state of database schema for the specific deployment"
       responses:
         200:
-          description: "Schema Version"
+          description: "Schema State"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SchemaVersion"
+                $ref: "#/components/schemas/SchemaState"
       x-transportd:
         backend: app
         enabled:
@@ -811,6 +811,13 @@ components:
       properties:
         version:
           type: integer
+    SchemaState:
+      type: object
+      properties:
+        version:
+          type: integer
+        dirty:
+          type: boolean
     AccountOwner:
       type: object
       properties:
