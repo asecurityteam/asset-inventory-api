@@ -13,7 +13,6 @@ type ForceSchemaHandler struct {
 	SchemaVersionForcer domain.SchemaVersionForcer
 }
 
-
 // SchemaVersion represents a database schema version
 type SchemaVersion struct {
 	Version uint `json:"version"`

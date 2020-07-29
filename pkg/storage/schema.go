@@ -112,7 +112,7 @@ func (sm *SchemaManager) migrateSchema(ctx context.Context, d migrationDirection
 	if err != nil {
 		return 0, err
 	}
-	version, _ , err := sm.GetSchemaVersion(ctx)
+	version, _, err := sm.GetSchemaVersion(ctx)
 	if err != nil {
 		return 0, err
 	}

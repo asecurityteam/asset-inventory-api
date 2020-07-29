@@ -7,11 +7,10 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-
 // SchemaState represents current database schema version and state
 type SchemaState struct {
 	Version uint `json:"version"`
-	Dirty bool `json:"dirty"`
+	Dirty   bool `json:"dirty"`
 }
 
 // GetSchemaVersionHandler handles requests for getting the currently active database schema version
@@ -29,6 +28,6 @@ func (h *GetSchemaVersionHandler) Handle(ctx context.Context) (SchemaState, erro
 	}
 	return SchemaState{
 		Version: currentVersion,
-		Dirty: dirty,
+		Dirty:   dirty,
 	}, nil
 }
