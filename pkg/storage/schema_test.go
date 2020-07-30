@@ -17,7 +17,7 @@ func TestGetSchemaVersionErr(t *testing.T) {
 	migrator := NewMockStorageSchemaMigrator(ctrl)
 	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
 	sm := &SchemaManager{migrator: migrator}
-	_, err := sm.GetSchemaVersion(context.Background())
+	_, _, err := sm.GetSchemaVersion(context.Background())
 	require.Error(t, err)
 }
 
@@ -28,8 +28,9 @@ func TestGetSchemaVersionNil(t *testing.T) {
 	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
 	migrator.EXPECT().Version().Return(uint(0), false, migrate.ErrNilVersion)
 	sm := &SchemaManager{migrator: migrator}
-	v, err := sm.GetSchemaVersion(context.Background())
+	v, dirty, err := sm.GetSchemaVersion(context.Background())
 	require.Equal(t, uint(0), v)
+	require.Equal(t, false, dirty)
 	require.Nil(t, err)
 }
 
@@ -41,8 +42,9 @@ func TestGetSchemaVersionSuccess(t *testing.T) {
 	migrator.EXPECT().Version().Return(version, false, nil)
 	migrator.EXPECT().Version().Return(version, false, nil)
 	sm := &SchemaManager{migrator: migrator}
-	v, err := sm.GetSchemaVersion(context.Background())
+	v, dirty, err := sm.GetSchemaVersion(context.Background())
 	require.Equal(t, version, v)
+	require.Equal(t, false, dirty)
 	require.Nil(t, err)
 }
 

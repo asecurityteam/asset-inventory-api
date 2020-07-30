@@ -80,20 +80,20 @@ func (sm *SchemaManager) MigrateSchemaToVersion(ctx context.Context, version uin
 }
 
 // GetSchemaVersion retrieves the current version of database schema
-func (sm *SchemaManager) GetSchemaVersion(ctx context.Context) (uint, error) {
+func (sm *SchemaManager) GetSchemaVersion(ctx context.Context) (uint, bool, error) {
 	err := sm.EnsureConnected()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	v, _, err := sm.migrator.Version()
+	v, dirty, err := sm.migrator.Version()
 	if err == migrate.ErrNilVersion {
 		// special handling for the version not being present
-		return 0, nil
+		return 0, dirty, nil
 	}
 	if err != nil {
-		return 0, err
+		return 0, dirty, err
 	}
-	return v, nil
+	return v, dirty, nil
 }
 
 func (sm *SchemaManager) migrateSchema(ctx context.Context, d migrationDirection) (uint, error) {
@@ -112,7 +112,7 @@ func (sm *SchemaManager) migrateSchema(ctx context.Context, d migrationDirection
 	if err != nil {
 		return 0, err
 	}
-	version, err := sm.GetSchemaVersion(ctx)
+	version, _, err := sm.GetSchemaVersion(ctx)
 	if err != nil {
 		return 0, err
 	}

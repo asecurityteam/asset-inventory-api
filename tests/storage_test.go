@@ -560,7 +560,10 @@ func TestDeleteNotFoundPartition(t *testing.T) {
 // before is the function all tests should call to ensure no state is carried over
 // from prior tests
 func before(t *testing.T, db *storage.DB, sm *storage.SchemaManager) {
-	v, err := sm.GetSchemaVersion(context.Background())
+	v, dirty, err := sm.GetSchemaVersion(context.Background())
+	if dirty {
+		t.Fatalf("schema is marked dirty, refusing to proceed")
+	}
 	if err != nil { //the migrations mechanism was not initialized yet
 		require.NoError(t, sm.MigrateSchemaToVersion(context.Background(), testWithSchemaVersion))
 		v = testWithSchemaVersion

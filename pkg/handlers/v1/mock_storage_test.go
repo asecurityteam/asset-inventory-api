@@ -6,10 +6,12 @@ package v1
 
 import (
 	context "context"
-	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 	time "time"
+
+	gomock "github.com/golang/mock/gomock"
+
+	domain "github.com/asecurityteam/asset-inventory-api/pkg/domain"
 )
 
 // MockPartitionGenerator is a mock of PartitionGenerator interface
@@ -413,12 +415,13 @@ func (m *MockSchemaVersionGetter) EXPECT() *MockSchemaVersionGetterMockRecorder 
 }
 
 // GetSchemaVersion mocks base method
-func (m *MockSchemaVersionGetter) GetSchemaVersion(arg0 context.Context) (uint, error) {
+func (m *MockSchemaVersionGetter) GetSchemaVersion(arg0 context.Context) (uint, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSchemaVersion", arg0)
 	ret0, _ := ret[0].(uint)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetSchemaVersion indicates an expected call of GetSchemaVersion

@@ -53,11 +53,11 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 	if err != nil {
 		return nil, err
 	}
-	ver, err := schemaManager.GetSchemaVersion(context.Background())
+	ver, dirty, err := schemaManager.GetSchemaVersion(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	if ver < conf.PostgresConfig.MinSchemaVersion {
+	if !dirty && ver < conf.PostgresConfig.MinSchemaVersion { // do not touch schema if it is dirty
 		// ErrNoChange means we are already on required version so we are good
 		err := schemaManager.MigrateSchemaToVersion(context.Background(), conf.PostgresConfig.MinSchemaVersion)
 		if err != nil && err != migrate.ErrNoChange {

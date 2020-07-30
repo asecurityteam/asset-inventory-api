@@ -7,9 +7,10 @@ import (
 	"github.com/asecurityteam/asset-inventory-api/pkg/logs"
 )
 
-// SchemaVersion represents an active database schema version
-type SchemaVersion struct {
+// SchemaState represents current database schema version and state
+type SchemaState struct {
 	Version uint `json:"version"`
+	Dirty   bool `json:"dirty"`
 }
 
 // GetSchemaVersionHandler handles requests for getting the currently active database schema version
@@ -19,13 +20,14 @@ type GetSchemaVersionHandler struct {
 }
 
 // Handle handles the request for schema version
-func (h *GetSchemaVersionHandler) Handle(ctx context.Context) (SchemaVersion, error) {
-	currentVersion, err := h.Getter.GetSchemaVersion(ctx)
+func (h *GetSchemaVersionHandler) Handle(ctx context.Context) (SchemaState, error) {
+	currentVersion, dirty, err := h.Getter.GetSchemaVersion(ctx)
 	if err != nil {
 		h.LogFn(ctx).Error(logs.StorageError{Reason: err.Error()})
-		return SchemaVersion{}, err
+		return SchemaState{}, err
 	}
-	return SchemaVersion{
+	return SchemaState{
 		Version: currentVersion,
+		Dirty:   dirty,
 	}, nil
 }

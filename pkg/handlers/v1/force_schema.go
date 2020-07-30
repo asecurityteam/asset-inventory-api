@@ -13,6 +13,11 @@ type ForceSchemaHandler struct {
 	SchemaVersionForcer domain.SchemaVersionForcer
 }
 
+// SchemaVersion represents a database schema version
+type SchemaVersion struct {
+	Version uint `json:"version"`
+}
+
 // Handle handles the call to force database schema version after failed migration
 func (h *ForceSchemaHandler) Handle(ctx context.Context, input SchemaVersion) error {
 	logger := h.LogFn(ctx)

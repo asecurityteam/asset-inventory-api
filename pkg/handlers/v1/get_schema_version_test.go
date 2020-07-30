@@ -15,7 +15,7 @@ func TestGetSchemaVersionError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockGetter := NewMockSchemaVersionGetter(ctrl)
-	mockGetter.EXPECT().GetSchemaVersion(gomock.Any()).Return(uint(0), errors.New(""))
+	mockGetter.EXPECT().GetSchemaVersion(gomock.Any()).Return(uint(0), false, errors.New(""))
 
 	handler := GetSchemaVersionHandler{
 		LogFn:  testLogFn,
@@ -33,7 +33,7 @@ func TestGetSchemaVersion(t *testing.T) {
 	v := uint(rand.Uint32() + 1) // version number to use for test
 
 	mockGetter := NewMockSchemaVersionGetter(ctrl)
-	mockGetter.EXPECT().GetSchemaVersion(gomock.Any()).Return(v, nil)
+	mockGetter.EXPECT().GetSchemaVersion(gomock.Any()).Return(v, false, nil)
 
 	handler := GetSchemaVersionHandler{
 		LogFn:  testLogFn,
@@ -43,4 +43,5 @@ func TestGetSchemaVersion(t *testing.T) {
 	res, err := handler.Handle(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, v, res.Version)
+	assert.Equal(t, false, res.Dirty)
 }
