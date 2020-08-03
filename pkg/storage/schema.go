@@ -46,6 +46,13 @@ func (sm *SchemaManager) EnsureConnected() error {
 		return nil
 	}
 	// migrator has stale connection or is not initialized properly
+	sourceCloseErr, dbCloseErr := sm.migrator.Close()
+	if dbCloseErr != nil { // we are primarily and by far interested in DB errors here
+		return dbCloseErr
+	}
+	if sourceCloseErr != nil {
+		return sourceCloseErr // but if something bad happened to FS handler - we still fail
+	}
 	sm.migrator, err = migrate.New(sm.MigrationsSource, sm.DataSourceURL)
 	return err
 }
