@@ -11,11 +11,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEnsureConnectedDBErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageSchemaMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(1), false, errors.New("no schema version"))
+	migrator.EXPECT().Close().Return(nil, errors.New("DB failed"))
+	sm := &SchemaManager{migrator: migrator}
+	err := sm.EnsureConnected()
+	require.Error(t, err)
+}
+
+func TestEnsureConnectedStorageErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	migrator := NewMockStorageSchemaMigrator(ctrl)
+	migrator.EXPECT().Version().Return(uint(1), false, errors.New("no schema version"))
+	migrator.EXPECT().Close().Return(errors.New("file storage failed"), nil)
+	sm := &SchemaManager{migrator: migrator}
+	err := sm.EnsureConnected()
+	require.Error(t, err)
+}
+
 func TestGetSchemaVersionErr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	migrator := NewMockStorageSchemaMigrator(ctrl)
 	migrator.EXPECT().Version().Return(uint(0), false, errors.New("something went wrong"))
+	migrator.EXPECT().Close().Return(nil, nil)
 	sm := &SchemaManager{migrator: migrator}
 	_, _, err := sm.GetSchemaVersion(context.Background())
 	require.Error(t, err)

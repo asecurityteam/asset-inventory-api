@@ -8,6 +8,7 @@ type StorageSchemaMigrator interface {
 	Steps(steps int) error
 	Version() (version uint, dirty bool, err error)
 	Force(version int) error //NB, int version vs uint in Migrate
+	Close() (source error, db error)
 }
 
 // SchemaVersionGetter is used to retrieve the current version of DB schema

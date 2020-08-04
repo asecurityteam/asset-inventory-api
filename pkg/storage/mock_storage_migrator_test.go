@@ -5,9 +5,8 @@
 package storage
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockStorageSchemaMigrator is a mock of StorageSchemaMigrator interface
@@ -31,6 +30,21 @@ func NewMockStorageSchemaMigrator(ctrl *gomock.Controller) *MockStorageSchemaMig
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockStorageSchemaMigrator) EXPECT() *MockStorageSchemaMigratorMockRecorder {
 	return m.recorder
+}
+
+// Close mocks base method
+func (m *MockStorageSchemaMigrator) Close() (error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Close indicates an expected call of Close
+func (mr *MockStorageSchemaMigratorMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStorageSchemaMigrator)(nil).Close))
 }
 
 // Force mocks base method
