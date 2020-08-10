@@ -609,11 +609,11 @@ on conflict do nothing
 	return nil
 }
 
-// extract unique resource ID from full ARN format
-// it is always the part after the last /
+// extract unique resource-type/resource-id from full ARN format
+// it is always the part after account-id:
 // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
 func resIDFromARN(ARN string) string {
-	parts := strings.SplitAfterN(ARN, "/", -1)
+	parts := strings.SplitN(ARN, ":", 6)
 	return parts[len(parts)-1]
 }
 
