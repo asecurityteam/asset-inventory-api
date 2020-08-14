@@ -2,6 +2,9 @@
 BEGIN;
 
 ALTER TABLE aws_resource
-DROP CONSTRAINT IF EXISTS arn_account_region_id_unique;
+    DROP CONSTRAINT IF EXISTS arn_account_region_id_unique;
+
+ALTER TABLE aws_resource
+    ADD CONSTRAINT aws_resource_arn_id_key UNIQUE (arn_id);
 
 COMMIT;
