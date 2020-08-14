@@ -614,11 +614,11 @@ on conflict do nothing
 // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
 func resIDFromARN(ARN string) string {
 	parts := strings.SplitN(ARN, ":", 6)
-	resourceId := parts[len(parts)-1]
-	if strings.HasPrefix(resourceId, "loadbalancer/app") {
-		return resourceId[13:]
+	resourceID := parts[len(parts)-1]
+	if strings.HasPrefix(resourceID, "loadbalancer/app") {
+		return resourceID[13:]
 	}
-	parts = strings.SplitAfterN(resourceId, "/", -1)
+	parts = strings.SplitAfterN(resourceID, "/", -1)
 	return parts[len(parts)-1]
 }
 
