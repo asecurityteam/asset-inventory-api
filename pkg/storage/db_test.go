@@ -2566,3 +2566,34 @@ func TestGoldenPathINSERTAccountOwner(t *testing.T) {
 	}
 
 }
+
+func TestResIDFromARN(t *testing.T) {
+	testCases := []struct {
+		Name     string
+		Arn      string
+		Expected string
+	}{
+		{"TestResIDFromARNForENI",
+			"arn:aws:ec2:us-west-2:909420000000:network-interface/eni-049a0265f0663b9ac",
+			"eni-049a0265f0663b9ac"},
+		{"TestResIDFromARNForEC2",
+			"arn:aws:ec2:us-west-2:909420000000:instance/i-0bd0340bdada89d2f",
+			"i-0bd0340bdada89d2f"},
+		{"TestResIDFromARNForALB",
+			"arn:aws:ec2:us-west-2:909420000000:loadbalancer/app/my-sec-dev-one-alb/2b9ae31f54b6fa76",
+			"app/my-sec-dev-one-alb/2b9ae31f54b6fa76"},
+		{"TestResIDFromARNForCLB",
+			"arn:aws:ec2:us-west-2:909420000000:loadbalancer/my-classic-lb",
+			"my-classic-lb"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := resIDFromARN(tc.Arn)
+			if actual != tc.Expected {
+				t.Errorf("%s != %s", actual, tc.Expected)
+			} else {
+				t.Logf("%s == %s", actual, tc.Expected)
+			}
+		})
+	}
+}
