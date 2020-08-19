@@ -18,6 +18,18 @@ func TestMain(m *testing.M) {
 	appURL := os.Getenv("AIA_APP_URL")
 	config.BasePath = appURL
 	assetInventoryAPI = openapi.NewAPIClient(config)
+	ctx := context.Background()
+
+	// Test on latest db schema
+	for {
+		_, _, err := assetInventoryAPI.DefaultApi.OpsPgsqlV1SchemaVersionStepUpGet(ctx)
+
+		// An error hopefully means that he hit the last schema version
+		if err != nil {
+			break
+		}
+	}
+
 	code := m.Run()
 	os.Exit(code)
 }

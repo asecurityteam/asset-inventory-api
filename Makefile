@@ -47,7 +47,7 @@ integration: integration-postgres
 			--abort-on-container-exit \
 			--build \
 			--exit-code-from test \
-			app test
+			gateway app test
 
 clean-integration:
 	docker-compose \
