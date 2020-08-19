@@ -3,14 +3,24 @@ services:
   test:
     image: asecurityteam/sdcli:v1
     environment:
-      - "POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable"
+      - "AIA_APP_URL=http://app:8080"
     command: go integration
     working_dir: ${DIR}
     volumes:
-      - ${DIR}/db-migrations:/db-migrations
       - ${DIR}:${DIR}
     depends_on:
+      - app
+  app:
+    ports:
+      - "8080:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
       - postgres
+    environment:
+      - "SERVERFULL_RUNTIME_HTTPSERVER_ADDRESS=:8080"
+      - "AIAPI_POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable"
   postgres:
     image: postgres:11.2
     environment:

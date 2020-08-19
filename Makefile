@@ -23,14 +23,39 @@ test:
         -w "$(DIR)" \
         asecurityteam/sdcli:v1 go test
 
-integration:
+# Generate the client used for integration tests. Only for pipeline.
+generate-integration-client:
+	docker run --rm \
+    	-v ${PWD}:/local openapitools/openapi-generator-cli generate \
+    	-i /local/api.yaml \
+    	-g go \
+    	-o /local/client
+    # Remove go module, we don't want this treated as a new module
+	rm -f ./client/go.mod ./client/go.sum
+
+integration-postgres:
+	docker-compose \
+		-f docker-compose.it.yml \
+		up -d postgres
+	tools/wait-for-postgres.sh `docker-compose ps -q`
+
+integration: integration-postgres
 	DIR=$(DIR) \
 	docker-compose \
 		-f docker-compose.it.yml \
 		up \
 			--abort-on-container-exit \
 			--build \
-			--exit-code-from test
+			--exit-code-from test \
+			app test
+
+clean-integration:
+	docker-compose \
+		-f docker-compose.it.yml \
+		down
+	rm -r ./client
+
+local-integration: generate-integration-client dep integration-postgres integration clean-integration
 
 coverage:
 	docker run -ti \

@@ -75,6 +75,22 @@ building and testing a bit easier. The following actions are available through t
 -   make integration
 
     Run integration tests and generate a coverage artifact
+    
+-   make local-integration
+
+    Run integration tests locally on your machine
+
+-   make generate-integration-client
+
+    Use OpenAPI to generate a golang client from our API spec.
+
+-   make integration-postgres
+
+    Run a postgres database for our integration tests.
+
+-   make clean-integration
+
+    Clean up the integtaion test runs by removing docker containers and the generated client.
 
 -   make coverage
 

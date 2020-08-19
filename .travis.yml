@@ -7,8 +7,11 @@ services:
 install:
   - chmod 777 -R "$(pwd)"
 script:
+  - make generate-integration-client
   - travis_retry make dep
   - make lint
   - make test
+  - make integration
+  - make clean-integration
   - make coverage
   - bash <(curl -s https://codecov.io/bash) -f .coverage/combined.cover.out
