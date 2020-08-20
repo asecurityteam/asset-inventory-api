@@ -23,7 +23,7 @@ test:
         -w "$(DIR)" \
         asecurityteam/sdcli:v1 go test
 
-# Generate the client used for integration tests. Only for pipeline.
+# Generate the client used for integration tests.
 generate-integration-client:
 	docker run --rm \
     	-v ${PWD}:/local openapitools/openapi-generator-cli generate \
