@@ -12,6 +12,5 @@ script:
   - make lint
   - make test
   - make integration
-  - make clean-integration
   - make coverage
   - bash <(curl -s https://codecov.io/bash) -f .coverage/combined.cover.out
