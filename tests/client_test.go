@@ -4,11 +4,12 @@ package tests
 
 import (
 	"context"
-	openapi "github.com/asecurityteam/asset-inventory-api/client"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
 	"testing"
+
+	openapi "github.com/asecurityteam/asset-inventory-api/client"
+	"github.com/stretchr/testify/assert"
 )
 
 var assetInventoryAPI *openapi.APIClient
