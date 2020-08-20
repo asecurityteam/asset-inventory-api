@@ -29,15 +29,15 @@ generate-integration-client:
     	-v ${PWD}:/local openapitools/openapi-generator-cli generate \
     	-i /local/api.yaml \
     	-g go \
+    	--git-user-id asecurityteam \
+    	--git-repo-id asset-inventory-api/client \
     	-o /local/client
-    # Remove go module, we don't want this treated as a new module
-	rm -f ./client/go.mod ./client/go.sum
 
 integration-postgres:
 	docker-compose \
 		-f docker-compose.it.yml \
 		up -d postgres
-	tools/wait-for-postgres.sh `docker-compose ps -q`
+	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q`
 
 integration: integration-postgres
 	DIR=$(DIR) \
