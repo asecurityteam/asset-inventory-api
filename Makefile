@@ -39,7 +39,7 @@ integration-postgres:
 		up -d postgres
 	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q`
 
-integration: integration-postgres
+run-integration:
 	DIR=$(DIR) \
 	docker-compose \
 		-f docker-compose.it.yml \
@@ -53,9 +53,11 @@ clean-integration:
 	docker-compose \
 		-f docker-compose.it.yml \
 		down
-	rm -rf ./client
 
-local-integration: generate-integration-client dep integration-postgres integration clean-integration
+integration: integration-postgres run-integration clean-integration
+
+local-integration: generate-integration-client dep integration
+	rm -rf ./client
 
 coverage:
 	docker run -ti \
