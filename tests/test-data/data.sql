@@ -153,7 +153,6 @@ INSERT INTO public.aws_resource (id, arn_id, aws_account_id, aws_region_id, aws_
 --
 
 INSERT INTO public.aws_private_ip_assignment (id, not_before, not_after, private_ip, aws_resource_id) VALUES (652967, '2019-07-25 07:50:30.174', NULL, '10.0.0.4', 1542460);
-INSERT INTO public.aws_private_ip_assignment (id, not_before, not_after, private_ip, aws_resource_id) VALUES (652968, '2019-07-25 07:50:30.174', NULL, '10.0.0.4', 1542457);
 INSERT INTO public.aws_private_ip_assignment (id, not_before, not_after, private_ip, aws_resource_id) VALUES (652964, '2019-07-25 07:50:30.174', NULL, '10.0.0.1', 1542457);
 INSERT INTO public.aws_private_ip_assignment (id, not_before, not_after, private_ip, aws_resource_id) VALUES (652965, '2019-07-25 07:50:30.174', NULL, '10.0.0.2', 1542457);
 INSERT INTO public.aws_private_ip_assignment (id, not_before, not_after, private_ip, aws_resource_id) VALUES (652963, '2019-07-25 07:50:29.264', '2019-07-25 08:09:54.306', '10.0.0.5', 1542453);
