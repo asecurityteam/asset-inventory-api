@@ -54,7 +54,7 @@ clean-integration:
 		-f docker-compose.it.yml \
 		down
 
-integration: integration-postgres run-integration clean-integration
+integration: clean-integration integration-postgres run-integration
 
 local-integration: generate-integration-client dep integration
 	rm -rf ./client
