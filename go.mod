@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 // indirect
-	github.com/asecurityteam/asset-inventory-api/client v0.0.0
 	github.com/asecurityteam/logevent v0.0.0-20190225122144-b32737d8d51c // indirect
 	github.com/asecurityteam/runhttp v0.0.0-20190308211650-60620809c493
 	github.com/asecurityteam/serverfull v0.1.0
@@ -30,5 +29,3 @@ require (
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862 // indirect
 )
-
-replace github.com/asecurityteam/asset-inventory-api/client v0.0.0 => ./client

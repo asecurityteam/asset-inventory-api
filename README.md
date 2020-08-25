@@ -69,28 +69,36 @@ building and testing a bit easier. The following actions are available through t
 
 -   make update-test-data
     
-    Generate data.sql and schema.sql under `tests/test-data` with most recent schema and data
+    Generate data.sql and schema.sql under `/sample-data` with most recent schema and data
     from postgres image running locally. Use this option when there is schema changes. 
 
 -   make integration
 
     Run integration tests and generate a coverage artifact
-    
--   make local-integration
-
-    Run integration tests locally on your machine
 
 -   make generate-integration-client
 
-    Use OpenAPI to generate a golang client from our API spec.
+    Use OpenAPI to generate a golang client from our API spec to aid with local development.
 
 -   make integration-postgres
 
     Run a postgres database for our integration tests.
+    
+-   make integration-app
+
+    Run app for testing.
+    
+-   make integration-test
+
+    Run integration tests.
 
 -   make clean-integration
 
-    Clean up the integtaion test runs by removing docker containers and the generated client.
+    Clean up the integration test runs by removing docker containers and the generated client.
+    
+-   make master-integration
+
+    Run current branch server against master branch tests to ensure backward compatibility.
 
 -   make coverage
 

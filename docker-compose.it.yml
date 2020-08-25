@@ -1,13 +1,11 @@
 version: '3'
 services:
   test:
-    image: asecurityteam/sdcli:v1
+    build:
+      context: .
+      dockerfile: integration.Dockerfile
     environment:
       - AIA_APP_URL=http://gateway:8080
-    command: go integration
-    working_dir: ${DIR}
-    volumes:
-      - ${DIR}:${DIR}
     depends_on:
       - app
   app:
@@ -36,5 +34,5 @@ services:
       - "PGDATA=/var/lib/postgresql/data/pgdata11"
       - "POSTGRES_PORT=5432"
     volumes:
-      - ./tests/data/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
-      - ./tests/data/data.sql:/docker-entrypoint-initdb.d/2-data.sql
+      - ./integration/data/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./integration/data/data.sql:/docker-entrypoint-initdb.d/2-data.sql

@@ -7,7 +7,6 @@ services:
 install:
   - chmod 777 -R "$(pwd)"
 script:
-  - make generate-integration-client
   - travis_retry make dep
   - make lint
   - make test
