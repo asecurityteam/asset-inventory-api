@@ -37,7 +37,8 @@ integration-postgres:
 	docker-compose \
 		-f docker-compose.it.yml \
 		up -d postgres
-	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q`
+	docker-compose -f docker-compose.it.yml ps
+	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q postgres`
 
 integration-app: integration-postgres
 	DIR=$(DIR) \
