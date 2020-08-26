@@ -69,8 +69,8 @@ master-integration: clean-integration
 	git fetch --depth=1 origin master
 	make integration-app
 	git checkout origin/master -- api.yaml
-	git rm -rf tests
-	git checkout origin/master -- tests
+	git rm -rf integration
+	git checkout origin/master -- integration
 	make integration-test
 
 coverage:
