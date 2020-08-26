@@ -14,7 +14,7 @@ import (
 
 var assetInventoryAPI *openapi.APIClient
 var schemaVersion int32 = 1
-var maxSchema int32 = 10 // TODO: extrapolate this somewhere?
+var maxSchema int32 = 11 // TODO: extrapolate this somewhere?
 
 func TestMain(m *testing.M) {
 	config := openapi.NewConfiguration()
