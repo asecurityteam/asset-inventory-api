@@ -37,7 +37,6 @@ integration-postgres:
 	docker-compose \
 		-f docker-compose.it.yml \
 		up -d postgres
-	docker-compose -f docker-compose.it.yml ps
 	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q postgres`
 
 integration-app: integration-postgres
@@ -61,7 +60,7 @@ clean-integration:
 		-f docker-compose.it.yml \
 		down
 
-integration: clean-integration integration-app integration-test
+integration: integration-app integration-test clean-integration
 
 # FOR PIPELINE USE ONLY
 # Run integration tests against master client and tests
