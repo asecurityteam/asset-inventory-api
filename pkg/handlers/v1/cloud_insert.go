@@ -24,6 +24,7 @@ type NetworkChanges struct {
 	PrivateIPAddresses []string `json:"privateIpAddresses"`
 	PublicIPAddresses  []string `json:"publicIpAddresses"`
 	Hostnames          []string `json:"hostnames"`
+	RelatedResources   []string `json:"relatedResources"`
 	ChangeType         string   `json:"changeType"`
 }
 
@@ -57,6 +58,7 @@ func (h *CloudInsertHandler) Handle(ctx context.Context, input CloudAssetChanges
 			PrivateIPAddresses: val.PrivateIPAddresses,
 			PublicIPAddresses:  val.PublicIPAddresses,
 			Hostnames:          val.Hostnames,
+			RelatedResources:   val.RelatedResources,
 			ChangeType:         val.ChangeType,
 		})
 	}

@@ -1932,11 +1932,13 @@ func fakeCloudChange(changeType string) domain.CloudAssetChanges {
 	privateIPs := []string{"4.3.2.1"}
 	publicIPs := []string{"8.7.6.5"}
 	hostnames := []string{"google.com"}
+	relatedResources := []string{"app/marketp-ALB-eeeeeee5555555/ffffffff66666666"}
 	networkChangesArray := []domain.NetworkChanges{
-		domain.NetworkChanges{
+		{
 			PrivateIPAddresses: privateIPs,
 			PublicIPAddresses:  publicIPs,
 			Hostnames:          hostnames,
+			RelatedResources:   relatedResources,
 			ChangeType:         changeType,
 		},
 	}
@@ -2052,6 +2054,7 @@ func TestStoreV2Assign(t *testing.T) {
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
 	ctx := context.Background()
@@ -2085,6 +2088,7 @@ func TestStoreV2Remove(t *testing.T) {
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
 	ctx := context.Background()

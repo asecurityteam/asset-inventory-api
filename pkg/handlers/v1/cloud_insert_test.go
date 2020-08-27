@@ -33,6 +33,7 @@ func validInsertInput() CloudAssetChanges {
 				PrivateIPAddresses: []string{"1.1.1.1"},
 				PublicIPAddresses:  []string{"2.2.2.2"},
 				Hostnames:          []string{"hostname"},
+				RelatedResources:   []string{"app/marketp-ALB-eeeeeee5555555/ffffffff66666666"},
 				ChangeType:         "ADDED",
 			},
 		},

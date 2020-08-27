@@ -20,6 +20,7 @@ type NetworkChanges struct {
 	PrivateIPAddresses []string
 	PublicIPAddresses  []string
 	Hostnames          []string
+	RelatedResources   []string
 	ChangeType         string
 }
 
