@@ -1030,7 +1030,7 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 	}
 }
 
-func TestGetByARNIDEmpty(t *testing.T) {
+func TestGetByResourceIDEmpty(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -1043,7 +1043,7 @@ func TestGetByARNIDEmpty(t *testing.T) {
 
 	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	const arnID = "arnid"
+	const resID = "resid"
 	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
 		"aws_public_ip_assignment_public_ip",
 		"aws_public_ip_assignment_aws_hostname",
@@ -1054,15 +1054,15 @@ func TestGetByARNIDEmpty(t *testing.T) {
 		"aws_resource_aws_account_id",
 	})
 
-	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
-	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	mock.ExpectQuery("select").WithArgs(resID, at).WillReturnRows(rows).RowsWillBeClosed()
+	results, err := thedb.FetchByResourceID(context.Background(), at, resID)
 	if err != nil {
 		t.Errorf("error was not expected during lookup: %s", err)
 	}
 	assert.Equal(t, 0, len(results))
 }
 
-func TestGetARNIDAtTime(t *testing.T) {
+func TestGetResourceIDAtTime(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -1075,7 +1075,7 @@ func TestGetARNIDAtTime(t *testing.T) {
 
 	withSchemaVersion(4, mock)
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	const arnID = "arnid"
+	const resID = "resid"
 
 	rows := sqlmock.NewRows([]string{"aws_private_ip_assignment_private_ip",
 		"aws_public_ip_assignment_public_ip",
@@ -1112,9 +1112,9 @@ func TestGetARNIDAtTime(t *testing.T) {
 		"name2",
 		true)
 
-	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	mock.ExpectQuery("select").WithArgs(resID, at).WillReturnRows(rows).RowsWillBeClosed()
 
-	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	results, err := thedb.FetchByResourceID(context.Background(), at, resID)
 	if err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
@@ -1127,7 +1127,7 @@ func TestGetARNIDAtTime(t *testing.T) {
 		ResourceType:       "type",
 		AccountID:          "aid",
 		Region:             "region",
-		ARN:                "arnid",
+		ARN:                "resid",
 		Tags:               map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
 			AccountID: "aid",
@@ -1153,7 +1153,7 @@ func TestGetARNIDAtTime(t *testing.T) {
 	}
 }
 
-func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
+func TestGetResourceIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -1218,10 +1218,10 @@ func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 		true)
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	arnID := "arnid"
-	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	resID := "resid"
+	mock.ExpectQuery("select").WithArgs(resID, at).WillReturnRows(rows).RowsWillBeClosed()
 
-	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	results, err := thedb.FetchByResourceID(context.Background(), at, resID)
 	if err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
@@ -1234,7 +1234,7 @@ func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 			ResourceType:       "type",
 			AccountID:          "aid",
 			Region:             "region",
-			ARN:                "arnid",
+			ARN:                "resid",
 			Tags:               map[string]string{"hi": "there3"},
 			AccountOwner: domain.AccountOwner{
 				AccountID: "aid",
@@ -1261,7 +1261,7 @@ func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 	}
 }
 
-func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
+func TestGetResourceIDAtTimeMoreThanOneChampions(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -1326,10 +1326,10 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 		true)
 
 	at, _ := time.Parse(time.RFC3339, "2019-04-09T08:55:35+00:00")
-	arnID := "arnid"
-	mock.ExpectQuery("select").WithArgs(arnID, at).WillReturnRows(rows).RowsWillBeClosed()
+	resID := "resid"
+	mock.ExpectQuery("select").WithArgs(resID, at).WillReturnRows(rows).RowsWillBeClosed()
 
-	results, err := thedb.FetchByARNID(context.Background(), at, arnID)
+	results, err := thedb.FetchByResourceID(context.Background(), at, resID)
 	if err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
 	}
@@ -1348,7 +1348,7 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 		ResourceType:       "type",
 		AccountID:          "aid",
 		Region:             "region",
-		ARN:                "arnid",
+		ARN:                "resid",
 		Tags:               map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
 			AccountID: "aid",

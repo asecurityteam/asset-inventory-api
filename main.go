@@ -80,7 +80,7 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		StatFn:  domain.StatFromContext,
 		Fetcher: replicaStorage,
 	}
-	fetchByArnID := &v1.CloudFetchByARNIDHandler{
+	fetchByResourceID := &v1.CloudFetchByResourceIDHandler{
 		LogFn:   domain.LoggerFromContext,
 		StatFn:  domain.StatFromContext,
 		Fetcher: replicaStorage,
@@ -137,7 +137,8 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"insert":                     serverfull.NewFunction(insert.Handle),
 		"fetchByIP":                  serverfull.NewFunction(fetchByIP.Handle),
 		"fetchByHostname":            serverfull.NewFunction(fetchByHostname.Handle),
-		"fetchByArnID":               serverfull.NewFunction(fetchByArnID.Handle),
+		"fetchByArnID":               serverfull.NewFunction(fetchByResourceID.Handle),
+		"fetchByResourceID":          serverfull.NewFunction(fetchByResourceID.Handle),
 		"fetchAllAssetsByTime":       serverfull.NewFunction(fetchAllAssetsByTime.Handle),
 		"fetchMoreAssetsByPageToken": serverfull.NewFunction(fetchAllAssetsByTimePage.Handle),
 		"createPartition":            serverfull.NewFunction(createPartition.Handle),
