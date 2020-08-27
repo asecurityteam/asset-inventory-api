@@ -32,14 +32,6 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 	}
 }
 
-func newFetchByARNIDHandler(fetcher domain.CloudAssetByARNIDFetcher) *CloudFetchByARNIDHandler {
-	return &CloudFetchByARNIDHandler{
-		LogFn:   testLogFn,
-		StatFn:  testStatFn,
-		Fetcher: fetcher,
-	}
-}
-
 func newFetchByResourceIDHandler(fetcher domain.CloudAssetByResourceIDFetcher) *CloudFetchByResourceIDHandler {
 	return &CloudFetchByResourceIDHandler{
 		LogFn:   testLogFn,
@@ -74,13 +66,6 @@ func validFetchByIPInput() CloudAssetFetchByIPParameters {
 func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 	return CloudAssetFetchByHostnameParameters{
 		Hostname:  "hostname",
-		Timestamp: time.Now().Format(time.RFC3339Nano),
-	}
-}
-
-func validFetchByARNIDInput() CloudAssetFetchByARNIDParameters {
-	return CloudAssetFetchByARNIDParameters{
-		ARN:       "arnid",
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 	}
 }
