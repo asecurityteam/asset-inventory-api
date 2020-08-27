@@ -776,6 +776,10 @@ components:
           type: array
           items:
             type: string
+        relatedResources:
+          type: array
+          items:
+            type: string
         changeType:
           type: string
           enum: [ADDED, DELETED]
@@ -809,6 +813,10 @@ components:
           items:
             type: string
         hostnames:
+          type: array
+          items:
+            type: string
+        relatedResources:
           type: array
           items:
             type: string

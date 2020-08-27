@@ -437,6 +437,16 @@ func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 					}
 				}
 			}
+			for _, res := range val.RelatedResources {
+				if strings.EqualFold(added, val.ChangeType) {
+					err = db.assignResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
+				} else {
+					err = db.releaseResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
+				}
+				if err != nil {
+					break
+				}
+			}
 			if err != nil {
 				break
 			}
@@ -1104,6 +1114,63 @@ func (db *DB) releasePublicIP(ctx context.Context, tx *sql.Tx, arnID string, ip 
 		return nil
 	}
 	_, err = tx.ExecContext(ctx, releasePublicIPQueryInsert, when, ip, arnID, hostname)
+	return err
+}
+
+func (db *DB) assignResourceRelationship(ctx context.Context, tx *sql.Tx, arnID string, resource string, when time.Time) error {
+	const assignResourceRelationshipQueryUpdate = `
+update aws_resource_relationship
+set not_before = $1
+where related_arn_id = $2
+  and not_before = to_timestamp(0)
+  and not_after > $1
+  and arn_id = $3;`
+
+	const assignResourceRelationshipQueryInsert = `
+insert into aws_resource_relationship
+    (not_before, related_arn_id, arn_id)
+values ($1, $2, $3) on conflict do nothing ;`
+
+	res, err := tx.ExecContext(ctx, assignResourceRelationshipQueryUpdate, when, resource, arnID)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, assignResourceRelationshipQueryInsert, when, resource, arnID)
+	return err
+}
+
+func (db *DB) releaseResourceRelationship(ctx context.Context, tx *sql.Tx, arnID string, resource string, when time.Time) error {
+	const releaseResourceRelationshipQueryUpdate = `
+update aws_resource_relationship
+set not_after=$1
+where related_arn_id = $2
+  and arn_id = $3
+  and not_after is null;`
+
+	const releaseResourceRelationshipQueryInsert = `
+insert into aws_resource_relationship
+    (not_before, not_after, related_arn_id, arn_id)
+values (to_timestamp(0), $1, $2, $3) on conflict do nothing ;`
+
+	res, err := tx.ExecContext(ctx, releaseResourceRelationshipQueryUpdate, when, resource, arnID)
+	if err != nil {
+		return err
+	}
+	changedRows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changedRows != 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, releaseResourceRelationshipQueryInsert, when, resource, arnID)
 	return err
 }
 
