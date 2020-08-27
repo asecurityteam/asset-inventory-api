@@ -1151,7 +1151,8 @@ func (db *DB) releaseResourceRelationship(ctx context.Context, tx *sql.Tx, arnID
 update aws_resource_relationship
 set not_after=$1
 where related_arn_id = $2
-  and arn_id = $3;`
+  and arn_id = $3
+  and not_after is null;`
 
 	const releaseResourceRelationshipQueryInsert = `
 insert into aws_resource_relationship
