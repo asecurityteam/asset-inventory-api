@@ -2199,7 +2199,6 @@ func TestStoreV2FailResourceRelationship(t *testing.T) {
 	}
 }
 
-
 func TestStoreV2FailTxOpen(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
