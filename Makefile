@@ -1,6 +1,6 @@
 TAG := $(shell git rev-parse --short HEAD)
 DIR := $(shell pwd -L)
-TEST_DATA_DIR:= $(DIR)/tests/test-data
+TEST_DATA_DIR:= $(DIR)/sample-data
 POSTGRES_USER:= user
 POSTGRES_DATABASE:= assetmgmt
 IMAGE_NAME:= asset-inventory-api_postgres_1
@@ -23,14 +23,55 @@ test:
         -w "$(DIR)" \
         asecurityteam/sdcli:v1 go test
 
-integration:
+# Generate the client used for integration tests. For local development.
+generate-integration-client:
+	docker run --rm \
+    	-v ${PWD}:/local openapitools/openapi-generator-cli generate \
+    	-i /local/api.yaml \
+    	-g go \
+    	--git-user-id asecurityteam \
+    	--git-repo-id asset-inventory-api/client \
+    	-o /local/client
+
+integration-postgres:
+	docker-compose \
+		-f docker-compose.it.yml \
+		up -d postgres
+	tools/wait-for-postgres.sh `docker-compose -f docker-compose.it.yml ps -q postgres`
+
+integration-app: integration-postgres
+	DIR=$(DIR) \
+	docker-compose \
+		-f docker-compose.it.yml \
+		up -d --build gateway app
+
+integration-test:
 	DIR=$(DIR) \
 	docker-compose \
 		-f docker-compose.it.yml \
 		up \
 			--abort-on-container-exit \
 			--build \
-			--exit-code-from test
+			--exit-code-from test \
+			test
+
+clean-integration:
+	docker-compose \
+		-f docker-compose.it.yml \
+		down
+
+integration: integration-app integration-test clean-integration
+
+# FOR PIPELINE USE ONLY
+# Run integration tests against master client and tests
+master-integration: clean-integration
+	git config --replace-all remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+	git fetch --depth=1 origin master
+	make integration-app
+	git checkout origin/master -- api.yaml
+	git rm -rf integration
+	git checkout origin/master -- integration
+	make integration-test
 
 coverage:
 	docker run -ti \

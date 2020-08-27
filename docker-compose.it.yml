@@ -1,20 +1,38 @@
 version: '3'
 services:
   test:
-    image: asecurityteam/sdcli:v1
+    build:
+      context: .
+      dockerfile: integration.Dockerfile
     environment:
-      - "POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable"
-    command: go integration
-    working_dir: ${DIR}
-    volumes:
-      - ${DIR}/db-migrations:/db-migrations
-      - ${DIR}:${DIR}
+      - AIA_APP_URL=http://gateway:8080
+    depends_on:
+      - app
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     depends_on:
       - postgres
+    environment:
+      - SERVERFULL_RUNTIME_HTTPSERVER_ADDRESS=:8081
+      - AIAPI_POSTGRES_URL=postgres://user:password@postgres/assetmgmt?sslmode=disable
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway.Dockerfile
+    ports:
+      - "8080:8080"
   postgres:
     image: postgres:11.2
+    ports:
+      - "5432:5432"
     environment:
       - "POSTGRES_PASSWORD=password"
       - "POSTGRES_USER=user"
       - "POSTGRES_DB=assetmgmt"
       - "PGDATA=/var/lib/postgresql/data/pgdata11"
+      - "POSTGRES_PORT=5432"
+    volumes:
+      - ./integration/data/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./integration/data/data.sql:/docker-entrypoint-initdb.d/2-data.sql
