@@ -2167,6 +2167,39 @@ func TestStoreV2FailPublic(t *testing.T) {
 	}
 }
 
+func TestStoreV2FailResourceRelationship(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnError(errors.New("failed to store relationship"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+
+	if err = theDB.StoreV2(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving resource relationship: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+
 func TestStoreV2FailTxOpen(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
