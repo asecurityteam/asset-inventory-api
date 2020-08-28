@@ -363,19 +363,19 @@ func TestGetPrivateIPsAtTimeM1Schema(t *testing.T) {
 		ARN:                "rid",
 		Tags:               map[string]string{"hi": "there1"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Login: "login",
-				Email: "email@atlassian.com",
-				Name:  "name",
-				Valid: true,
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Name:  toStringPointer("name"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Name:  "name2",
-					Valid: true,
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Name:  toStringPointer("name2"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -452,19 +452,19 @@ func TestGetPublicIPsAtTimeM1Schema(t *testing.T) {
 		ARN:               "rid",
 		Tags:              map[string]string{"hi": "there1"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Login: "login",
-				Email: "email@atlassian.com",
-				Name:  "name",
-				Valid: true,
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Name:  toStringPointer("name"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Name:  "name2",
-					Valid: true,
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Name:  toStringPointer("name2"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -552,19 +552,19 @@ func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 			ARN:                "rid",
 			Tags:               map[string]string{"hi": "there1"},
 			AccountOwner: domain.AccountOwner{
-				AccountID: "aid",
+				AccountID: toStringPointer("aid"),
 				Owner: domain.Person{
-					Login: "login",
-					Email: "email@atlassian.com",
-					Name:  "name",
-					Valid: true,
+					Login: toStringPointer("login"),
+					Email: toStringPointer("email@atlassian.com"),
+					Name:  toStringPointer("name"),
+					Valid: toBoolPointer(true),
 				},
 				Champions: []domain.Person{
 					{
-						Login: "login2",
-						Email: "email2@atlassian.com",
-						Name:  "name2",
-						Valid: true,
+						Login: toStringPointer("login2"),
+						Email: toStringPointer("email2@atlassian.com"),
+						Name:  toStringPointer("name2"),
+						Valid: toBoolPointer(true),
 					},
 				},
 			},
@@ -577,19 +577,19 @@ func TestGetPrivateIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 			ARN:                "rid2",
 			Tags:               map[string]string{"bye": "now"},
 			AccountOwner: domain.AccountOwner{
-				AccountID: "aid2",
+				AccountID: toStringPointer("aid2"),
 				Owner: domain.Person{
-					Login: "login",
-					Email: "email@atlassian.com",
-					Name:  "name",
-					Valid: true,
+					Login: toStringPointer("login"),
+					Email: toStringPointer("email@atlassian.com"),
+					Name:  toStringPointer("name"),
+					Valid: toBoolPointer(true),
 				},
 				Champions: []domain.Person{
 					{
-						Login: "login2",
-						Email: "email2@atlassian.com",
-						Name:  "name2",
-						Valid: true,
+						Login: toStringPointer("login2"),
+						Email: toStringPointer("email2@atlassian.com"),
+						Name:  toStringPointer("name2"),
+						Valid: toBoolPointer(true),
 					},
 				},
 			},
@@ -684,19 +684,19 @@ func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 			ARN:               "rid",
 			Tags:              map[string]string{"hi": "there"},
 			AccountOwner: domain.AccountOwner{
-				AccountID: "aid",
+				AccountID: toStringPointer("aid"),
 				Owner: domain.Person{
-					Login: "login",
-					Email: "email@atlassian.com",
-					Name:  "name",
-					Valid: true,
+					Login: toStringPointer("login"),
+					Email: toStringPointer("email@atlassian.com"),
+					Name:  toStringPointer("name"),
+					Valid: toBoolPointer(true),
 				},
 				Champions: []domain.Person{
 					{
-						Login: "login2",
-						Email: "email2@atlassian.com",
-						Name:  "name2",
-						Valid: true,
+						Login: toStringPointer("login2"),
+						Email: toStringPointer("email2@atlassian.com"),
+						Name:  toStringPointer("name2"),
+						Valid: toBoolPointer(true),
 					},
 				},
 			},
@@ -710,19 +710,19 @@ func TestGetPublicIPsAtTimeMultiRowsM1Schema(t *testing.T) {
 			ARN:               "rid2",
 			Tags:              map[string]string{"bye": "now"},
 			AccountOwner: domain.AccountOwner{
-				AccountID: "aid2",
+				AccountID: toStringPointer("aid2"),
 				Owner: domain.Person{
-					Login: "login",
-					Email: "email@atlassian.com",
-					Name:  "name",
-					Valid: true,
+					Login: toStringPointer("login"),
+					Email: toStringPointer("email@atlassian.com"),
+					Name:  toStringPointer("name"),
+					Valid: toBoolPointer(true),
 				},
 				Champions: []domain.Person{
 					{
-						Login: "login2",
-						Email: "email2@atlassian.com",
-						Name:  "name2",
-						Valid: true,
+						Login: toStringPointer("login2"),
+						Email: toStringPointer("email2@atlassian.com"),
+						Name:  toStringPointer("name2"),
+						Valid: toBoolPointer(true),
 					},
 				},
 			},
@@ -843,19 +843,19 @@ func TestGetHostnamesAtTimeSchema2(t *testing.T) {
 		ARN:               "rid",
 		Tags:              map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Login: "login",
-				Email: "email@atlassian.com",
-				Name:  "name",
-				Valid: true,
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Name:  toStringPointer("name"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Name:  "name2",
-					Valid: true,
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Name:  toStringPointer("name2"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -1007,19 +1007,19 @@ func TestGetHostnamesAtTimeMultiRowsSchema2(t *testing.T) {
 		ARN:                "rid",
 		Tags:               map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Login: "login",
-				Email: "email@atlassian.com",
-				Name:  "name",
-				Valid: true,
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Name:  toStringPointer("name"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Name:  "name2",
-					Valid: true,
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Name:  toStringPointer("name2"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -1130,19 +1130,19 @@ func TestGetARNIDAtTime(t *testing.T) {
 		ARN:                "arnid",
 		Tags:               map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Login: "login",
-				Email: "email@atlassian.com",
-				Name:  "name",
-				Valid: true,
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Name:  toStringPointer("name"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Name:  "name2",
-					Valid: true,
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Name:  toStringPointer("name2"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -1237,19 +1237,19 @@ func TestGetARNIDAtTimeMoreThanOnePublicIPs(t *testing.T) {
 			ARN:                "arnid",
 			Tags:               map[string]string{"hi": "there3"},
 			AccountOwner: domain.AccountOwner{
-				AccountID: "aid",
+				AccountID: toStringPointer("aid"),
 				Owner: domain.Person{
-					Name:  "name",
-					Login: "login",
-					Email: "email@atlassian.com",
-					Valid: true,
+					Name:  toStringPointer("name"),
+					Login: toStringPointer("login"),
+					Email: toStringPointer("email@atlassian.com"),
+					Valid: toBoolPointer(true),
 				},
 				Champions: []domain.Person{
 					{
-						Name:  "name2",
-						Login: "login2",
-						Email: "email2@atlassian.com",
-						Valid: true,
+						Name:  toStringPointer("name2"),
+						Login: toStringPointer("login2"),
+						Email: toStringPointer("email2@atlassian.com"),
+						Valid: toBoolPointer(true),
 					},
 				},
 			},
@@ -1337,7 +1337,7 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 	actual := results[0]
 
 	sort.SliceStable(actual.AccountOwner.Champions, func(i, j int) bool {
-		return actual.AccountOwner.Champions[i].Name < actual.AccountOwner.Champions[j].Name
+		return *actual.AccountOwner.Champions[i].Name < *actual.AccountOwner.Champions[j].Name
 	})
 
 	assert.Equal(t, 1, len(results))
@@ -1351,25 +1351,25 @@ func TestGetARNIDAtTimeMoreThanOneChampions(t *testing.T) {
 		ARN:                "arnid",
 		Tags:               map[string]string{"hi": "there3"},
 		AccountOwner: domain.AccountOwner{
-			AccountID: "aid",
+			AccountID: toStringPointer("aid"),
 			Owner: domain.Person{
-				Name:  "name",
-				Login: "login",
-				Email: "email@atlassian.com",
-				Valid: true,
+				Name:  toStringPointer("name"),
+				Login: toStringPointer("login"),
+				Email: toStringPointer("email@atlassian.com"),
+				Valid: toBoolPointer(true),
 			},
 			Champions: []domain.Person{
 				{
-					Name:  "name2",
-					Login: "login2",
-					Email: "email2@atlassian.com",
-					Valid: true,
+					Name:  toStringPointer("name2"),
+					Login: toStringPointer("login2"),
+					Email: toStringPointer("email2@atlassian.com"),
+					Valid: toBoolPointer(true),
 				},
 				{
-					Name:  "name3",
-					Login: "login3",
-					Email: "email3@atlassian.com",
-					Valid: true,
+					Name:  toStringPointer("name3"),
+					Login: toStringPointer("login3"),
+					Email: toStringPointer("email3@atlassian.com"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -2052,8 +2052,8 @@ func TestStoreV2Assign(t *testing.T) {
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                                         // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                            // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
@@ -2086,8 +2086,8 @@ func TestStoreV2Remove(t *testing.T) {
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                                         // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                            // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
@@ -2342,19 +2342,19 @@ from aws_events_ips_hostnames as ae
 
 func fakeAccountOwnerInput() domain.AccountOwner {
 	return domain.AccountOwner{
-		AccountID: "awsaccountid123",
+		AccountID: toStringPointer("awsaccountid123"),
 		Owner: domain.Person{
-			Name:  "john dane",
-			Login: "jdane",
-			Email: "jdane@atlassian.com",
-			Valid: true,
+			Name:  toStringPointer("john dane"),
+			Login: toStringPointer("jdane"),
+			Email: toStringPointer("jdane@atlassian.com"),
+			Valid: toBoolPointer(true),
 		},
 		Champions: []domain.Person{
 			{
-				Name:  "john dane",
-				Login: "jdane",
-				Email: "jdane@atlassian.com",
-				Valid: true,
+				Name:  toStringPointer("john dane"),
+				Login: toStringPointer("jdane"),
+				Email: toStringPointer("jdane@atlassian.com"),
+				Valid: toBoolPointer(true),
 			},
 		},
 	}
@@ -2362,12 +2362,12 @@ func fakeAccountOwnerInput() domain.AccountOwner {
 
 func fakeAccountOwnerInputNoChampion() domain.AccountOwner {
 	return domain.AccountOwner{
-		AccountID: "awsaccountid123",
+		AccountID: toStringPointer("awsaccountid123"),
 		Owner: domain.Person{
-			Name:  "john dane",
-			Login: "jdane",
-			Email: "jdane@atlassian.com",
-			Valid: true,
+			Name:  toStringPointer("john dane"),
+			Login: toStringPointer("jdane"),
+			Email: toStringPointer("jdane@atlassian.com"),
+			Valid: toBoolPointer(true),
 		},
 	}
 }
@@ -2604,4 +2604,14 @@ func TestResIDFromARN(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helper function to convert strings to pointers (for nullability)
+func toStringPointer(s string) *string {
+	return &s
+}
+
+// Helper function to convert booleans to pointers (for nullability)
+func toBoolPointer(b bool) *bool {
+	return &b
 }
