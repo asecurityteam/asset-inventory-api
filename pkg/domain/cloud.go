@@ -39,15 +39,15 @@ type CloudAssetDetails struct {
 
 // AccountOwner represents an AWS account with its owner and account champions
 type AccountOwner struct {
-	AccountID string
+	AccountID *string
 	Owner     Person
 	Champions []Person
 }
 
 // Person represents details about a person in Atlassian
 type Person struct {
-	Name  string
-	Login string
-	Email string
-	Valid bool
+	Name  *string
+	Login *string
+	Email *string
+	Valid *bool
 }

@@ -697,10 +697,10 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 		var hostname sql.NullString
 		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
 		var accountID int
-		var chLogin string
-		var chEmail string
-		var chName string
-		var chValid bool
+		var chLogin *string
+		var chEmail *string
+		var chName *string
+		var chValid *bool
 
 		if isPrivateIP {
 			err = rows.Scan(&ipAddress, &row.ARN, &metaBytes, &row.Region, &row.ResourceType, &row.AccountID,
@@ -746,7 +746,7 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 
 		found := false
 		for _, val := range tempMap[row.ARN].AccountOwner.Champions {
-			if strings.EqualFold(val.Email, chEmail) {
+			if strings.EqualFold(*val.Email, *chEmail) {
 				found = true
 				break
 			}
@@ -865,10 +865,10 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 		}
 
 		tempChampionsMap[chLogin+chEmail] = domain.Person{
-			Login: chLogin,
-			Email: chEmail,
-			Name:  chName,
-			Valid: chValid,
+			Login: &chLogin,
+			Email: &chEmail,
+			Name:  &chName,
+			Valid: &chValid,
 		}
 	}
 	rows.Close()

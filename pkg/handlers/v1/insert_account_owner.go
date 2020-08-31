@@ -34,21 +34,21 @@ func (h *AccountOwnerInsertHandler) Handle(ctx context.Context, input AccountOwn
 	logger := h.LogFn(ctx)
 
 	accountOwner := domain.AccountOwner{
-		AccountID: input.AccountID,
+		AccountID: &input.AccountID,
 		Owner: domain.Person{
-			Name:  input.Owner.Name,
-			Login: input.Owner.Login,
-			Email: input.Owner.Email,
-			Valid: input.Owner.Valid,
+			Name:  &input.Owner.Name,
+			Login: &input.Owner.Login,
+			Email: &input.Owner.Email,
+			Valid: &input.Owner.Valid,
 		},
 		Champions: make([]domain.Person, 0, len(input.Champions)),
 	}
 	for _, val := range input.Champions {
 		accountOwner.Champions = append(accountOwner.Champions, domain.Person{
-			Name:  val.Name,
-			Login: val.Login,
-			Email: val.Email,
-			Valid: val.Valid,
+			Name:  &val.Name,
+			Login: &val.Login,
+			Email: &val.Email,
+			Valid: &val.Valid,
 		})
 	}
 

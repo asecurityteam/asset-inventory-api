@@ -421,12 +421,12 @@ func TestFetchByARNIDSuccess(t *testing.T) {
 			Hostnames:          []string{"foo"},
 			ARN:                "arnid",
 			AccountOwner: domain.AccountOwner{
-				AccountID: "abc123",
+				AccountID: toStringPointer("abc123"),
 				Owner: domain.Person{
-					Name:  "fake name",
-					Login: "fake",
-					Email: "fake@atlassian.com",
-					Valid: true,
+					Name:  toStringPointer("fake name"),
+					Login: toStringPointer("fake"),
+					Email: toStringPointer("fake@atlassian.com"),
+					Valid: toBoolPointer(true),
 				},
 			},
 		},
@@ -458,12 +458,12 @@ func TestExtractOutput(t *testing.T) {
 					Region:       "Region",
 					ARN:          "arn",
 					AccountOwner: domain.AccountOwner{
-						AccountID: "accountID",
+						AccountID: toStringPointer("accountID"),
 						Owner: domain.Person{
-							Name:  "name",
-							Login: "login",
-							Email: "email@atlassian.com",
-							Valid: false,
+							Name:  toStringPointer("name"),
+							Login: toStringPointer("login"),
+							Email: toStringPointer("email@atlassian.com"),
+							Valid: toBoolPointer(false),
 						},
 					},
 				},
@@ -480,12 +480,12 @@ func TestExtractOutput(t *testing.T) {
 						ARN:                "arn",
 						Tags:               make(map[string]string),
 						AccountOwner: domain.AccountOwner{
-							AccountID: "accountID",
+							AccountID: toStringPointer("accountID"),
 							Owner: domain.Person{
-								Name:  "name",
-								Login: "login",
-								Email: "email@atlassian.com",
-								Valid: false,
+								Name:  toStringPointer("name"),
+								Login: toStringPointer("login"),
+								Email: toStringPointer("email@atlassian.com"),
+								Valid: toBoolPointer(false),
 							},
 							Champions: make([]domain.Person, 0),
 						},
@@ -501,25 +501,25 @@ func TestExtractOutput(t *testing.T) {
 					PublicIPAddresses:  []string{"1.1.1.1"},
 					PrivateIPAddresses: []string{"10.1.1.1"},
 					AccountOwner: domain.AccountOwner{
-						AccountID: "accountID",
+						AccountID: toStringPointer("accountID"),
 						Owner: domain.Person{
-							Name:  "name",
-							Login: "login",
-							Email: "email@atlassian.com",
-							Valid: true,
+							Name:  toStringPointer("name"),
+							Login: toStringPointer("login"),
+							Email: toStringPointer("email@atlassian.com"),
+							Valid: toBoolPointer(true),
 						},
 						Champions: []domain.Person{
 							{
-								Name:  "name",
-								Login: "login",
-								Email: "email@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name"),
+								Login: toStringPointer("login"),
+								Email: toStringPointer("email@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 							{
-								Name:  "name2",
-								Login: "login2",
-								Email: "email2@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name2"),
+								Login: toStringPointer("login2"),
+								Email: toStringPointer("email2@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 						},
 					},
@@ -529,25 +529,25 @@ func TestExtractOutput(t *testing.T) {
 					PublicIPAddresses:  []string{"2.2.2.2"},
 					PrivateIPAddresses: []string{"10.2.2.2"},
 					AccountOwner: domain.AccountOwner{
-						AccountID: "accountID2",
+						AccountID: toStringPointer("accountID2"),
 						Owner: domain.Person{
-							Name:  "name",
-							Login: "login",
-							Email: "email@atlassian.com",
-							Valid: true,
+							Name:  toStringPointer("name"),
+							Login: toStringPointer("login"),
+							Email: toStringPointer("email@atlassian.com"),
+							Valid: toBoolPointer(true),
 						},
 						Champions: []domain.Person{
 							{
-								Name:  "name",
-								Login: "login",
-								Email: "email@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name"),
+								Login: toStringPointer("login"),
+								Email: toStringPointer("email@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 							{
-								Name:  "name2",
-								Login: "login2",
-								Email: "email2@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name2"),
+								Login: toStringPointer("login2"),
+								Email: toStringPointer("email2@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 						},
 					},
@@ -561,25 +561,25 @@ func TestExtractOutput(t *testing.T) {
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
 						AccountOwner: domain.AccountOwner{
-							AccountID: "accountID",
+							AccountID: toStringPointer("accountID"),
 							Owner: domain.Person{
-								Name:  "name",
-								Login: "login",
-								Email: "email@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name"),
+								Login: toStringPointer("login"),
+								Email: toStringPointer("email@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 							Champions: []domain.Person{
 								{
-									Name:  "name",
-									Login: "login",
-									Email: "email@atlassian.com",
-									Valid: true,
+									Name:  toStringPointer("name"),
+									Login: toStringPointer("login"),
+									Email: toStringPointer("email@atlassian.com"),
+									Valid: toBoolPointer(true),
 								},
 								{
-									Name:  "name2",
-									Login: "login2",
-									Email: "email2@atlassian.com",
-									Valid: true,
+									Name:  toStringPointer("name2"),
+									Login: toStringPointer("login2"),
+									Email: toStringPointer("email2@atlassian.com"),
+									Valid: toBoolPointer(true),
 								},
 							},
 						},
@@ -590,25 +590,25 @@ func TestExtractOutput(t *testing.T) {
 						Hostnames:          []string{"hostname"},
 						Tags:               make(map[string]string),
 						AccountOwner: domain.AccountOwner{
-							AccountID: "accountID2",
+							AccountID: toStringPointer("accountID2"),
 							Owner: domain.Person{
-								Name:  "name",
-								Login: "login",
-								Email: "email@atlassian.com",
-								Valid: true,
+								Name:  toStringPointer("name"),
+								Login: toStringPointer("login"),
+								Email: toStringPointer("email@atlassian.com"),
+								Valid: toBoolPointer(true),
 							},
 							Champions: []domain.Person{
 								{
-									Name:  "name",
-									Login: "login",
-									Email: "email@atlassian.com",
-									Valid: true,
+									Name:  toStringPointer("name"),
+									Login: toStringPointer("login"),
+									Email: toStringPointer("email@atlassian.com"),
+									Valid: toBoolPointer(true),
 								},
 								{
-									Name:  "name2",
-									Login: "login2",
-									Email: "email2@atlassian.com",
-									Valid: true,
+									Name:  toStringPointer("name2"),
+									Login: toStringPointer("login2"),
+									Email: toStringPointer("email2@atlassian.com"),
+									Valid: toBoolPointer(true),
 								},
 							},
 						},
@@ -681,4 +681,14 @@ func Test_fetchAllByTimeStampParametersForToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helper function to convert strings to pointers (for nullability)
+func toStringPointer(s string) *string {
+	return &s
+}
+
+// Helper function to convert booleans to pointers (for nullability)
+func toBoolPointer(b bool) *bool {
+	return &b
 }

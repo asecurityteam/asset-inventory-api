@@ -14,7 +14,7 @@ import (
 
 var assetInventoryAPI *openapi.APIClient
 var schemaVersion int32 = 1
-var maxSchema int32 = 11 // TODO: extrapolate this somewhere?
+var maxSchema int32 = 13 // TODO: extrapolate this somewhere?
 
 func TestMain(m *testing.M) {
 	config := openapi.NewConfiguration()
@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 
 func TestHealthcheck(t *testing.T) {
 	// Example: check every schema version against health check.
-	for schema := schemaVersion; schema < maxSchema; schema++ {
+	for schema := schemaVersion; schema <= maxSchema; schema++ {
 		tt := []struct {
 			Name string
 		}{
@@ -45,8 +45,10 @@ func TestHealthcheck(t *testing.T) {
 			t.Run(test.Name, fn)
 		}
 
-		err := setSchemaVersion(schema + 1)
-		assert.NoError(t, err, "The database migration should not return an error")
+		if schema < maxSchema {
+			err := setSchemaVersion(schema + 1)
+			assert.NoError(t, err, "The database migration should not return an error")
+		}
 	}
 }
 
