@@ -222,7 +222,7 @@ func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input Clo
 
 // CloudAssetFetchByResourceIDParameters represents the incoming payload for fetching cloud assets by resource ID
 type CloudAssetFetchByResourceIDParameters struct {
-	ResourceID string `json:"resid"`
+	ResourceID string `json:"resourceid"`
 	Timestamp  string `json:"time"`
 }
 

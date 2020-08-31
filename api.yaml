@@ -322,13 +322,13 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-  /v1/cloud/arnid/{arnid}:
+  /v1/cloud/arnid/{resourceid}:
     get:
       summary: "Retrieve a cloud asset at a point in time by ARN ID"
       parameters:
-        - name: "arnid"
+        - name: "resourceid"
           in: "path"
-          description: "The arn id of the asset"
+          description: "The resource id of the asset"
           required: true
           schema:
             type: "string"
@@ -362,11 +362,11 @@ paths:
           - "responsevalidation"
           - "lambda"
         lambda:
-          arn: "fetchByArnID"
+          arn: "fetchByResourceID"
           async: false
           request: >
             {
-              "arnid": "#!.Request.URL.arnid!#",
+              "resourceid": "#!.Request.URL.resourceid!#",
               "time": "#!index .Request.Query.time 0!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
@@ -381,11 +381,11 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
-  /v1/cloud/resid/{resid}:
+  /v1/cloud/resourceid/{resourceid}:
     get:
       summary: "Retrieve a cloud asset at a point in time by resource ID"
       parameters:
-        - name: "resid"
+        - name: "resourceid"
           in: "path"
           description: "The resource id of the asset"
           required: true
@@ -425,7 +425,7 @@ paths:
           async: false
           request: >
             {
-              "resid": "#!.Request.URL.resid!#",
+              "resourceid": "#!.Request.URL.resourceid!#",
               "time": "#!index .Request.Query.time 0!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
