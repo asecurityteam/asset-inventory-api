@@ -1,4 +1,4 @@
--- schema changes to create functions for APIs
+-- update functions to use left joins
 BEGIN;
 
 CREATE OR REPLACE FUNCTION get_resource_by_arn_id(aid VARCHAR, ts TIMESTAMP)
