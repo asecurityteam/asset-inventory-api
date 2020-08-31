@@ -73,47 +73,6 @@ END;
 $$
     LANGUAGE 'plpgsql';
 
-CREATE OR REPLACE FUNCTION get_owner_and_champions_by_account_id(id INTEGER)
-    RETURNS TABLE
-            (
-                t_account VARCHAR,
-                t_login   VARCHAR,
-                t_email   VARCHAR,
-                t_name    VARCHAR,
-                t_valid   BOOL,
-                p_login   VARCHAR,
-                p_email   VARCHAR,
-                p_name    VARCHAR,
-                p_valid   BOOL
-            )
-AS
-$$
-BEGIN
-    RETURN QUERY SELECT t.account,
-                        t.login,
-                        t.email,
-                        t.name,
-                        t.valid,
-                        p.login,
-                        p.email,
-                        p.name,
-                        p.valid
-                 FROM (SELECT aa.account,
-                              ow.login,
-                              ow.email,
-                              ow.name,
-                              ow.valid,
-                              ac.person_id
-                       FROM account_owner ao
-                                LEFT JOIN aws_account aa ON ao.aws_account_id = aa.id
-                                LEFT JOIN person ow ON ao.person_id = ow.id
-                                LEFT JOIN account_champion ac ON ao.aws_account_id = ac.aws_account_id
-                       WHERE ao.aws_account_id = get_owner_and_champions_by_account_id.id) t
-                          LEFT JOIN person p ON t.person_id = p.id;
-END;
-$$
-    LANGUAGE 'plpgsql';
-
 CREATE OR REPLACE FUNCTION get_resource_by_hostname(name VARCHAR, ts TIMESTAMP)
     RETURNS TABLE
             (
