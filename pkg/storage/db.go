@@ -837,10 +837,10 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 		var publicIPAddress sql.NullString
 		var hostname sql.NullString
 		var metaBytes []byte
-		var chLogin string
-		var chEmail string
-		var chName string
-		var chValid bool
+		var chLogin *string
+		var chEmail *string
+		var chName *string
+		var chValid *bool
 		if err = rows.Scan(&privateIPAddress, &publicIPAddress, &hostname, &asset.ResourceType, &asset.AccountID,
 			&asset.Region, &metaBytes, &accountID, &account.AccountID, &account.Owner.Login, &account.Owner.Email,
 			&account.Owner.Name, &account.Owner.Valid, &chLogin, &chEmail, &chName, &chValid); err != nil {
@@ -864,11 +864,13 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 			hasTag = true
 		}
 
-		tempChampionsMap[chLogin+chEmail] = domain.Person{
-			Login: &chLogin,
-			Email: &chEmail,
-			Name:  &chName,
-			Valid: &chValid,
+		if chLogin != nil {
+			tempChampionsMap[*chLogin] = domain.Person{
+				Login: chLogin,
+				Email: chEmail,
+				Name:  chName,
+				Valid: chValid,
+			}
 		}
 	}
 	rows.Close()
