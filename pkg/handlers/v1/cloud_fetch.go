@@ -220,21 +220,21 @@ func (h *CloudFetchAllAssetsByTimeHandler) Handle(ctx context.Context, input Clo
 	return PagedCloudAssets{extractOutput(assets), nextPageToken}, nil
 }
 
-// CloudAssetFetchByARNIDParameters represents the incoming payload for fetching cloud assets by ARN ID
-type CloudAssetFetchByARNIDParameters struct {
-	ARN       string `json:"arnid"`
-	Timestamp string `json:"time"`
+// CloudAssetFetchByResourceIDParameters represents the incoming payload for fetching cloud assets by resource ID
+type CloudAssetFetchByResourceIDParameters struct {
+	ResourceID string `json:"resourceid"`
+	Timestamp  string `json:"time"`
 }
 
-// CloudFetchByARNIDHandler defines a lambda handler for fetching cloud assets, account owner and champions with a given ARN ID
-type CloudFetchByARNIDHandler struct {
+// CloudFetchByResourceIDHandler defines a lambda handler for fetching cloud assets, account owner and champions with a given resource ID
+type CloudFetchByResourceIDHandler struct {
 	LogFn   domain.LogFn
 	StatFn  domain.StatFn
-	Fetcher domain.CloudAssetByARNIDFetcher
+	Fetcher domain.CloudAssetByResourceIDFetcher
 }
 
-// Handle handles fetching cloud assets, account owner and champions by ARN ID
-func (h *CloudFetchByARNIDHandler) Handle(ctx context.Context, input CloudAssetFetchByARNIDParameters) (CloudAssets, error) {
+// Handle handles fetching cloud assets, account owner and champions by resource ID
+func (h *CloudFetchByResourceIDHandler) Handle(ctx context.Context, input CloudAssetFetchByResourceIDParameters) (CloudAssets, error) {
 	logger := h.LogFn(ctx)
 
 	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
@@ -243,19 +243,19 @@ func (h *CloudFetchByARNIDHandler) Handle(ctx context.Context, input CloudAssetF
 		return CloudAssets{}, InvalidInput{Field: "time", Cause: e}
 	}
 
-	if input.ARN == "" {
-		e = fmt.Errorf("ARN ID cannot be empty")
+	if input.ResourceID == "" {
+		e = fmt.Errorf("Resource ID cannot be empty")
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
-		return CloudAssets{}, InvalidInput{Field: "ARN ID", Cause: e}
+		return CloudAssets{}, InvalidInput{Field: "Resource ID", Cause: e}
 	}
 
-	assets, e := h.Fetcher.FetchByARNID(ctx, ts, input.ARN)
+	assets, e := h.Fetcher.FetchByResourceID(ctx, ts, input.ResourceID)
 	if e != nil {
 		logger.Error(logs.StorageError{Reason: e.Error()})
 		return CloudAssets{}, e
 	}
 	if len(assets) == 0 {
-		return CloudAssets{}, NotFound{ID: input.ARN}
+		return CloudAssets{}, NotFound{ID: input.ResourceID}
 	}
 
 	return extractOutput(assets), nil

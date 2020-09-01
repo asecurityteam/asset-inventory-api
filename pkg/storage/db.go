@@ -803,8 +803,8 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 	return cloudAssetDetails, nil
 }
 
-// FetchByARNID gets the assets who have ARN ID at the specified time
-func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([]domain.CloudAssetDetails, error) {
+// FetchByResourceID gets the assets who have resource ID at the specified time
+func (db *DB) FetchByResourceID(ctx context.Context, when time.Time, resID string) ([]domain.CloudAssetDetails, error) {
 	ver, err := db.getSchemaVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -813,7 +813,7 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 		return nil, nil
 	}
 
-	rows, err := db.sqldb.QueryContext(ctx, resourceByARNIDQuery, arnID, when)
+	rows, err := db.sqldb.QueryContext(ctx, resourceByARNIDQuery, resID, when)
 	if err != nil {
 		return nil, err
 	}
@@ -891,7 +891,7 @@ func (db *DB) FetchByARNID(ctx context.Context, when time.Time, arnID string) ([
 	for hostname := range tempHostnameMap {
 		asset.Hostnames = append(asset.Hostnames, hostname)
 	}
-	asset.ARN = arnID
+	asset.ARN = resID
 
 	asset.AccountOwner = domain.AccountOwner{
 		AccountID: account.AccountID,

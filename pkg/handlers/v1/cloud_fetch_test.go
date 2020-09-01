@@ -32,8 +32,8 @@ func newFetchByHostnameHandler(fetcher domain.CloudAssetByHostnameFetcher) *Clou
 	}
 }
 
-func newFetchByARNIDHandler(fetcher domain.CloudAssetByARNIDFetcher) *CloudFetchByARNIDHandler {
-	return &CloudFetchByARNIDHandler{
+func newFetchByResourceIDHandler(fetcher domain.CloudAssetByResourceIDFetcher) *CloudFetchByResourceIDHandler {
+	return &CloudFetchByResourceIDHandler{
 		LogFn:   testLogFn,
 		StatFn:  testStatFn,
 		Fetcher: fetcher,
@@ -70,10 +70,10 @@ func validFetchByHostnameInput() CloudAssetFetchByHostnameParameters {
 	}
 }
 
-func validFetchByARNIDInput() CloudAssetFetchByARNIDParameters {
-	return CloudAssetFetchByARNIDParameters{
-		ARN:       "arnid",
-		Timestamp: time.Now().Format(time.RFC3339Nano),
+func validFetchByResourceIDInput() CloudAssetFetchByResourceIDParameters {
+	return CloudAssetFetchByResourceIDParameters{
+		ResourceID: "resid",
+		Timestamp:  time.Now().Format(time.RFC3339Nano),
 	}
 }
 
@@ -350,29 +350,29 @@ func TestFetchByHostnameSuccess(t *testing.T) {
 	assert.NotNil(t, asset)
 }
 
-func TestFetchByARNIDInvalidInput(t *testing.T) {
+func TestFetchByResourceIDInvalidInput(t *testing.T) {
 	tc := []struct {
 		name  string
-		input CloudAssetFetchByARNIDParameters
+		input CloudAssetFetchByResourceIDParameters
 	}{
 		{
 			name:  "empty timestamp",
-			input: CloudAssetFetchByARNIDParameters{Timestamp: ""},
+			input: CloudAssetFetchByResourceIDParameters{Timestamp: ""},
 		},
 		{
 			name:  "invalid timestamp",
-			input: CloudAssetFetchByARNIDParameters{Timestamp: "foo"},
+			input: CloudAssetFetchByResourceIDParameters{Timestamp: "foo"},
 		},
 		{
-			name:  "no ARN ID",
-			input: CloudAssetFetchByARNIDParameters{Timestamp: time.Now().Format(time.RFC3339Nano)},
+			name:  "no resource ID",
+			input: CloudAssetFetchByResourceIDParameters{Timestamp: time.Now().Format(time.RFC3339Nano)},
 		},
 	}
 
 	for _, tt := range tc {
 		tt := tt
 		t.Run(tt.name, func(*testing.T) {
-			_, e := newFetchByARNIDHandler(nil).Handle(context.Background(), tt.input)
+			_, e := newFetchByResourceIDHandler(nil).Handle(context.Background(), tt.input)
 			assert.NotNil(t, e)
 
 			_, ok := e.(InvalidInput)
@@ -381,38 +381,38 @@ func TestFetchByARNIDInvalidInput(t *testing.T) {
 	}
 }
 
-func TestFetchByARNIDNotFound(t *testing.T) {
+func TestFetchByResourceIDNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
-	input := validFetchByARNIDInput()
+	fetcher := NewMockCloudAssetByResourceIDFetcher(ctrl)
+	input := validFetchByResourceIDInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
-	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return([]domain.CloudAssetDetails{}, nil)
+	fetcher.EXPECT().FetchByResourceID(gomock.Any(), ts, input.ResourceID).Return([]domain.CloudAssetDetails{}, nil)
 
-	_, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	_, e := newFetchByResourceIDHandler(fetcher).Handle(context.Background(), input)
 	assert.NotNil(t, e)
 }
 
-func TestFetchByARNIDStorageError(t *testing.T) {
+func TestFetchByResourceIDStorageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
-	input := validFetchByARNIDInput()
+	fetcher := NewMockCloudAssetByResourceIDFetcher(ctrl)
+	input := validFetchByResourceIDInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
-	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return([]domain.CloudAssetDetails{}, errors.New(""))
+	fetcher.EXPECT().FetchByResourceID(gomock.Any(), ts, input.ResourceID).Return([]domain.CloudAssetDetails{}, errors.New(""))
 
-	_, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	_, e := newFetchByResourceIDHandler(fetcher).Handle(context.Background(), input)
 	assert.NotNil(t, e)
 }
 
-func TestFetchByARNIDSuccess(t *testing.T) {
+func TestFetchByResourceIDSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fetcher := NewMockCloudAssetByARNIDFetcher(ctrl)
-	input := validFetchByARNIDInput()
+	fetcher := NewMockCloudAssetByResourceIDFetcher(ctrl)
+	input := validFetchByResourceIDInput()
 	ts, _ := time.Parse(time.RFC3339Nano, input.Timestamp)
 	output := []domain.CloudAssetDetails{
 		{
@@ -431,9 +431,9 @@ func TestFetchByARNIDSuccess(t *testing.T) {
 			},
 		},
 	}
-	fetcher.EXPECT().FetchByARNID(gomock.Any(), ts, input.ARN).Return(output, nil)
+	fetcher.EXPECT().FetchByResourceID(gomock.Any(), ts, input.ResourceID).Return(output, nil)
 
-	asset, e := newFetchByARNIDHandler(fetcher).Handle(context.Background(), input)
+	asset, e := newFetchByResourceIDHandler(fetcher).Handle(context.Background(), input)
 	assert.Nil(t, e)
 	assert.NotNil(t, asset)
 }

@@ -36,9 +36,9 @@ type CloudAssetByHostnameFetcher interface {
 	FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]CloudAssetDetails, error)
 }
 
-// CloudAssetByARNIDFetcher fetches details for a cloud asset with a given ARN ID at a point in time
-type CloudAssetByARNIDFetcher interface {
-	FetchByARNID(ctx context.Context, when time.Time, arnid string) ([]CloudAssetDetails, error)
+// CloudAssetByResourceIDFetcher fetches details for a cloud asset with a given resource ID at a point in time
+type CloudAssetByResourceIDFetcher interface {
+	FetchByResourceID(ctx context.Context, when time.Time, resid string) ([]CloudAssetDetails, error)
 }
 
 // CloudAllAssetsByTimeFetcher fetches details for all cloud assets based on limit and optional offset with a given point in time
