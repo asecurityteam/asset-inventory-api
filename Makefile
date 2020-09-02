@@ -67,11 +67,15 @@ integration: integration-app integration-test clean-integration
 master-integration: clean-integration
 	git config --replace-all remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 	git fetch --depth=1 origin master
-	make integration-app
-	git checkout origin/master -- api.yaml
-	git rm -rf integration
-	git checkout origin/master -- integration
-	make integration-test
+	$(eval isAPIDiff = $(shell git diff --quiet origin/master -- api.yaml; echo $$?))
+	$(eval isTestDiff = $(shell git diff --quiet origin/master -- ./integration; echo $$?))
+	if [[ $(isAPIDiff) != 0 || $(isTestDiff) != 0 ]]; then \
+  		make integration-app; \
+		git checkout origin/master -- api.yaml; \
+		git rm -rf integration; \
+		git checkout origin/master -- integration; \
+		make integration-test; \
+	fi
 
 coverage:
 	docker run -ti \
