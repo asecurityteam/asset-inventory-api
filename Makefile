@@ -69,7 +69,7 @@ master-integration: clean-integration
 	git fetch --depth=1 origin master
 	$(eval isAPIDiff = $(shell git diff --quiet origin/master -- api.yaml; echo $$?))
 	$(eval isTestDiff = $(shell git diff --quiet origin/master -- ./integration; echo $$?))
-	if [[ $(isAPIDiff) != 0 || $(isTestDiff) != 0 ]]; then \
+	if [ $(isAPIDiff) != 0 ] || [ $(isTestDiff) != 0 ]; then \
   		make integration-app; \
 		git checkout origin/master -- api.yaml; \
 		git rm -rf integration; \
