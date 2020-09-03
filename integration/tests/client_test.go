@@ -32,7 +32,7 @@ func TestHealthcheck(t *testing.T) {
 			Name string
 		}{
 			{
-				Name: "Health Check -- Testing with test change",
+				Name: "Health Check",
 			},
 		}
 		for _, test := range tt {
