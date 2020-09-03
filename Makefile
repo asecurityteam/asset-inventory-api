@@ -69,6 +69,7 @@ master-integration: clean-integration
 	git fetch --depth=1 origin master
 	IS_API_DIFF=$$(git diff --quiet origin/master -- api.yaml; echo $$?); \
 	IS_TEST_DIFF=$$(git diff --quiet origin/master -- ./integration; echo $$?); \
+	echo $$IS_API_DIFF; echo $$IS_TEST_DIFF; \
 	if [ $$IS_API_DIFF != 0 ] || [ $$IS_TEST_DIFF != 0 ]; then \
 		make integration-app; \
 		git checkout origin/master -- api.yaml; \
