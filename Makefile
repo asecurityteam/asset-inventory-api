@@ -26,7 +26,7 @@ test:
 # Generate the client used for integration tests. For local development.
 generate-integration-client:
 	docker run --rm \
-    	-v ${PWD}:/local openapitools/openapi-generator-cli generate \
+    	-v ${PWD}:/local openapitools/openapi-generator-cli:v5.0.0-beta generate \
     	-i /local/api.yaml \
     	-g go \
     	--git-user-id asecurityteam \

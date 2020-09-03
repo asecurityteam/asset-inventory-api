@@ -746,7 +746,7 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 
 		found := false
 		for _, val := range tempMap[row.ARN].AccountOwner.Champions {
-			if strings.EqualFold(*val.Email, *chEmail) {
+			if val.Email != nil && chEmail != nil && strings.EqualFold(*val.Email, *chEmail) {
 				found = true
 				break
 			}
