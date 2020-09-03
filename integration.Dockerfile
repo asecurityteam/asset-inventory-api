@@ -1,4 +1,4 @@
-FROM openapitools/openapi-generator-cli AS GENERATOR
+FROM openapitools/openapi-generator-cli:v5.0.0-beta AS GENERATOR
 COPY api.yaml .
 RUN /usr/local/bin/docker-entrypoint.sh generate \
     -i api.yaml \
