@@ -67,9 +67,10 @@ integration: integration-app integration-test clean-integration
 master-integration: clean-integration
 	git config --replace-all remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 	git fetch --depth=1 origin master
+	git diff origin/master -- api.yaml
+	git diff origin/master -- ./integration
 	IS_API_DIFF=$$(git diff --quiet origin/master -- api.yaml; echo $$?); \
 	IS_TEST_DIFF=$$(git diff --quiet origin/master -- ./integration; echo $$?); \
-	echo $$IS_API_DIFF; echo $$IS_TEST_DIFF; \
 	if [ $$IS_API_DIFF != 0 ] || [ $$IS_TEST_DIFF != 0 ]; then \
 		make integration-app; \
 		git checkout origin/master -- api.yaml; \
