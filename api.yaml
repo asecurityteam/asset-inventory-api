@@ -75,7 +75,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "insert"
           async: false
@@ -131,7 +134,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchAllAssetsByTime"
           async: false
@@ -184,7 +190,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchMoreAssetsByPageToken"
           async: false
@@ -242,7 +251,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchByIP"
           async: false
@@ -301,7 +313,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchByHostname"
           async: false
@@ -360,7 +375,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchByResourceID"
           async: false
@@ -419,7 +437,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "fetchByResourceID"
           async: false
@@ -779,7 +800,10 @@ paths:
           - "accesslog"
           - "requestvalidation"
           - "responsevalidation"
+          - "timeout"
           - "lambda"
+        timeout:
+          after: "5s"
         lambda:
           arn: "insertAccountOwner"
           async: false
