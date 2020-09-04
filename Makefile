@@ -68,8 +68,6 @@ master-integration: clean-integration
 	git config --replace-all remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 	git config core.filemode false
 	git fetch --depth=1 origin master
-	git diff origin/master -- api.yaml
-	git diff origin/master -- ./integration
 	IS_API_DIFF=$$(git diff --quiet origin/master -- api.yaml; echo $$?); \
 	IS_TEST_DIFF=$$(git diff --quiet origin/master -- ./integration; echo $$?); \
 	if [ $$IS_API_DIFF != 0 ] || [ $$IS_TEST_DIFF != 0 ]; then \
@@ -78,6 +76,8 @@ master-integration: clean-integration
 		git rm -rf integration; \
 		git checkout origin/master -- integration; \
 		make integration-test; \
+	else \
+		echo 'Skipping master integration testing: no changes to local API or tests'; \
 	fi
 
 coverage:
