@@ -4,6 +4,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -13,42 +14,45 @@ import (
 )
 
 var assetInventoryAPI *openapi.APIClient
-var schemaVersion int32 = 1
-var maxSchema int32 = 13 // TODO: extrapolate this somewhere?
+var schemaVersion int32 = 6 // our default data starts at v6 as of now
+var maxSchema int32 = 14 // TODO: extrapolate this somewhere?
+
+func WithSchemaVersion(input string) string{
+	return fmt.Sprintf("Schema V%d %s", schemaVersion, input)
+}
 
 func TestMain(m *testing.M) {
 	config := openapi.NewConfiguration()
 	appURL := os.Getenv("AIA_APP_URL")
 	config.BasePath = appURL
 	assetInventoryAPI = openapi.NewAPIClient(config)
-	code := m.Run()
-	os.Exit(code)
+	res := 0
+	for v:= int32(12); v<= maxSchema; v++ {
+		err := setSchemaVersion(v)
+		if err != nil {
+			panic(fmt.Errorf("error migrating database schema %#v", err))
+		}
+		res += m.Run()
+	}
+	os.Exit(res) //non-zero if any of the fixtures failed
 }
 
 func TestHealthcheck(t *testing.T) {
-	// Example: check every schema version against health check.
-	for schema := schemaVersion; schema <= maxSchema; schema++ {
-		tt := []struct {
-			Name string
-		}{
-			{
-				Name: "Health Check",
-			},
+	tt := []struct {
+		Name string
+	}{
+		{
+			Name: "Health Check",
+		},
+	}
+	for _, test := range tt {
+		fn := func(t *testing.T) {
+			ctx := context.Background()
+			resp, err := assetInventoryAPI.DefaultApi.HealthcheckGet(ctx)
+			assert.NoError(t, err, "Health check should produce no errors")
+			assert.Equal(t, resp.StatusCode, http.StatusOK)
 		}
-		for _, test := range tt {
-			fn := func(t *testing.T) {
-				ctx := context.Background()
-				resp, err := assetInventoryAPI.DefaultApi.HealthcheckGet(ctx)
-				assert.NoError(t, err, "Health check should produce no errors")
-				assert.Equal(t, resp.StatusCode, http.StatusOK)
-			}
-			t.Run(test.Name, fn)
-		}
-
-		if schema < maxSchema {
-			err := setSchemaVersion(schema + 1)
-			assert.NoError(t, err, "The database migration should not return an error")
-		}
+		t.Run(WithSchemaVersion(test.Name), fn)
 	}
 }
 
