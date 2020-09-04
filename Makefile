@@ -66,6 +66,7 @@ integration: integration-app integration-test clean-integration
 # Run integration tests against master client and tests
 master-integration: clean-integration
 	git config --replace-all remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+	git config core.filemode false
 	git fetch --depth=1 origin master
 	git diff origin/master -- api.yaml
 	git diff origin/master -- ./integration
