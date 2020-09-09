@@ -879,13 +879,21 @@ components:
             $ref: "#/components/schemas/CloudAssetDetails"
     CloudAssets:
       type: object
+      required:
+        - assets
+      additionalProperties: false
       properties:
-        response:
+        assets:
           type: array
           items:
             $ref: "#/components/schemas/CloudAssetDetails"
     CloudAssetDetails:
       type: object
+      required:
+        - resourceType
+        - accountId
+        - region
+        - arn
       properties:
         privateIpAddresses:
           type: array
