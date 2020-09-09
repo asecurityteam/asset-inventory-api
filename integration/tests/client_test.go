@@ -13,7 +13,7 @@ import (
 )
 
 var assetInventoryAPI *openapi.APIClient
-var schemaVersion int32 = 14
+var schemaVersion int32 = 13
 var maxSchema int32 = 14 // TODO: extrapolate this somewhere?
 
 func TestMain(m *testing.M) {
