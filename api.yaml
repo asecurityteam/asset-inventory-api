@@ -993,8 +993,6 @@ components:
         accountId:
           type: string
           pattern: ^(\d{12})$
-        name:
-          type: string
         owner:
           $ref: "#/components/schemas/SetPerson"
         champions:
