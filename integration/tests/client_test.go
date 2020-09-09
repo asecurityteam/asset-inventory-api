@@ -14,19 +14,48 @@ import (
 )
 
 var assetInventoryAPI *openapi.APIClient
-var schemaVersion int32 = 6 // our default data starts at v6 as of now
+var schemaVersion int32
 var maxSchema int32 = 14 // TODO: extrapolate this somewhere?
 
 func WithSchemaVersion(input string) string{
 	return fmt.Sprintf("Schema V%d %s", schemaVersion, input)
 }
 
+func getSchemaVersion(ctx context.Context, api *openapi.DefaultApiService) int32{
+	versionState, _, err := api.OpsPgsqlV1SchemaVersionGet(ctx)
+	if err!=nil{
+		panic(err)
+	}
+	if versionState.Dirty{
+		panic("dirty schema version")
+	}
+	return versionState.Version
+}
+
 func TestMain(m *testing.M) {
 	config := openapi.NewConfiguration()
 	appURL := os.Getenv("AIA_APP_URL")
 	config.BasePath = appURL
+	// config.Debug = true
 	assetInventoryAPI = openapi.NewAPIClient(config)
+	ctx := context.Background()
+	schemaVersion = getSchemaVersion(ctx, assetInventoryAPI.DefaultApi)
 	res := 0
+	john := openapi.Person{
+		Name:  "John Smith",
+		Login: "jsmith",
+		Email: "jsmith@atlassian.com",
+		Valid: false,
+	}
+	accountOwner := openapi.AccountOwner{
+		AccountId: "001234567891011",
+		Owner:    john,
+		Champions: []openapi.Person{john},
+	}
+	_, err := assetInventoryAPI.DefaultApi.V1AccountOwnerPost(ctx, accountOwner)
+	if err!=nil{
+		panic(err)
+	}
 	for v:= int32(12); v<= maxSchema; v++ {
 		err := setSchemaVersion(v)
 		if err != nil {
