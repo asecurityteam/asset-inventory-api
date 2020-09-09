@@ -23,6 +23,9 @@ test:
         -w "$(DIR)" \
         asecurityteam/sdcli:v1 go test
 
+psql-console:
+	docker-compose exec -u postgres postgres psql -U user assetmgmt
+
 # Generate the client used for integration tests. For local development.
 generate-integration-client:
 	docker run --rm \
