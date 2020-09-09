@@ -9,8 +9,8 @@ import (
 	openapi "github.com/asecurityteam/asset-inventory-api/client"
 )
 
-var schemaVersion int32  //current schema version
-var maxSchema int32 = 14 // TODO: extrapolate this somewhere?
+var schemaVersion int32           //current schema version
+const maxSchemaVersion int32 = 14 // TODO: extrapolate this somewhere?
 
 // decorate a test name with current schema version
 func addSchemaVersion(input string) string {
