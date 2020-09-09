@@ -1034,7 +1034,8 @@ func (db *DB) releasePrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip
 update aws_private_ip_assignment
 set not_after=$1
 where private_ip = $2
-  and aws_resource_id = (select id from aws_resource where arn_id = $3);`
+  and aws_resource_id = (select id from aws_resource where arn_id = $3)
+  and not_after is null ;`
 
 	const releasePrivateIPQueryInsert = `
 insert into aws_private_ip_assignment
