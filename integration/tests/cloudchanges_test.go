@@ -106,15 +106,6 @@ func TestCloudChanges(t *testing.T) {
 			http.StatusBadRequest,
 			false,
 			nil,
-		},
-		"PublicIPsWithoutHostnames": { Disabled. Is not handled as it should. Need 400, getting 201
-			func(changes *openapi.CloudAssetChanges) {
-				changes.Changes[0].Hostnames = []string{}
-			},
-			//TODO fix/check the code. We should not accept semantically incorrect event. This should be 400.
-			http.StatusBadRequest,
-			false,
-			nil,
 		},*/
 		"InvalidChangeType": {
 			func(changes *openapi.CloudAssetChanges) {

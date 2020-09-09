@@ -21,7 +21,7 @@ func addSchemaVersion(input string) string {
 func getSchemaVersion(ctx context.Context, api *openapi.DefaultApiService) int32 {
 	versionState, _, err := api.OpsPgsqlV1SchemaVersionGet(ctx)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	if versionState.Dirty {
 		panic("dirty schema version")

@@ -18,9 +18,11 @@ func SampleAssetChange() openapi.CloudAssetChange {
 	return openapi.CloudAssetChange{
 		PrivateIpAddresses: []string{"10.0.0.1", "10.0.0.2"},
 		PublicIpAddresses:  []string{"8.8.8.8", "8.8.4.4"},
-		Hostnames:          []string{"myhostname.us-west-1.amazonaws.com", "myotherhostname.us-west-1.amazonaws.com"},
-		RelatedResources:   []string{},
-		ChangeType:         "ADDED",
+		//even though Hostnames is a list, there can be only one of them.
+		//TODO - reflect in schema in api.yaml that we do not accept more than one hostname
+		Hostnames:        []string{"myhostname.us-west-1.amazonaws.com"},
+		RelatedResources: []string{},
+		ChangeType:       "ADDED",
 	}
 }
 

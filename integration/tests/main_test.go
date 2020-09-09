@@ -22,17 +22,19 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	schemaVersion = getSchemaVersion(ctx, assetInventoryAPI.DefaultApi)
 	res := 0
-	// until we fix return format for cases when account has no owners/champions set - this is required
-	_, err := assetInventoryAPI.DefaultApi.V1AccountOwnerPost(ctx, SampleAccountOwner())
-	if err != nil {
-		panic(err)
-	}
+
 	//run all know tests with all supported schema versions
 	for v := int32(12); v <= maxSchema; v++ {
 		err := setSchemaVersion(v)
 		if err != nil {
 			panic(fmt.Errorf("error migrating database schema %#v", err))
 		}
+		// until we fix return format for cases when account has no owners/champions set - this is required
+		_, err = assetInventoryAPI.DefaultApi.V1AccountOwnerPost(ctx, SampleAccountOwner())
+		if err != nil {
+			panic(err)
+		}
+		// run all discovered tests
 		res += m.Run()
 	}
 	os.Exit(res) //non-zero if any of the fixtures failed
