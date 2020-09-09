@@ -18,7 +18,6 @@ func TestMain(m *testing.M) {
 	appURL := os.Getenv("AIA_APP_URL")
 	config.BasePath = appURL
 	_, config.Debug = os.LookupEnv("AIA_INTEGRATION_DEBUG")
-	config.Debug = true
 	assetInventoryAPI = openapi.NewAPIClient(config)
 	ctx := context.Background()
 	schemaVersion = getSchemaVersion(ctx, assetInventoryAPI.DefaultApi)
