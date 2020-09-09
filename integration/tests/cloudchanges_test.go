@@ -59,7 +59,7 @@ func CheckChangesPresent(t *testing.T, changes openapi.CloudAssetChanges) {
 	//only in CI. Enabling debug results in consistently passing CI
 	//adding a sleep before lookups, which is not perfect, but is the only sane way
 	//we can unblock further work on integration tests for now
-	time.Sleep(100*time.Millisecond)
+	time.Sleep(1000*time.Millisecond)
 	for _, test := range tests { // run every created check as separate sub-test
 		t.Run("Test lookup by:"+test.haystack, func(t *testing.T) {
 			assets, httpRes, err := test.lookup(ctx, test.haystack, ts)
@@ -88,14 +88,14 @@ func TestCloudChanges(t *testing.T) {
 			false,
 			CheckChangesPresent,
 		},
-		/* "MissingAccountId": { Disabled. Turns PSQL into a pumpkin because 2 resources exist for same ARNID
+		"MissingAccountId": {
 			func(changes *openapi.CloudAssetChanges){
 				changes.AccountId = ""
 			},
 			http.StatusCreated,
 			false,
 			nil,
-		},*/
+		},
 		"BadResourceType": {
 			func(changes *openapi.CloudAssetChanges) {
 				changes.ResourceType = "MS:Windows:2000"
