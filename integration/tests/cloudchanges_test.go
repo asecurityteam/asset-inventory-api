@@ -55,6 +55,11 @@ func CheckChangesPresent(t *testing.T, changes openapi.CloudAssetChanges) {
 			tests = append(tests, check{assetInventoryAPI.DefaultApi.V1CloudHostnameHostnameGet, hostName})
 		}
 	}
+	//FIXME there is currently a timing issue that results in intermittent lookup failures
+	//only in CI. Enabling debug results in consistently passing CI
+	//adding a sleep before lookups, which is not perfect, but is the only sane way
+	//we can unblock further work on integration tests for now
+	time.Sleep(100*time.Millisecond)
 	for _, test := range tests { // run every created check as separate sub-test
 		t.Run("Test lookup by:"+test.haystack, func(t *testing.T) {
 			assets, httpRes, err := test.lookup(ctx, test.haystack, ts)
