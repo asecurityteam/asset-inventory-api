@@ -12,7 +12,7 @@ import (
 
 // ensure we use the same value for account owner and sample resources as there is
 // a known issue with return format of accounts w/o owner/champions set
-const accountID = "001234567891011"
+const accountID = "012345678901"
 
 func SampleAssetChange() openapi.CloudAssetChange {
 	return openapi.CloudAssetChange{
@@ -52,23 +52,23 @@ func ChangesInResponse(needle openapi.CloudAssetChanges, haystack []openapi.Clou
 	return false
 }
 
-func SampleAccountOwner() openapi.AccountOwner {
-	alice := openapi.Person{
+func SampleAccountOwner() openapi.SetAccountOwner {
+	alice := openapi.SetPerson{
 		Name:  "Alice User",
 		Login: "auser",
 		Email: "auser@atlassian.com",
 		Valid: true,
 	}
-	john := openapi.Person{
+	john := openapi.SetPerson{
 		Name:  "John Smith",
 		Login: "jsmith",
 		Email: "jsmith@atlassian.com",
-		Valid: false,
+		Valid: true,
 	}
-	accountOwner := openapi.AccountOwner{
+	accountOwner := openapi.SetAccountOwner{
 		AccountId: accountID,
 		Owner:     alice,
-		Champions: []openapi.Person{alice, john},
+		Champions: []openapi.SetPerson{alice, john},
 	}
 	return accountOwner
 }
