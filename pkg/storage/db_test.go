@@ -2597,11 +2597,7 @@ func TestResIDFromARN(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := resIDFromARN(tc.Arn)
-			if actual != tc.Expected {
-				t.Errorf("%s != %s", actual, tc.Expected)
-			} else {
-				t.Logf("%s == %s", actual, tc.Expected)
-			}
+			assert.Equal(t, tc.Expected, actual, "Resource ID doesn't match expected output")
 		})
 	}
 }
