@@ -784,7 +784,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AccountOwner"
+              $ref: "#/components/schemas/SetAccountOwner"
       responses:
         201:
           description: "An AWS account with its owner and champions are inserted or updated"
@@ -995,6 +995,37 @@ components:
           type: string
         valid:
           type: boolean
+    SetAccountOwner:
+      type: object
+      properties:
+        accountId:
+          type: string
+          pattern: ^(\d{12})$
+        owner:
+          $ref: "#/components/schemas/SetPerson"
+        champions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SetPerson"
+      required:
+        - accountId
+        - owner
+    SetPerson:
+      type: object
+      properties:
+        name:
+          type: string
+        login:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          pattern: ^([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$
+        valid:
+          type: boolean
+      required:
+        - login
+        - email
     Error:
       type: object
       properties:
