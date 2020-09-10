@@ -13,5 +13,4 @@ script:
   - make integration
   - make coverage
   - bash <(curl -s https://codecov.io/bash) -f .coverage/combined.cover.out
-  # FIXME - this is to ubreak master
-  #- make master-integration
+  - make master-integration
