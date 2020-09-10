@@ -59,7 +59,7 @@ func CheckChangesPresent(t *testing.T, changes openapi.CloudAssetChanges) {
 	//only in CI. Enabling debug results in consistently passing CI
 	//adding a sleep before lookups, which is not perfect, but is the only sane way
 	//we can unblock further work on integration tests for now
-	time.Sleep(1000*time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	for _, test := range tests { // run every created check as separate sub-test
 		t.Run("Test lookup by:"+test.haystack, func(t *testing.T) {
 			assets, httpRes, err := test.lookup(ctx, test.haystack, ts)
