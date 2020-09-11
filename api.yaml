@@ -907,10 +907,6 @@ components:
           type: array
           items:
             type: string
-        relatedResources:
-          type: array
-          items:
-            type: string
         resourceType:
           type: string
         accountId:
