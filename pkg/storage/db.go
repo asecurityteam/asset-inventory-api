@@ -16,53 +16,9 @@ import (
 )
 
 const (
-	defaultPartitionInterval   = 90 // days
-	tablePartitions            = "partitions"
-	tableAWSResources          = "aws_resources"
-	tableAWSIPS                = "aws_ips"
-	tableAWSHostnames          = "aws_hostnames"
-	tableAWSEventsIPSHostnames = "aws_events_ips_hostnames"
-
 	added   = "ADDED"   // one of the network event types we track
 	deleted = "DELETED" // deleted network event
-
 )
-
-// can't use Sprintf in a const, so...
-// %s should be `aws_hostnames_hostname` or `aws_ips_ip`
-// nolint
-const latestStatusQuery = `WITH latest_candidates AS (
-	    SELECT
-	        *,
-	        MAX(ts) OVER (PARTITION BY aws_events_ips_hostnames.aws_resources_id) as max_ts
-	    FROM aws_events_ips_hostnames
-	    WHERE
-	        aws_events_ips_hostnames.%s = $1 AND
-	        aws_events_ips_hostnames.ts <= $2
-	),
-	latest AS (
-	    SELECT *
-	    FROM latest_candidates
-	    WHERE
-	        latest_candidates.ts = latest_candidates.max_ts AND
-	        latest_candidates.is_join = 'true'
-	)
-	SELECT
-	    latest.aws_resources_id,
-	    latest.aws_ips_ip,
-	    latest.aws_hostnames_hostname,
-	    latest.is_public,
-	    latest.is_join,
-	    latest.ts,
-	    aws_resources.account_id,
-	    aws_resources.region,
-	    aws_resources.type,
-	    aws_resources.meta
-	FROM latest
-	    LEFT OUTER JOIN
-	    aws_resources ON
-	        latest.aws_resources_id = aws_resources.id;
-`
 
 // Query to find resource by private IP using v2 schema
 const resourceByPrivateIPQuery = `select * from get_resource_by_private_ip($1, $2)`
@@ -208,82 +164,6 @@ func (db *DB) ping() error {
 	return nil
 }
 
-// GeneratePartition finds the latest partition, and generate the next partition based on the previous partition's time range
-func (db *DB) GeneratePartition(ctx context.Context, begin time.Time, days int) error {
-
-	tx, err := db.sqldb.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
-		return handleRollback(tx, err)
-	}
-
-	// If no begin time was provided, auto-create the next partition
-	if begin.IsZero() {
-		var latestBegin time.Time
-		var latestEnd time.Time
-		stmt := "SELECT partition_begin, partition_end FROM partitions ORDER BY partition_end DESC LIMIT 1"
-		row := tx.QueryRowContext(ctx, stmt)
-		err = row.Scan(&latestBegin, &latestEnd)
-		switch err {
-		case nil:
-			begin = latestEnd
-		case sql.ErrNoRows:
-			begin = db.now()
-		default:
-			return handleRollback(tx, err)
-		}
-
-		daysUntilPartitionNeeded := latestEnd.Sub(db.now()).Hours() / 24
-		// Check if a table has already been created in preparation for the future, or
-		// check to see if it's time to create a new partition. This is a somewhat arbitrary
-		// choice to auto-create the next partition 3 days in advance of its actual need, so that
-		// we have time to fix any problem that may come up
-		if latestBegin.After(db.now()) || daysUntilPartitionNeeded > 3 {
-			return tx.Commit()
-		}
-	}
-
-	if days < 1 {
-		days = defaultPartitionInterval
-	}
-
-	end := begin.AddDate(0, 0, days)
-	suffixTpl := `%d_%02d_%02dto%d_%02d_%02d` // YYYY_MM_DDtoYYYY_MM_DD
-	partitionTableNameSuffix := fmt.Sprintf(suffixTpl, begin.Year(), begin.Month(), begin.Day(), end.Year(), end.Month(), end.Day())
-	name := fmt.Sprintf(`%s_%s`, tableAWSEventsIPSHostnames, partitionTableNameSuffix)
-
-	// nolint
-	stmt := fmt.Sprintf(`INSERT INTO %s(name, created_at, partition_begin, partition_end)
-    	SELECT $1, $2, $3, $4
-		WHERE NOT EXISTS (
-    		SELECT 1 FROM %s WHERE (
-        		(partition_begin <= $3 AND partition_end > $3) OR
-        		(partition_begin < $4 AND partition_end >= $4)
-    		)
-		)`, tablePartitions, tablePartitions)
-	res, err := tx.ExecContext(ctx, stmt, name, db.now(), begin, end)
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-	if rows == 0 { // no rows were updated due to a conflict in our condition
-		_ = tx.Rollback() // best effort rollback to close the TX
-		return domain.PartitionConflict{Name: name}
-	}
-	stmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')", name, tableAWSEventsIPSHostnames, begin.Format(time.RFC3339), end.Format(time.RFC3339)) // nolint
-	_, err = tx.ExecContext(ctx, stmt)
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-	return tx.Commit()
-}
-
 func handleRollback(tx *sql.Tx, err error) error {
 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
 		return fmt.Errorf("rollback error: %v while recovering from %v", rollbackErr, err)
@@ -291,126 +171,8 @@ func handleRollback(tx *sql.Tx, err error) error {
 	return err
 }
 
-// GetPartitions fetches the created partitions and gets each record count in the database
-func (db *DB) GetPartitions(ctx context.Context) ([]domain.Partition, error) {
-	stmt := `SELECT name, created_at, partition_begin, partition_end
-				FROM partitions ORDER BY partition_end DESC`
-
-	rows, err := db.sqldb.QueryContext(ctx, stmt)
-	if err != nil {
-		return nil, err
-	}
-	partitions := make([]domain.Partition, 0)
-	for rows.Next() {
-		var name string
-		var createdAt time.Time
-		var begin time.Time
-		var end time.Time
-		if err := rows.Scan(&name, &createdAt, &begin, &end); err != nil {
-			_ = rows.Close()
-			return nil, err
-		}
-		stmt2 := fmt.Sprintf("SELECT count(*) FROM %s", name) //nolint
-		row := db.sqldb.QueryRowContext(ctx, stmt2)
-		var count int
-		if err := row.Scan(&count); err != nil {
-			return nil, err
-		}
-		partitions = append(partitions, domain.Partition{
-			Name:      name,
-			CreatedAt: createdAt,
-			Begin:     begin,
-			End:       end,
-			Count:     count,
-		})
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	return partitions, nil
-}
-
-// DeletePartitions deletes partitions by name.
-func (db *DB) DeletePartitions(ctx context.Context, name string) error {
-	tx, err := db.sqldb.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s", tablePartitions)); err != nil { // nolint
-		return handleRollback(tx, err)
-	}
-
-	stmt := "DELETE FROM partitions WHERE name = $1"
-	res, err := tx.ExecContext(ctx, stmt, name)
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-	if rows == 0 { //no rows deleted due to named partition not found
-		err := domain.NotFoundPartition{Name: name}
-		return handleRollback(tx, err)
-	}
-
-	stmt = fmt.Sprintf("DROP TABLE %s", name)
-	_, err = tx.ExecContext(ctx, stmt)
-	if err != nil {
-		return handleRollback(tx, err)
-	}
-	return tx.Commit()
-}
-
 // Store an implementation of the Storage interface that records to a database
 func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
-	ver, err := db.getSchemaVersion(ctx)
-	if err != nil || ver < DualWritesSchemaVersion { // the deployment pre-dates schema management or has old schema
-		return db.StoreV1(ctx, cloudAssetChanges)
-	}
-	v2err := db.StoreV2(ctx, cloudAssetChanges)
-	if ver < NewSchemaOnlyVersion { // need dual-write
-		err = db.StoreV1(ctx, cloudAssetChanges)
-		if err != nil {
-			if v2err != nil { //both v1 and v2 failed, need to combine
-				return fmt.Errorf("error storing in legacy schema (%v); error storing in new schema (%v)", err, v2err)
-			}
-			return err
-		}
-	}
-	return v2err
-}
-
-// StoreV1 Storage interface implementation that records to database using legacy schema
-func (db *DB) StoreV1(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
-	tx, err := db.sqldb.Begin()
-	if err != nil {
-		return err
-	}
-	if err = db.saveResource(ctx, cloudAssetChanges, tx); err == nil {
-		for _, val := range cloudAssetChanges.Changes {
-			err = db.recordNetworkChanges(ctx, cloudAssetChanges.ARN, cloudAssetChanges.ChangeTime, val, tx)
-			if err != nil {
-				break
-			}
-		}
-	}
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(rollbackErr, err.Error()) // so we don't lose the original error
-		}
-		return err
-	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// StoreV2 Currently public to allow testing separately.Storage interface implementation that records to a database using new schema, to replace Store in the future.
-func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
 	if err != nil {
 		return err
@@ -536,97 +298,6 @@ func resIDFromARN(ARN string) string {
 	return parts[len(parts)-1]
 }
 
-func (db *DB) saveResource(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
-	// You won't get an ID back if nothing was done.  Also, this lib won't return the ID anyway even without the "ON CONFLICT DO NOTHING".
-	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	sqlStatement := fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id`, tableAWSResources) // nolint
-
-	tagsBytes, _ := json.Marshal(cloudAssetChanges.Tags) // an error here is not possible considering json.Marshal is taking a simple map or nil
-
-	if _, err := tx.ExecContext(ctx, sqlStatement, cloudAssetChanges.ARN, cloudAssetChanges.AccountID, cloudAssetChanges.Region, cloudAssetChanges.ResourceType, tagsBytes); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (db *DB) recordNetworkChanges(ctx context.Context, resourceID string, timestamp time.Time, changes domain.NetworkChanges, tx *sql.Tx) error {
-
-	for _, hostname := range changes.Hostnames {
-		err := db.insertHostname(ctx, hostname, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, val := range changes.PrivateIPAddresses {
-		isJoin := false
-		if strings.EqualFold(added, changes.ChangeType) {
-			isJoin = true
-		}
-		err := db.insertIPAddress(ctx, val, tx)
-		if err != nil {
-			return err
-		}
-		err = db.insertNetworkChangeEvent(ctx, timestamp, false, isJoin, resourceID, val, nil, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, val := range changes.PublicIPAddresses {
-		isJoin := false
-		if strings.EqualFold(added, changes.ChangeType) {
-			isJoin = true
-		}
-		err := db.insertIPAddress(ctx, val, tx)
-		if err != nil {
-			return err
-		}
-		// yeah, a nested for loop to establish the relationship of every public IP to every hostname
-		for _, hostname := range changes.Hostnames {
-			err := db.insertNetworkChangeEvent(ctx, timestamp, true, isJoin, resourceID, val, &hostname, tx)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (db *DB) insertIPAddress(ctx context.Context, ipAddress string, tx *sql.Tx) error {
-
-	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
-	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSIPS), ipAddress); err != nil { // nolint
-		return err
-	}
-
-	return nil
-}
-
-func (db *DB) insertHostname(ctx context.Context, hostname string, tx *sql.Tx) error {
-
-	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
-	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1) ON CONFLICT DO NOTHING`, tableAWSHostnames), hostname); err != nil { // nolint
-		return err
-	}
-
-	return nil
-}
-
-func (db *DB) insertNetworkChangeEvent(ctx context.Context, timestamp time.Time, isPublic bool, isJoin bool, resourceID string, ipAddress string, hostname *string, tx *sql.Tx) error {
-	// Postgres 11 automatically propagates the parent index to child tables, so no need to
-	// explicitly create an index on the possibly created new table.
-
-	// this lib won't give back the last INSERTed row ID, so we don't bother with `RETURNING ...`
-	// See https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-	_, err := tx.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s VALUES ($1, $2, $3, $4, $5, $6)`, tableAWSEventsIPSHostnames), timestamp, isPublic, isJoin, resourceID, ipAddress, hostname) // nolint
-	return err
-}
-
 // FetchAll gets all the assets present at the specified time
 func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
 	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
@@ -634,42 +305,16 @@ func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset u
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
-	ver, err := db.getSchemaVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var assets []domain.CloudAssetDetails
-	if ver < ReadsFromNewSchemaVersion {
-		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_hostnames_hostname`)
-		assets, err = db.runQuery(ctx, sqlstmt, hostname, when)
-	} else {
-		assets, err = db.runFetchByIPQuery(ctx, false, resourceByHostnameQuery, hostname, when)
-	}
-	return assets, err
+	return db.runFetchByIPQuery(ctx, false, resourceByHostnameQuery, hostname, when)
 }
 
 // FetchByIP gets the assets who have IP address at the specified time
 func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) ([]domain.CloudAssetDetails, error) {
-	ver, err := db.getSchemaVersion(ctx)
-	if err != nil {
-		return nil, err
+	ipaddr := net.ParseIP(ipAddress)
+	if ipaddr == nil {
+		return nil, errors.New("invalid IP address")
 	}
-	var asset []domain.CloudAssetDetails
-	if ver < ReadsFromNewSchemaVersion {
-		sqlstmt := fmt.Sprintf(latestStatusQuery, `aws_ips_ip`)
-		asset, err = db.runQuery(ctx, sqlstmt, ipAddress, when)
-	} else {
-		ipaddr := net.ParseIP(ipAddress)
-		if ipaddr == nil {
-			return nil, errors.New("invalid IP address")
-		}
-		if isPrivateIP(ipaddr) {
-			asset, err = db.runFetchByIPQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
-		} else {
-			asset, err = db.runFetchByIPQuery(ctx, false, resourceByPublicIPQuery, ipAddress, when)
-		}
-	}
-	return asset, err
+	return db.runFetchByIPQuery(ctx, isPrivateIP(ipaddr), resourceByPrivateIPQuery, ipAddress, when)
 }
 
 func isPrivateIP(ip net.IP) bool {
@@ -805,14 +450,6 @@ func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query str
 
 // FetchByResourceID gets the assets who have resource ID at the specified time
 func (db *DB) FetchByResourceID(ctx context.Context, when time.Time, resID string) ([]domain.CloudAssetDetails, error) {
-	ver, err := db.getSchemaVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if ver < ReadsFromNewSchemaVersion {
-		return nil, nil
-	}
-
 	rows, err := db.sqldb.QueryContext(ctx, resourceByARNIDQuery, resID, when)
 	if err != nil {
 		return nil, err
@@ -1175,11 +812,6 @@ values (to_timestamp(0), $1, $2, $3) on conflict do nothing ;`
 	}
 	_, err = tx.ExecContext(ctx, releaseResourceRelationshipQueryInsert, when, resource, arnID)
 	return err
-}
-
-// BackFillEventsLocally launches the bulk back-fill process using local write handler
-func (db *DB) BackFillEventsLocally(ctx context.Context, from time.Time, to time.Time) error {
-	return db.exportEvents(ctx, from, to, NewLocalExportHandler(db))
 }
 
 func (db *DB) exportEvents(ctx context.Context, notBefore time.Time, notAfter time.Time, handler domain.EventExportHandler) error {

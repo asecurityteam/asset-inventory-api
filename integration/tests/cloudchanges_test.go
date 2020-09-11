@@ -106,7 +106,7 @@ func TestCloudChanges(t *testing.T) {
 		},*/
 		"UglyPrivateIP": {
 			func(changes *openapi.CloudAssetChanges) {
-				changes.Changes[0].PrivateIpAddresses[0]="256.0.400.300"
+				changes.Changes[0].PrivateIpAddresses[0] = "256.0.400.300"
 			},
 			http.StatusBadRequest,
 			true,
@@ -114,7 +114,7 @@ func TestCloudChanges(t *testing.T) {
 		},
 		"BadPrivateIP": {
 			func(changes *openapi.CloudAssetChanges) {
-				changes.Changes[0].PrivateIpAddresses[0]="I am not an ip address"
+				changes.Changes[0].PrivateIpAddresses[0] = "I am not an ip address"
 			},
 			http.StatusBadRequest,
 			true,
@@ -122,7 +122,7 @@ func TestCloudChanges(t *testing.T) {
 		},
 		"UglyPublicIP": {
 			func(changes *openapi.CloudAssetChanges) {
-				changes.Changes[0].PrivateIpAddresses[0]="256.0.400.300"
+				changes.Changes[0].PrivateIpAddresses[0] = "256.0.400.300"
 			},
 			http.StatusBadRequest,
 			true,
@@ -130,7 +130,7 @@ func TestCloudChanges(t *testing.T) {
 		},
 		"BadPublicIP": {
 			func(changes *openapi.CloudAssetChanges) {
-				changes.Changes[0].PrivateIpAddresses[0]="I am not an ip address"
+				changes.Changes[0].PrivateIpAddresses[0] = "I am not an ip address"
 			},
 			http.StatusBadRequest,
 			true,
