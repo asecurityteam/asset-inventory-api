@@ -828,7 +828,7 @@ components:
         resourceType:
           type: string
         accountId:
-          type: string
+          $ref: "#/components/schemas/AWSAccountID"
         region:
           type: string
         arn:
@@ -910,7 +910,7 @@ components:
         resourceType:
           type: string
         accountId:
-          type: string
+          $ref: "#/components/schemas/AWSAccountID"
         region:
           type: string
         arn:
@@ -972,7 +972,7 @@ components:
     AccountOwner:
       type: object
       properties:
-        accountId:
+        accountId: # TODO add specific type once we are sure we return it correctly
           type: string
         owner:
           $ref: "#/components/schemas/Person"
@@ -995,8 +995,7 @@ components:
       type: object
       properties:
         accountId:
-          type: string
-          pattern: ^(\d{12})$
+          $ref: "#/components/schemas/AWSAccountID"
         owner:
           $ref: "#/components/schemas/SetPerson"
         champions:
@@ -1028,6 +1027,9 @@ components:
       # until then, this monstrosity is our only hope, follow the link below for more visual representation of regex
       # https://regexper.com/#%5E%28%3F%3A%28%3F%3A25%5B0-5%5D%7C2%5B0-4%5D%5B0-9%5D%7C%5B01%5D%3F%5B0-9%5D%5B0-9%5D%3F%29%5C.%29%7B3%7D%28%3F%3A25%5B0-5%5D%7C2%5B0-4%5D%5B0-9%5D%7C%5B01%5D%3F%5B0-9%5D%5B0-9%5D%3F%29%24
       pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
+    AWSAccountID:
+      type: string
+      pattern: ^(\d{12})$
     Error:
       type: object
       properties:

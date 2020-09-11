@@ -88,12 +88,20 @@ func TestCloudChanges(t *testing.T) {
 			false,
 			CheckChangesPresent,
 		},
-		/*"MissingAccountId": {
+		"MissingAccountId": {
 			func(changes *openapi.CloudAssetChanges){
 				changes.AccountId = ""
 			},
-			http.StatusCreated, //TODO fix the code this should be 400. Currently A-I-API accepts this.
-			false,
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
+		"BadAccountId": {
+			func(changes *openapi.CloudAssetChanges){
+				changes.AccountId = "not and ID at all"
+			},
+			http.StatusBadRequest,
+			true,
 			nil,
 		},
 		"BadResourceType": {
@@ -103,7 +111,7 @@ func TestCloudChanges(t *testing.T) {
 			http.StatusCreated, //TODO fix the code this should be 400. Currently A-I-API accepts this.
 			false,
 			nil,
-		},*/
+		},
 		"UglyPrivateIP": {
 			func(changes *openapi.CloudAssetChanges) {
 				changes.Changes[0].PrivateIpAddresses[0]="256.0.400.300"
