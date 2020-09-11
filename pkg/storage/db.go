@@ -323,7 +323,10 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 	if ipaddr == nil {
 		return nil, errors.New("invalid IP address")
 	}
-	return db.runFetchByIPQuery(ctx, isPrivateIP(ipaddr), resourceByPrivateIPQuery, ipAddress, when)
+	if isPrivateIP(ipaddr) {
+		return db.runFetchByIPQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
+	}
+	return db.runFetchByIPQuery(ctx, false, resourceByPublicIPQuery, ipAddress, when)
 }
 
 func isPrivateIP(ip net.IP) bool {
