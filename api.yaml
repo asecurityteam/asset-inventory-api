@@ -222,7 +222,7 @@ paths:
           description: "The IP address of the asset"
           required: true
           schema:
-            type: string
+            $ref: "#/components/schemas/IPv4Address"
         - name: "time"
           in: "query"
           description: "The point in time details for a given asset"
@@ -850,11 +850,11 @@ components:
         privateIpAddresses:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/IPv4Address"
         publicIpAddresses:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/IPv4Address"
         hostnames:
           type: array
           items:
@@ -1022,6 +1022,12 @@ components:
       required:
         - login
         - email
+    IPv4Address:
+      type: string
+      format: ipv4 # eventually openapi will support this properly https://github.com/swagger-api/swagger-ui/issues/4986
+      # until then, this monstrosity is our only hope, follow the link below for more visual representation of regex
+      # https://regexper.com/#%5E%28%3F%3A%28%3F%3A25%5B0-5%5D%7C2%5B0-4%5D%5B0-9%5D%7C%5B01%5D%3F%5B0-9%5D%5B0-9%5D%3F%29%5C.%29%7B3%7D%28%3F%3A25%5B0-5%5D%7C2%5B0-4%5D%5B0-9%5D%7C%5B01%5D%3F%5B0-9%5D%5B0-9%5D%3F%29%24
+      pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
     Error:
       type: object
       properties:

@@ -103,15 +103,39 @@ func TestCloudChanges(t *testing.T) {
 			http.StatusCreated, //TODO fix the code this should be 400. Currently A-I-API accepts this.
 			false,
 			nil,
+		},*/
+		"UglyPrivateIP": {
+			func(changes *openapi.CloudAssetChanges) {
+				changes.Changes[0].PrivateIpAddresses[0]="256.0.400.300"
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
 		},
-		 "BadPrivateIP": { Disabled. Permanently poisons persistent PSQL connection. Need validation of IPs.
+		"BadPrivateIP": {
 			func(changes *openapi.CloudAssetChanges) {
 				changes.Changes[0].PrivateIpAddresses[0]="I am not an ip address"
 			},
 			http.StatusBadRequest,
-			false,
+			true,
 			nil,
-		},*/
+		},
+		"UglyPublicIP": {
+			func(changes *openapi.CloudAssetChanges) {
+				changes.Changes[0].PrivateIpAddresses[0]="256.0.400.300"
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
+		"BadPublicIP": {
+			func(changes *openapi.CloudAssetChanges) {
+				changes.Changes[0].PrivateIpAddresses[0]="I am not an ip address"
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
 		"InvalidChangeType": {
 			func(changes *openapi.CloudAssetChanges) {
 				changes.Changes[0].ChangeType = "INVALIDTYPE"
@@ -128,10 +152,8 @@ func TestCloudChanges(t *testing.T) {
 				changes := SampleAssetChanges() // get sample valid AssetChanges
 				tc.changesAdapter(&changes)     // call the function to modify AssetChanges to match test goal
 				resp, err := assetInventoryAPI.DefaultApi.V1CloudChangePost(ctx, changes)
-				if err == nil {
+				if resp != nil { // check code if we have any, even if error is returned
 					assert.Equal(t, tc.expectedResponse, resp.StatusCode)
-				} else if !tc.mustError {
-					t.Logf("Error calling asset-inventory-api %s", err.Error())
 				}
 				assert.Equal(t, tc.mustError, err != nil)
 				if tc.responseValidator != nil && err == nil {
