@@ -164,13 +164,6 @@ func (db *DB) ping() error {
 	return nil
 }
 
-func handleRollback(tx *sql.Tx, err error) error {
-	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-		return fmt.Errorf("rollback error: %v while recovering from %v", rollbackErr, err)
-	}
-	return err
-}
-
 // Store an implementation of the Storage interface that records to a database
 func (db *DB) Store(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges) error {
 	tx, err := db.sqldb.Begin()
@@ -309,7 +302,7 @@ func resIDFromARN(ARN string) string {
 
 // FetchAll gets all the assets present at the specified time
 func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset uint, typeFilter string) ([]domain.CloudAssetDetails, error) {
-	return db.runQuery(ctx, bulkResourcesQuery, when, typeFilter, count, offset)
+	return nil, errors.New("bulk export API is not available")
 }
 
 // FetchByHostname gets the assets who have hostname at the specified time
@@ -559,92 +552,6 @@ func (db *DB) FetchByResourceID(ctx context.Context, when time.Time, resID strin
 	return cloudAssetDetails, err
 }
 
-func (db *DB) runQuery(ctx context.Context, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
-
-	rows, err := db.sqldb.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	cloudAssetDetails := make([]domain.CloudAssetDetails, 0)
-
-	tempMap := make(map[string]*domain.CloudAssetDetails)
-
-	for rows.Next() {
-		var row domain.CloudAssetDetails
-
-		var metaBytes []byte
-		var hostname sql.NullString
-		var ipAddress string // no need for sql.NullBool as the DB column is guaranteed a value
-		var isPublic bool    // no need for sql.NullBool as the DB column is guaranteed a value
-		var isJoin bool      // no need for sql.NullBool as the DB column is guaranteed a value
-		var timestamp time.Time
-
-		err = rows.Scan(&row.ARN, &ipAddress, &hostname, &isPublic, &isJoin, &timestamp, &row.AccountID, &row.Region, &row.ResourceType, &metaBytes)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if metaBytes != nil {
-			var i map[string]string
-			_ = json.Unmarshal(metaBytes, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
-			row.Tags = i
-		}
-		if tempMap[row.ARN] == nil {
-			tempMap[row.ARN] = &row
-		}
-		found := false
-		if hostname.Valid {
-			for _, val := range tempMap[row.ARN].Hostnames {
-				if strings.EqualFold(val, hostname.String) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				tempMap[row.ARN].Hostnames = append(tempMap[row.ARN].Hostnames, hostname.String)
-			}
-		}
-		found = false
-		var ipAddresses *[]string
-		if isPublic {
-			ipAddresses = &tempMap[row.ARN].PublicIPAddresses
-		} else {
-			ipAddresses = &tempMap[row.ARN].PrivateIPAddresses
-		}
-		for _, val := range *ipAddresses {
-			if strings.EqualFold(val, ipAddress) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			newArray := append(*ipAddresses, ipAddress)
-			if isPublic {
-				tempMap[row.ARN].PublicIPAddresses = newArray
-			} else {
-				tempMap[row.ARN].PrivateIPAddresses = newArray
-			}
-		}
-	}
-
-	rows.Close() // no need to capture the returned error since we check rows.Err() immediately:
-
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	for _, val := range tempMap {
-		cloudAssetDetails = append(cloudAssetDetails, *val)
-	}
-
-	return cloudAssetDetails, nil
-
-}
-
 func (db *DB) assignPrivateIP(ctx context.Context, tx *sql.Tx, arnID string, ip string, when time.Time) error {
 	const assignPrivateIPQueryUpdate = `
 update aws_private_ip_assignment
@@ -824,81 +731,6 @@ values (to_timestamp(0), $1, $2, $3) on conflict do nothing ;`
 	}
 	_, err = tx.ExecContext(ctx, releaseResourceRelationshipQueryInsert, when, resource, arnID)
 	return err
-}
-
-func (db *DB) exportEvents(ctx context.Context, notBefore time.Time, notAfter time.Time, handler domain.EventExportHandler) error {
-	const exportEventsQuery = `
-select ae.ts,
-       ae.aws_resources_id,
-       ar.type,
-       ar.region,
-       ar.account_id,
-       ar.meta,
-       ae.aws_ips_ip,
-       ae.aws_hostnames_hostname,
-       ae.is_join,
-       ae.is_public
-from aws_events_ips_hostnames as ae
-         left join aws_resources ar on ae.aws_resources_id = ar.id
-where ae.ts >= $1
-  and ae.ts <= $2
-order by ae.ts asc
-`
-	rows, err := db.sqldb.QueryContext(ctx, exportEventsQuery, notBefore, notAfter)
-	if err != nil {
-		return err
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		var ts time.Time
-		var arn string
-		var resourceType string
-		var region string
-		var accountID string
-		var meta []byte
-		var ip string
-		var hostname sql.NullString
-		var isJoin bool   // no need for sql.NullBool as the DB column is guaranteed a value
-		var isPublic bool // no need for sql.NullBool as the DB column is guaranteed a value
-		err = rows.Scan(&ts, &arn, &resourceType, &region, &accountID, &meta, &ip, &hostname, &isJoin, &isPublic)
-		if err != nil {
-			return err
-		}
-		chg := domain.NetworkChanges{
-			ChangeType: deleted,
-		}
-		if isJoin {
-			chg.ChangeType = added
-		}
-
-		if isPublic {
-			chg.Hostnames = []string{hostname.String}
-			chg.PublicIPAddresses = []string{ip}
-		} else {
-			chg.PrivateIPAddresses = []string{ip}
-		}
-
-		changes := domain.CloudAssetChanges{
-			Changes:      []domain.NetworkChanges{chg},
-			ChangeTime:   ts,
-			ResourceType: resourceType,
-			AccountID:    accountID,
-			Region:       region,
-			ARN:          arn,
-		}
-		// copy/paste from existing runQuery, might need to move this out to a helper
-		if meta != nil {
-			var i map[string]string
-			_ = json.Unmarshal(meta, &i) // we already checked for nil, and the DB column is JSONB; no need for err check here
-			changes.Tags = i
-		}
-		err = handler.Handle(changes)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // StoreAccountOwner is an implementation of AccountOwnerStorer interface that saves account ID, its owner and champions of the account to a database
