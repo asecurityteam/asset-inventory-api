@@ -416,41 +416,7 @@ func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 		return err
 	}
 	if err = db.ensureResourceExists(ctx, cloudAssetChanges, tx); err == nil {
-		arnID := resIDFromARN(cloudAssetChanges.ARN)
-		for _, val := range cloudAssetChanges.Changes {
-			for _, ip := range val.PrivateIPAddresses {
-				if strings.EqualFold(added, val.ChangeType) {
-					err = db.assignPrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
-				} else {
-					err = db.releasePrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
-				}
-				if err != nil {
-					break
-				}
-			}
-			for _, ip := range val.PublicIPAddresses {
-				for _, hostname := range val.Hostnames { //TODO look very closely into awsconfig-tranformerd logic for this
-					if strings.EqualFold(added, val.ChangeType) {
-						err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
-					} else {
-						err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
-					}
-				}
-			}
-			for _, res := range val.RelatedResources {
-				if strings.EqualFold(added, val.ChangeType) {
-					err = db.assignResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
-				} else {
-					err = db.releaseResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
-				}
-				if err != nil {
-					break
-				}
-			}
-			if err != nil {
-				break
-			}
-		}
+		err = db.applyChanges(ctx, cloudAssetChanges, tx)
 	}
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -460,6 +426,46 @@ func (db *DB) StoreV2(ctx context.Context, cloudAssetChanges domain.CloudAssetCh
 	}
 	if err = tx.Commit(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (db *DB) applyChanges(ctx context.Context, cloudAssetChanges domain.CloudAssetChanges, tx *sql.Tx) error {
+	var err error
+	arnID := resIDFromARN(cloudAssetChanges.ARN)
+	for _, val := range cloudAssetChanges.Changes {
+		for _, ip := range val.PrivateIPAddresses {
+			if strings.EqualFold(added, val.ChangeType) {
+				err = db.assignPrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
+			} else {
+				err = db.releasePrivateIP(ctx, tx, arnID, ip, cloudAssetChanges.ChangeTime)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		for _, ip := range val.PublicIPAddresses {
+			for _, hostname := range val.Hostnames { //TODO look very closely into awsconfig-tranformerd logic for this
+				if strings.EqualFold(added, val.ChangeType) {
+					err = db.assignPublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+				} else {
+					err = db.releasePublicIP(ctx, tx, arnID, ip, hostname, cloudAssetChanges.ChangeTime)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+		for _, res := range val.RelatedResources {
+			if strings.EqualFold(added, val.ChangeType) {
+				err = db.assignResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
+			} else {
+				err = db.releaseResourceRelationship(ctx, tx, arnID, res, cloudAssetChanges.ChangeTime)
+			}
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
