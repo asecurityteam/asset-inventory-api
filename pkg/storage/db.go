@@ -34,41 +34,12 @@ const resourceByARNIDQuery = `select * from get_resource_by_arn_id($1, $2)`
 // Query to find owner and champions by account ID, which is auto-increment primary key
 const ownerByAccountIDQuery = `select * from get_owner_and_champions_by_account_id($1)`
 
-// This query is used to retrieve all the 'active' resources (i.e. those with assigned IP/Hostname) for specific date
-const bulkResourcesQuery = `
-WITH lc AS (
-	SELECT
-	 ev.aws_resources_id, ev.aws_ips_ip, ev.aws_hostnames_hostname, ev.is_public, ev.ts , ev.is_join,
-	 MAX(ev.ts) OVER (PARTITION BY ev.aws_resources_id) as max_ts
-	FROM
-	 aws_events_ips_hostnames as ev
-	WHERE
-	 ev.ts <= $1
-)
-SELECT
- lc.aws_resources_id, lc.aws_ips_ip, lc.aws_hostnames_hostname, lc.is_public, lc.is_join, lc.ts,
- res.account_id, res.region, res.type, res.meta
-FROM
- lc
-LEFT OUTER JOIN
- aws_resources as res
-ON
- lc.aws_resources_id = res.id
-WHERE
- lc.ts = lc.max_ts AND lc.is_join = 'true' AND res.type = $2
-ORDER BY lc.ts DESC
-LIMIT $3
-OFFSET $4
-`
-
 const insertPersonQuery = `
 INSERT INTO person(login, email, name, valid)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT(login) DO UPDATE
 SET email=$2, name=$3, valid=$4;
 `
-
-//TODO Optimized query to retrieve all the 'active' resources utilizing v2 schema. Out of scope currently.
 
 // DB represents a convenient database abstraction layer
 type DB struct {
@@ -306,7 +277,7 @@ func (db *DB) FetchAll(ctx context.Context, when time.Time, count uint, offset u
 
 // FetchByHostname gets the assets who have hostname at the specified time
 func (db *DB) FetchByHostname(ctx context.Context, when time.Time, hostname string) ([]domain.CloudAssetDetails, error) {
-	return db.runFetchByIPQuery(ctx, false, resourceByHostnameQuery, hostname, when)
+	return db.runLookupQuery(ctx, false, resourceByHostnameQuery, hostname, when)
 }
 
 // FetchByIP gets the assets who have IP address at the specified time
@@ -316,9 +287,9 @@ func (db *DB) FetchByIP(ctx context.Context, when time.Time, ipAddress string) (
 		return nil, errors.New("invalid IP address")
 	}
 	if isPrivateIP(ipaddr) {
-		return db.runFetchByIPQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
+		return db.runLookupQuery(ctx, true, resourceByPrivateIPQuery, ipAddress, when)
 	}
-	return db.runFetchByIPQuery(ctx, false, resourceByPublicIPQuery, ipAddress, when)
+	return db.runLookupQuery(ctx, false, resourceByPublicIPQuery, ipAddress, when)
 }
 
 func isPrivateIP(ip net.IP) bool {
@@ -330,7 +301,7 @@ func isPrivateIP(ip net.IP) bool {
 	return false
 }
 
-func (db *DB) runFetchByIPQuery(ctx context.Context, isPrivateIP bool, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
+func (db *DB) runLookupQuery(ctx context.Context, isPrivateIP bool, query string, args ...interface{}) ([]domain.CloudAssetDetails, error) {
 	rows, err := db.sqldb.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
