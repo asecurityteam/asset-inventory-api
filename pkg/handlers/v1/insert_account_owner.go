@@ -44,11 +44,12 @@ func (h *AccountOwnerInsertHandler) Handle(ctx context.Context, input AccountOwn
 		Champions: make([]domain.Person, 0, len(input.Champions)),
 	}
 	for _, val := range input.Champions {
+		championCopy := val
 		accountOwner.Champions = append(accountOwner.Champions, domain.Person{
-			Name:  &val.Name,
-			Login: &val.Login,
-			Email: &val.Email,
-			Valid: &val.Valid,
+			Name:  &championCopy.Name,
+			Login: &championCopy.Login,
+			Email: &championCopy.Email,
+			Valid: &championCopy.Valid,
 		})
 	}
 
