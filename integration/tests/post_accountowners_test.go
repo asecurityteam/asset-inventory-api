@@ -81,7 +81,6 @@ func accountChampionsSlicesEqual(t *testing.T, expected, actual []openapi.Person
 	orderAccountChampionsByLogin(&expected)
 	orderAccountChampionsByLogin(&actual)
 	for i, champion := range expected {
-		t.Logf("person login: "+champion.Login)
 		if champion != actual[i] {
 			return false
 		}
@@ -106,6 +105,43 @@ func TestPostAccountOwners(t *testing.T) {
 			http.StatusCreated,
 			false,
 			CheckAccountOwnersPresent,
+		},
+		"MissingAccountId": {
+			func(owner *openapi.SetAccountOwner){
+				owner.AccountId = ""
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
+		"BadAccountId": {
+			func(owner *openapi.SetAccountOwner){
+				owner.AccountId = "not and ID at all"
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
+		"MissingOwner": {
+			func(owner *openapi.SetAccountOwner){
+				owner.Owner = openapi.SetPerson{}
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
+		},
+		"BadEmail": {
+			func(owner *openapi.SetAccountOwner){
+				owner.Champions = append(owner.Champions, openapi.SetPerson{
+					Name: "Bad Email",
+					Login: "bademail",
+					Email: "this is not an email address",
+					Valid: false,
+				})
+			},
+			http.StatusBadRequest,
+			true,
+			nil,
 		},
 	}
 	for name, tc := range testCases{
