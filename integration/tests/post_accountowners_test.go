@@ -21,7 +21,7 @@ func CheckAccountOwnersPresent(t *testing.T, accountOwnersExpected openapi.Accou
 
 	ctx := context.Background()
 	ts := SampleAssetChanges().ChangeTime.Add(time.Minute) // best way I could think of to get time to query accounts by
-	spl := strings.Split(changes.Arn, "/")
+	spl := strings.Split(changes.Arn, "/") // TODO FIXME this will need to change when we start testing ELBs
 	resId := spl[len(spl)-1]
 	type check struct {
 		lookup   func(context.Context, string, time.Time) (openapi.CloudAssets, *http.Response, error)
@@ -44,7 +44,6 @@ func CheckAccountOwnersPresent(t *testing.T, accountOwnersExpected openapi.Accou
 			tests = append(tests, check{assetInventoryAPI.DefaultApi.V1CloudHostnameHostnameGet, hostName})
 		}
 	}
-	// time.Sleep(1000 * time.Millisecond)
 	for _, test := range tests { // run every created check as separate sub-test
 		t.Run("Test lookup by: "+test.haystack, func(t *testing.T) {
 			assets, httpRes, err := test.lookup(ctx, test.haystack, ts)
@@ -61,7 +60,6 @@ func CheckAccountOwnersPresent(t *testing.T, accountOwnersExpected openapi.Accou
 
 func AccountsInResponse(t *testing.T, needle openapi.AccountOwner, haystack []openapi.CloudAssetDetails) bool {
 	for _, asset := range haystack {
-		// TODO: handle errors if AccountOwner is nonexistent (is that possible?)
 		if asset.AccountOwner.AccountId != needle.AccountId ||
 			asset.AccountOwner.Owner != needle.Owner ||
 			!accountChampionsSlicesEqual(t, needle.Champions, asset.AccountOwner.Champions) {
