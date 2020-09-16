@@ -11,6 +11,7 @@ import (
 	"path"
 	"testing"
 	"time"
+
 	"github.com/stretchr/testify/assert"
 
 	openapi "github.com/asecurityteam/asset-inventory-api/client"

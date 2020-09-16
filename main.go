@@ -95,18 +95,6 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		StatFn:  domain.StatFromContext,
 		Fetcher: replicaStorage,
 	}
-	createPartition := &v1.CreatePartitionHandler{
-		LogFn:     domain.LoggerFromContext,
-		Generator: primaryStorage,
-	}
-	getPartitions := &v1.GetPartitionsHandler{
-		LogFn:  domain.LoggerFromContext,
-		Getter: primaryStorage,
-	}
-	deletePartitions := &v1.DeletePartitionsHandler{
-		LogFn:   domain.LoggerFromContext,
-		Deleter: primaryStorage,
-	}
 	getSchemaVersion := &v1.GetSchemaVersionHandler{
 		LogFn:  domain.LoggerFromContext,
 		Getter: schemaManager,
@@ -118,10 +106,6 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 	schemaVersionStepDown := &v1.SchemaVersionStepDownHandler{
 		LogFn:    domain.LoggerFromContext,
 		Migrator: schemaManager,
-	}
-	backFillLocally := &v1.BackFillEventsLocalHandler{
-		LogFn:  domain.LoggerFromContext,
-		Runner: primaryStorage,
 	}
 	forceSchemaVersion := &v1.ForceSchemaHandler{
 		LogFn:               domain.LoggerFromContext,
@@ -141,13 +125,9 @@ func (c *component) New(ctx context.Context, conf *config) (func(context.Context
 		"fetchByResourceID":          serverfull.NewFunction(fetchByResourceID.Handle),
 		"fetchAllAssetsByTime":       serverfull.NewFunction(fetchAllAssetsByTime.Handle),
 		"fetchMoreAssetsByPageToken": serverfull.NewFunction(fetchAllAssetsByTimePage.Handle),
-		"createPartition":            serverfull.NewFunction(createPartition.Handle),
-		"getPartitions":              serverfull.NewFunction(getPartitions.Handle),
-		"deletePartitions":           serverfull.NewFunction(deletePartitions.Handle),
 		"getSchemaVersion":           serverfull.NewFunction(getSchemaVersion.Handle),
 		"schemaVersionStepUp":        serverfull.NewFunction(schemaVersionStepUp.Handle),
 		"schemaVersionStepDown":      serverfull.NewFunction(schemaVersionStepDown.Handle),
-		"backFillLocally":            serverfull.NewFunction(backFillLocally.Handle),
 		"forceSchemaVersion":         serverfull.NewFunction(forceSchemaVersion.Handle),
 		"insertAccountOwner":         serverfull.NewFunction(insertAccountOwner.Handle),
 	}

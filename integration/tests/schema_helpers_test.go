@@ -10,7 +10,7 @@ import (
 )
 
 var schemaVersion int32           //current schema version
-const maxSchemaVersion int32 = 14 // TODO: extrapolate this somewhere?
+const maxSchemaVersion int32 = 15 // TODO: extrapolate this somewhere?
 
 // decorate a test name with current schema version
 func addSchemaVersion(input string) string {

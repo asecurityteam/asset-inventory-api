@@ -65,7 +65,5 @@ func TestLookupByHostname(t *testing.T) {
 			})
 	}
 
-	RawUrlFollowupTests(t, "/v1/cloud/hostname/" + hostname, tsDuring)
+	RawUrlFollowupTests(t, "/v1/cloud/hostname/"+hostname, tsDuring)
 }
-
-

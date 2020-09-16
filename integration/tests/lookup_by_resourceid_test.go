@@ -70,5 +70,5 @@ func TestLookupByResourceID(t *testing.T) {
 			})
 	}
 
-	RawUrlFollowupTests(t, "/v1/cloud/resourceid/" + resId, tsDuring)
+	RawUrlFollowupTests(t, "/v1/cloud/resourceid/"+resId, tsDuring)
 }
