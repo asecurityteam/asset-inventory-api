@@ -11,6 +11,9 @@ type InvalidInput struct {
 }
 
 func (i InvalidInput) Error() string {
+	if i.Cause == nil {
+		return fmt.Sprintf("the value for field %s was invalid", i.Field)
+	}
 	return fmt.Sprintf("the value for field %s was invalid: %s", i.Field, i.Cause.Error())
 }
 
