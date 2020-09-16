@@ -65,10 +65,43 @@ func SampleAccountOwner() openapi.SetAccountOwner {
 		Email: "jsmith@atlassian.com",
 		Valid: true,
 	}
+	dale := openapi.SetPerson{
+		Name:  "Dale Cooper",
+		Login: "dcooper",
+		Email: "dcooper@atlassian.com",
+		Valid: true,
+	}
 	accountOwner := openapi.SetAccountOwner{
 		AccountId: accountID,
 		Owner:     alice,
-		Champions: []openapi.SetPerson{alice, john},
+		Champions: []openapi.SetPerson{john, dale, alice},
+	}
+	return accountOwner
+}
+
+func SampleGetAccountOwner() openapi.AccountOwner {
+	alice := openapi.Person{
+		Name: "Alice User",
+		Login: "auser",
+		Email: "auser@atlassian.com",
+		Valid: true,
+	}
+	john := openapi.Person{
+		Name:  "John Smith",
+		Login: "jsmith",
+		Email: "jsmith@atlassian.com",
+		Valid: true,
+	}
+	dale := openapi.Person{
+		Name:  "Dale Cooper",
+		Login: "dcooper",
+		Email: "dcooper@atlassian.com",
+		Valid: true,
+	}
+	accountOwner := openapi.AccountOwner{
+		AccountId: accountID,
+		Owner: alice,
+		Champions: []openapi.Person{alice, john, dale},
 	}
 	return accountOwner
 }
