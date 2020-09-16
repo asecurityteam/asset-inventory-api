@@ -704,6 +704,7 @@ components:
           type: array
           items:
             type: string
+          maxItems: 1
         relatedResources:
           type: array
           items:
