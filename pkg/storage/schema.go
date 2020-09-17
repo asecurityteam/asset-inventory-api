@@ -20,8 +20,6 @@ const (
 const (
 	// EmptySchemaVersion Version of database schema that cleans the database completely. Use cautiously!
 	EmptySchemaVersion uint = 0
-	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
-	MinimumSchemaVersion uint = 1
 	// M1SchemaVersion Version of database schema with performance optimizations (M1) that allows back-fill to work
 	M1SchemaVersion uint = 2
 	// DualWritesSchemaVersion Lowest version of database schema that supports dual-writes (legacy and M1)
@@ -30,6 +28,8 @@ const (
 	ReadsFromNewSchemaVersion uint = 4
 	// NewSchemaOnlyVersion Lowest version that stops dual-writes in preparation to drop old schema
 	NewSchemaOnlyVersion uint = 6
+	// MinimumSchemaVersion Lowest version of database schema current code is able to handle
+	MinimumSchemaVersion uint = 13
 )
 
 // SchemaManager is an abstraction layer for manipulating database schema backed by golang/migrate
