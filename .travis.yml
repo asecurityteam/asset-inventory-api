@@ -13,4 +13,4 @@ script:
   - make integration
   - make coverage
   - bash <(curl -s https://codecov.io/bash) -f .coverage/combined.cover.out
-  # - make master-integration TODO: re-enable after default version is updated in master branch
+  - make master-integration
