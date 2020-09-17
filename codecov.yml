@@ -13,3 +13,14 @@ coverage:
         informational: false
         only_pulls: false
     patch: off
+
+ignore:
+  - "*.yml"
+  - "*.sh"
+  - "go.mod"
+  - "go.sum"
+  - ".gitignore"
+  - "Dockerfile"
+  - "*.Dockerfile"
+  - "integration/*"
+  - "integration/**/*"
