@@ -1,6 +1,6 @@
 coverage:
   precision: 2
-  round: down
+  round: up
   range: "85...100"
   status:
     project:
@@ -13,7 +13,6 @@ coverage:
         informational: false
         only_pulls: false
     patch: off
-
 ignore:
   - "*.yml"
   - "*.sh"
