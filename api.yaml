@@ -753,6 +753,7 @@ components:
           type: array
           items:
             type: string
+          maxItems: 1
         resourceType:
           type: string
         accountId:
