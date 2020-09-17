@@ -40,10 +40,10 @@ type CloudInsertHandler struct {
 // getSupportedResourceTypes returns a map of all AWS resource types that asset-inventory-api accepts
 func getSupportedResourceTypes() map[string]bool {
 	return map[string]bool{
-		configservice.ResourceTypeAwsEc2Instance: true,
-		configservice.ResourceTypeAwsElasticLoadBalancingLoadBalancer: true,
+		configservice.ResourceTypeAwsEc2Instance:                        true,
+		configservice.ResourceTypeAwsElasticLoadBalancingLoadBalancer:   true,
 		configservice.ResourceTypeAwsElasticLoadBalancingV2LoadBalancer: true,
-		configservice.ResourceTypeAwsEc2NetworkInterface: true,
+		configservice.ResourceTypeAwsEc2NetworkInterface:                true,
 	}
 }
 
@@ -56,7 +56,7 @@ func (h *CloudInsertHandler) Handle(ctx context.Context, input CloudAssetChanges
 		logger.Info(logs.InvalidInput{Reason: e.Error()})
 		return InvalidInput{Field: "changeTime", Cause: e}
 	}
-	if !getSupportedResourceTypes()[input.ResourceType]  { // if resourceType is not supported, return 400
+	if !getSupportedResourceTypes()[input.ResourceType] { // if resourceType is not supported, return 400
 		return InvalidInput{Field: "resourceType", Cause: errors.New(input.ResourceType)}
 	}
 	assetChanges := domain.CloudAssetChanges{
