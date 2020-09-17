@@ -14,12 +14,14 @@ coverage:
         only_pulls: false
     patch: off
 ignore:
-  - "*.yml"
-  - "*.sh"
+  - "**/*.yml"
+  - "**/*.yaml"
+  - "**/*.md"
+  - "**/*.sh"
+  - "**/*.md"
+  - "**/*.Dockerfile"
   - "go.mod"
   - "go.sum"
   - ".gitignore"
   - "Dockerfile"
-  - "*.Dockerfile"
-  - "integration/*"
-  - "integration/**/*"
+  - "integration"
