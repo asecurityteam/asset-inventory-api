@@ -1,6 +1,6 @@
 coverage:
   precision: 2
-  round: up
+  round: down
   range: "85...100"
   status:
     project:
