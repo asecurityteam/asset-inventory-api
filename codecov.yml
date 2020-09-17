@@ -13,6 +13,7 @@ coverage:
         informational: false
         only_pulls: false
     patch: off
+
 ignore:
   - "*.yml"
   - "*.sh"
