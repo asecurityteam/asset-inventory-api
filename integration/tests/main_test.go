@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	res := 0
 
 	//run all know tests with all supported schema versions
-	for v := int32(12); v <= maxSchemaVersion; v++ {
+	for v := minSchemaVersion; v <= maxSchemaVersion; v++ {
 		err := setSchemaVersion(v)
 		if err != nil {
 			panic(fmt.Errorf("error migrating database schema %#v", err))

@@ -10,6 +10,7 @@ import (
 )
 
 var schemaVersion int32           //current schema version
+const minSchemaVersion int32 = 13
 const maxSchemaVersion int32 = 15 // TODO: extrapolate this somewhere?
 
 // decorate a test name with current schema version
