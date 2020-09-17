@@ -24,7 +24,7 @@ func validInsertInput() CloudAssetChanges {
 	return CloudAssetChanges{
 		ChangeTime:   time.Now().Format(time.RFC3339Nano),
 		ARN:          "cloud-resource-arn",
-		ResourceType: "cloud-resource-type",
+		ResourceType: "AWS::EC2::Instance",
 		Region:       "cloud-region",
 		AccountID:    "cloud-account-id",
 		Tags:         make(map[string]string),

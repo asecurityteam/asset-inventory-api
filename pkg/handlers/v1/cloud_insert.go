@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/asecurityteam/asset-inventory-api/pkg/domain"
@@ -56,7 +57,7 @@ func (h *CloudInsertHandler) Handle(ctx context.Context, input CloudAssetChanges
 		return InvalidInput{Field: "changeTime", Cause: e}
 	}
 	if !getSupportedResourceTypes()[input.ResourceType]  { // if resourceType is not supported, return 400
-		return InvalidInput{Field: "resourceType "+input.ResourceType}
+		return InvalidInput{Field: "resourceType", Cause: errors.New(input.ResourceType)}
 	}
 	assetChanges := domain.CloudAssetChanges{
 		ChangeTime:   changeTime,
