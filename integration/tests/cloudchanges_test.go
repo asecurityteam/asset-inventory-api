@@ -4,6 +4,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -88,8 +89,32 @@ func TestCloudChanges(t *testing.T) {
 			false,
 			CheckChangesPresent,
 		},
+		"TestValidARNDID": {
+			func(changes *openapi.CloudAssetChanges) {
+				changes.Changes[0].PrivateIpAddresses = []string{"10.0.0.3"}
+				changes.Changes[0].PublicIpAddresses = []string{"8.8.8.4"}
+				changes.Changes[0].Hostnames = []string{"myhostname2.us-west-1.amazonaws.com"}
+				changes.AccountId = "012345678902"
+				changes.Arn = fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", changes.Region, changes.AccountId, "i-0123456789abcdef1")
+			},
+			http.StatusCreated,
+			false,
+			nil,
+		},
+		"TestDuplicateARNID": { // Testing adding the same arnid, but different account ids (should work)
+			func(changes *openapi.CloudAssetChanges) {
+				changes.Changes[0].PrivateIpAddresses = []string{"10.0.0.3"}
+				changes.Changes[0].PublicIpAddresses = []string{"8.8.8.4"}
+				changes.Changes[0].Hostnames = []string{"myhostname2.us-west-1.amazonaws.com"}
+				changes.AccountId = "012345678903"
+				changes.Arn = fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", changes.Region, changes.AccountId, "i-0123456789abcdef1")
+			},
+			http.StatusCreated,
+			false,
+			nil,
+		},
 		"MissingAccountId": {
-			func(changes *openapi.CloudAssetChanges){
+			func(changes *openapi.CloudAssetChanges) {
 				changes.AccountId = ""
 			},
 			http.StatusBadRequest,
@@ -97,7 +122,7 @@ func TestCloudChanges(t *testing.T) {
 			nil,
 		},
 		"BadAccountId": {
-			func(changes *openapi.CloudAssetChanges){
+			func(changes *openapi.CloudAssetChanges) {
 				changes.AccountId = "not and ID at all"
 			},
 			http.StatusBadRequest,
