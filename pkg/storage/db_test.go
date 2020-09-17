@@ -1252,6 +1252,37 @@ func TestStoreV2Remove(t *testing.T) {
 	}
 }
 
+func TestStoreV2FailFindResource(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	})
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
+	ctx := context.Background()
+
+	if err = theDB.Store(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving private resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestStoreV2FailPrivate(t *testing.T) {
 	mockdb, mock, err := sqlmock.New()
 	if err != nil {
