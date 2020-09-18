@@ -133,8 +133,8 @@ func TestCloudChanges(t *testing.T) {
 			func(changes *openapi.CloudAssetChanges) {
 				changes.ResourceType = "MS:Windows:2000"
 			},
-			http.StatusCreated, //TODO fix the code this should be 400. Currently A-I-API accepts this.
-			false,
+			http.StatusBadRequest,
+			true,
 			nil,
 		},
 		"UglyPrivateIP": {

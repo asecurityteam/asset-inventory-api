@@ -24,7 +24,7 @@ func validInsertInput() CloudAssetChanges {
 	return CloudAssetChanges{
 		ChangeTime:   time.Now().Format(time.RFC3339Nano),
 		ARN:          "cloud-resource-arn",
-		ResourceType: "cloud-resource-type",
+		ResourceType: "AWS::EC2::Instance",
 		Region:       "cloud-region",
 		AccountID:    "cloud-account-id",
 		Tags:         make(map[string]string),
@@ -71,4 +71,15 @@ func TestInsertStorage(t *testing.T) {
 
 	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.Nil(t, e)
+}
+
+func TestInsertInvalidResourceType(t *testing.T) {
+	input := CloudAssetChanges{
+		ResourceType: "MS:Windows:2000",
+	}
+	e := newInsertHandler(nil).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+
+	_, ok := e.(InvalidInput)
+	assert.True(t, ok)
 }

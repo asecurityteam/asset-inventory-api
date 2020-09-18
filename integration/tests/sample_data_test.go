@@ -28,7 +28,7 @@ func SampleAssetChanges() openapi.CloudAssetChanges {
 	r := openapi.CloudAssetChanges{
 		Changes:      []openapi.CloudAssetChange{SampleAssetChange()},
 		ChangeTime:   time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC),
-		ResourceType: "AWS:EC2:Instance",
+		ResourceType: "AWS::EC2::Instance",
 		AccountId:    accountID,
 		Region:       "us-west-1",
 		Tags:         map[string]string{"Name": "ValidInstance", "resource_owner": "jsmith"},
@@ -40,7 +40,7 @@ func SampleAssetChanges() openapi.CloudAssetChanges {
 func ChangesInResponse(needle openapi.CloudAssetChanges, haystack []openapi.CloudAssetDetails) bool {
 	for _, asset := range haystack {
 		if strings.HasSuffix(needle.Arn, asset.Arn) &&
-			// asset.ResourceType == needle.ResourceType && FIXME re-enable once we test for valid resource type on save
+			asset.ResourceType == needle.ResourceType &&
 			asset.Region == needle.Region &&
 			asset.AccountId == asset.AccountId {
 			//we are not checking tags or account owner data as these might not match in some cases
