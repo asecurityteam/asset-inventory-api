@@ -1192,10 +1192,14 @@ func TestStoreV2Assign(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
-	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow(1)
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                                         // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                            // nolint
+	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", 1).WillReturnResult(sqlmock.NewResult(1, 1))                                             // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", 1, "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                                // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
@@ -1226,10 +1230,14 @@ func TestStoreV2Remove(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow(1)
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                                         // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                            // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", 1).WillReturnResult(sqlmock.NewResult(1, 1))                                             // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", 1, "google.com").WillReturnResult(sqlmock.NewResult(1, 1))                                // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectCommit()
 
@@ -1237,6 +1245,37 @@ func TestStoreV2Remove(t *testing.T) {
 
 	if err = theDB.Store(ctx, fakeCloudChange("DELETED")); err != nil {
 		t.Errorf("error was not expected while saving resource: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestStoreV2FailFindResource(t *testing.T) {
+	mockdb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockdb.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	theDB := DB{
+		sqldb: mockdb,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	})
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
+	ctx := context.Background()
+
+	if err = theDB.Store(ctx, fakeCloudChange("DELETED")); err == nil {
+		t.Errorf("error was expected while saving private resource: %s", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -1260,9 +1299,13 @@ func TestStoreV2FailPrivate(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow(1)
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnError(errors.New("failed to store assignment"))
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", 1).WillReturnError(errors.New("failed to store assignment"))
 	mock.ExpectRollback()
 
 	ctx := context.Background()
@@ -1292,10 +1335,14 @@ func TestStoreV2FailPublic(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow(1)
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))                              // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnError(errors.New("failed to store assignment")) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", 1).WillReturnResult(sqlmock.NewResult(1, 1))                              // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", 1, "google.com").WillReturnError(errors.New("failed to store assignment")) // nolint
 	mock.ExpectRollback()
 
 	ctx := context.Background()
@@ -1325,11 +1372,15 @@ func TestStoreV2FailResourceRelationship(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("with sel as").WithArgs("arn", "region", "aid", "rtype", []byte("{\"tag1\":\"val1\"}")).WillReturnResult(sqlmock.NewResult(1, 1))
+	row := sqlmock.NewRows([]string{
+		"id",
+	}).AddRow(1)
+	mock.ExpectQuery("SELECT").WithArgs("arn", "aid", "region").WillReturnRows(row)
 	timestamp, _ := time.Parse(time.RFC3339, "2019-04-09T08:29:35+00:00")
 	// NB we need to escape '$' and other special chars as the value passed as expected query is a regexp
 	// Note: All related changes must be successful otherwise the whole transaction is canceled
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", "arn").WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
-	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", "arn", "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_private_ip_assignment`)).WithArgs(timestamp, "4.3.2.1", 1).WillReturnResult(sqlmock.NewResult(1, 1))              // nolint
+	mock.ExpectExec(regexp.QuoteMeta(`update aws_public_ip_assignment`)).WithArgs(timestamp, "8.7.6.5", 1, "google.com").WillReturnResult(sqlmock.NewResult(1, 1)) // nolint
 	mock.ExpectExec(regexp.QuoteMeta(`update aws_resource_relationship`)).WithArgs(timestamp, "app/marketp-ALB-eeeeeee5555555/ffffffff66666666", "arn").WillReturnError(errors.New("failed to store relationship"))
 	mock.ExpectRollback()
 
