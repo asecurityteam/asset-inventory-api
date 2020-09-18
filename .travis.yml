@@ -13,4 +13,4 @@ script:
   - make coverage
   - bash <(curl -s https://codecov.io/bash) -f .coverage/combined.cover.out
   - make integration
-  - make master-integration
+#  - make master-integration
