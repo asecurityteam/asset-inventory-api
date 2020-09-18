@@ -446,7 +446,7 @@ paths:
           async: false
           request: >
             {
-              "resourceid": "#!mapJoin .Request.URL!#",
+              "resourceid": "#!reduce .Request.URL!#",
               "time": "#!index .Request.Query.time 0!#"
             }
           success: '{"status": 200, "bodyPassthrough": true}'
