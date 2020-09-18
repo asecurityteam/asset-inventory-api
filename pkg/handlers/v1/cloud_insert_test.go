@@ -72,3 +72,14 @@ func TestInsertStorage(t *testing.T) {
 	e := newInsertHandler(storage).Handle(context.Background(), validInsertInput())
 	assert.Nil(t, e)
 }
+
+func TestInsertInvalidResourceType(t *testing.T) {
+	input := CloudAssetChanges{
+		ResourceType: "MS:Windows:2000",
+	}
+	e := newInsertHandler(nil).Handle(context.Background(), input)
+	assert.NotNil(t, e)
+
+	_, ok := e.(InvalidInput)
+	assert.True(t, ok)
+}

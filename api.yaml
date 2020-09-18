@@ -671,7 +671,7 @@ components:
           type: string
           format: date-time
         resourceType:
-          type: string
+          $ref: "#/components/schemas/AWSResourceType"
         accountId:
           $ref: "#/components/schemas/AWSAccountID"
         region:
@@ -755,7 +755,7 @@ components:
             type: string
           maxItems: 1
         resourceType:
-          type: string
+          $ref: "#/components/schemas/AWSResourceType"
         accountId:
           $ref: "#/components/schemas/AWSAccountID"
         region:
@@ -841,6 +841,13 @@ components:
     AWSAccountID:
       type: string
       pattern: ^(\d{12})$
+    AWSResourceType:
+      type: string
+      enum:
+        - AWS::EC2::Instance
+        - AWS::ElasticLoadBalancing::LoadBalancer
+        - AWS::ElasticLoadBalancingV2::LoadBalancer
+        - AWS::EC2::NetworkInterface
     Error:
       type: object
       properties:
