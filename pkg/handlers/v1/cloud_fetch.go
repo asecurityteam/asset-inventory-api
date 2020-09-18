@@ -237,6 +237,7 @@ type CloudFetchByResourceIDHandler struct {
 func (h *CloudFetchByResourceIDHandler) Handle(ctx context.Context, input CloudAssetFetchByResourceIDParameters) (CloudAssets, error) {
 	logger := h.LogFn(ctx)
 
+	logger.Info(input.ResourceID)
 	ts, e := time.Parse(time.RFC3339Nano, input.Timestamp)
 	if e != nil {
 		logger.Info(logs.InvalidInput{Reason: e.Error()})

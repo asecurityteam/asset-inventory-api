@@ -461,6 +461,80 @@ paths:
               #! end !#
               "bodyPassthrough": true
             }
+  /v1/cloud/resourceid/{r1}/{r2}/{r3}:
+    get:
+      summary: "Retrieve a cloud asset at a point in time by resource ID"
+      parameters:
+        - name: "r1"
+          in: "path"
+          description: "The resource id of the asset"
+          required: true
+          schema:
+            type: "string"
+        - name: "r2"
+          in: "path"
+          description: "The resource id of the asset pt 2"
+          required: true
+          schema:
+            type: "string"
+        - name: "r3"
+          in: "path"
+          description: "The resource id of the asset pt 3"
+          required: true
+          schema:
+            type: "string"
+        - name: "time"
+          in: "query"
+          description: "The point in time details for a given asset"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time" # RFC3339Nano format
+      responses:
+        200:
+          description: "List of all assets found with the resource ID at the given time"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudAssets"
+        400:
+          description: "Invalid input"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: "The asset is not found"
+      x-transportd:
+        backend: app
+        enabled:
+          - "accesslog"
+          - "requestvalidation"
+          - "responsevalidation"
+          - "timeout"
+          - "lambda"
+        timeout:
+          after: "5s"
+        lambda:
+          arn: "fetchByResourceID"
+          async: false
+          request: >
+            {
+              "resourceid": "#!mapJoin .Request.URL!#",
+              "time": "#!index .Request.Query.time 0!#"
+            }
+          success: '{"status": 200, "bodyPassthrough": true}'
+          error: >
+            {
+              "status":
+              #! if eq .Response.Body.errorType "InvalidInput" !# 400,
+              #! else !#
+              #! if eq .Response.Body.errorType "NotFound" !# 404,
+              #! else !# 500,
+              #! end !#
+              #! end !#
+              "bodyPassthrough": true
+            }
   /ops/pgsql/v1/schema/version/stepUp:
     get:
       summary: "Migrate database schema one version up"
