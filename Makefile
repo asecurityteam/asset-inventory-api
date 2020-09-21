@@ -26,11 +26,17 @@ test:
 psql-console:
 	docker-compose exec -u postgres postgres psql -U user assetmgmt
 
+# Preprocess our api.yaml to expand anchors. Our generation client does not understand anchors
+expand-yaml-anchors:
+	docker run --rm \
+		-v ${PWD}:/local python:3 /bin/bash -c \
+		"pip install pyyaml && python ./local/tools/expand-anchors.py ./local/api.yaml ./local/expanded.yaml"
+
 # Generate the client used for integration tests. For local development.
-generate-integration-client:
+generate-integration-client: expand-yaml-anchors
 	docker run --rm \
     	-v ${PWD}:/local openapitools/openapi-generator-cli:v5.0.0-beta generate \
-    	-i /local/api.yaml \
+    	-i /local/expanded.yaml \
     	-g go \
     	--git-user-id asecurityteam \
     	--git-repo-id asset-inventory-api/client \
