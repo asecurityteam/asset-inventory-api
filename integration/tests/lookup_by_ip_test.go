@@ -13,7 +13,7 @@ import (
 
 func TestLookupByPrivateIP(t *testing.T) {
 	ctx := context.Background()
-	chgAssign, chgRemove, api := Setup(t, ctx)
+	chgAssign, chgRemove, _, api := Setup(t, ctx)
 	// extract IP address
 	ip := chgAssign.Changes[0].PrivateIpAddresses[0]
 
@@ -51,6 +51,18 @@ func TestLookupByPrivateIP(t *testing.T) {
 			http.StatusBadRequest,
 			true,
 		},
+		"EniIP": {
+			"10.1.1.1",
+			tsDuring,
+			http.StatusOK,
+			false,
+		},
+		"AlbIP": {
+			"10.2.2.2",
+			tsDuring,
+			http.StatusOK,
+			false,
+		},
 	}
 	for name, tc := range testCases {
 		t.Run(addSchemaVersion(name),
@@ -70,7 +82,7 @@ func TestLookupByPrivateIP(t *testing.T) {
 
 func TestLookupByPublicIP(t *testing.T) {
 	ctx := context.Background()
-	chgAssign, chgRemove, api := Setup(t, ctx)
+	chgAssign, chgRemove, _, api := Setup(t, ctx)
 	// extract IP address
 	ip := chgAssign.Changes[0].PublicIpAddresses[0]
 

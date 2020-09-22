@@ -37,6 +37,52 @@ func SampleAssetChanges() openapi.CloudAssetChanges {
 	return r
 }
 
+func SampleAssetChangeENI() openapi.CloudAssetChange {
+	return openapi.CloudAssetChange{
+		PrivateIpAddresses: []string{"10.1.1.1"},
+		PublicIpAddresses:  []string{},
+		Hostnames:          []string{},
+		RelatedResources:   []string{"app/my-sec-dev-one-alb/abcdefg123"},
+		ChangeType:         "ADDED",
+	}
+}
+
+func SampleAssetChangesENI() openapi.CloudAssetChanges {
+	r := openapi.CloudAssetChanges{
+		Changes:      []openapi.CloudAssetChange{SampleAssetChangeENI()},
+		ChangeTime:   time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC),
+		ResourceType: "AWS::EC2::NetworkInterface",
+		AccountId:    "234567890123",
+		Region:       "us-west-1",
+		Tags:         map[string]string{"Name": "ValidInstance"},
+	}
+	r.Arn = fmt.Sprintf("arn:aws:ec2:%s:%s:network-interface/%s", r.Region, r.AccountId, "eni-1234567890abcd")
+	return r
+}
+
+func SampleAssetChangeELB() openapi.CloudAssetChange {
+	return openapi.CloudAssetChange{
+		PrivateIpAddresses: []string{"10.2.2.2"},
+		PublicIpAddresses:  []string{},
+		Hostnames:          []string{},
+		RelatedResources:   []string{},
+		ChangeType:         "ADDED",
+	}
+}
+
+func SampleAssetChangesELB() openapi.CloudAssetChanges {
+	r := openapi.CloudAssetChanges{
+		Changes:      []openapi.CloudAssetChange{SampleAssetChangeELB()},
+		ChangeTime:   time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC),
+		ResourceType: "AWS::ElasticLoadBalancingV2::LoadBalancer",
+		AccountId:    "345678901234",
+		Region:       "us-west-1",
+		Tags:         map[string]string{"Name": "ValidInstance"},
+	}
+	r.Arn = fmt.Sprintf("arn:aws:ec2:%s:%s:loadbalancer/%s", r.Region, r.AccountId, "app/my-sec-dev-one-alb/abcdefg123")
+	return r
+}
+
 func ChangesInResponse(needle openapi.CloudAssetChanges, haystack []openapi.CloudAssetDetails) bool {
 	for _, asset := range haystack {
 		if strings.HasSuffix(needle.Arn, asset.Arn) &&
@@ -79,7 +125,7 @@ func SampleAccountOwner() openapi.SetAccountOwner {
 
 func SampleGetAccountOwner() openapi.AccountOwner {
 	alice := openapi.Person{
-		Name: "Alice User",
+		Name:  "Alice User",
 		Login: "auser",
 		Email: "auser@atlassian.com",
 		Valid: true,
@@ -98,7 +144,7 @@ func SampleGetAccountOwner() openapi.AccountOwner {
 	}
 	accountOwner := openapi.AccountOwner{
 		AccountId: accountID,
-		Owner: alice,
+		Owner:     alice,
 		Champions: []openapi.Person{alice, john, dale},
 	}
 	return accountOwner

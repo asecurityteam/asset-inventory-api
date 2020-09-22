@@ -13,7 +13,7 @@ import (
 
 func TestLookupByHostname(t *testing.T) {
 	ctx := context.Background()
-	chgAssign, chgRemove, api := Setup(t, ctx)
+	chgAssign, chgRemove, _, api := Setup(t, ctx)
 	// extract hostname
 	hostname := chgAssign.Changes[0].Hostnames[0]
 

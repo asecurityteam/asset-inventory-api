@@ -12,14 +12,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func resIDFromARN(ARN string) string {
+	parts := strings.SplitN(ARN, ":", 6)
+	resourceID := parts[len(parts)-1]
+	if strings.HasPrefix(resourceID, "loadbalancer/app") {
+		return resourceID[13:]
+	}
+	parts = strings.SplitAfterN(resourceID, "/", -1)
+	return parts[len(parts)-1]
+}
+
 //TODO add tests for resource IDs containing slashes, tracked in separate ticket
 
 func TestLookupByResourceID(t *testing.T) {
 	ctx := context.Background()
-	chgAssign, chgRemove, api := Setup(t, ctx)
+	chgAssign, chgRemove, chgAssignELB, api := Setup(t, ctx)
 	// extract resource ID
-	spl := strings.Split(chgAssign.Arn, "/") // this will need separate handling (helper func? for things like ELB)
+	spl := strings.Split(chgAssign.Arn, "/")
 	resId := spl[len(spl)-1]
+	// extract resource ID of ELB resource type
+	resIdELB := resIDFromARN(chgAssignELB.Arn)
 
 	tsDuring := chgAssign.ChangeTime.Add(1 * time.Second)
 	tsBefore := chgAssign.ChangeTime.Add(-1 * time.Second) // nb .Sub does something very different :confused:
@@ -55,16 +67,31 @@ func TestLookupByResourceID(t *testing.T) {
 			http.StatusBadRequest,
 			true,
 		},
+		"ValidENI": {
+			"eni-1234567890abcd",
+			tsDuring,
+			http.StatusOK,
+			false,
+		},
+		"ELBHasPrivateIP": {
+			resIdELB,
+			tsAfter,
+			http.StatusOK,
+			false,
+		},
 		//TODO find a way to inject invalid timestamp
 	}
 	for name, tc := range testCases {
 		t.Run(addSchemaVersion(name),
 			func(t *testing.T) {
-				_, httpRes, err := api.V1CloudResourceidResourceidGet(ctx, tc.resourceID, tc.ts)
+				cloudAssets, httpRes, err := api.V1CloudResourceidResourceidGet(ctx, tc.resourceID, tc.ts)
 				if tc.mustError {
 					assert.Error(t, err)
 				} else {
 					assert.NoError(t, err)
+				}
+				if name == "ELBHasPrivateIP" {
+					assert.Equal(t, "10.1.1.1", cloudAssets.Assets[0].PrivateIpAddresses[0])
 				}
 				assert.Equal(t, tc.httpCode, httpRes.StatusCode)
 			})

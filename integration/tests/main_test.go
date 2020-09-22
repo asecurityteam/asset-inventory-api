@@ -47,23 +47,27 @@ func TestMain(m *testing.M) {
 	os.Exit(res) //non-zero if any of the fixtures failed
 }
 
-func Setup(t *testing.T, ctx context.Context) (openapi.CloudAssetChanges, openapi.CloudAssetChanges, *openapi.DefaultApiService) {
+func Setup(t *testing.T, ctx context.Context) (openapi.CloudAssetChanges, openapi.CloudAssetChanges, openapi.CloudAssetChanges, *openapi.DefaultApiService) {
 	// ensure the Asset has something assigned so that we can find it
 	chgAssign := SampleAssetChanges()
 	// create the matching delete changes so that we can check AFTER the assignment time
 	chgRemove := SampleAssetChanges()
 	chgRemove.Changes[0].ChangeType = "DELETED"
 	chgRemove.ChangeTime = chgRemove.ChangeTime.Add(24 * time.Hour)
+	// create asset of ENI resource type
+	chgAssignENI := SampleAssetChangesENI()
+	// create asset of ELB resoruce type
+	chgAssignELB := SampleAssetChangesELB()
 	// shortcut to defaultApi
 	api := assetInventoryAPI.DefaultApi
 	// add change events
-	for _, chg := range []openapi.CloudAssetChanges{chgAssign, chgRemove} {
+	for _, chg := range []openapi.CloudAssetChanges{chgAssign, chgRemove, chgAssignENI, chgAssignELB} {
 		_, err := api.V1CloudChangePost(ctx, chg)
 		if err != nil {
 			t.Errorf("error publishing sample change: %#v", err)
 		}
 	}
-	return chgAssign, chgRemove, api
+	return chgAssign, chgRemove, chgAssignELB, api
 }
 
 func RawUrlFollowupTests(t *testing.T, suffixPath string, tsDuring time.Time) {
