@@ -1,3 +1,5 @@
+# No longer maintained
+This repository is no longer updated.
 <a id="markdown-Asset Inventory API" name="Asset-Inventory-API"></a>
 # Asset Inventory API - An API service to store and retrieve asset inventory data
 [![Documentation](https://godoc.org/github.com/asecurityteam/asset-inventory-api?status.svg)](http://godoc.org/github.com/asecurityteam/asset-inventory-api)
